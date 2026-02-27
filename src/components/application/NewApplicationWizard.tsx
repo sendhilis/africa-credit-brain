@@ -18,6 +18,7 @@ import {
   Banknote, Shield, Wifi, Send, Clock, Loader2
 } from "lucide-react";
 import { countryConfigs, productTypes, type CountryConfig } from "./countryConfig";
+import { useAuth } from "@/contexts/AuthContext";
 
 type ProductCategory = "retail" | "micro" | "sme";
 type PsychometricStatus = "not_started" | "link_sent" | "in_progress" | "completed" | "expired";
@@ -222,16 +223,32 @@ const NewApplicationWizard = () => {
     }, 5000);
   };
 
-  // Yambukai Finance institution ID (temporary - will use auth-based lookup later)
-  const YAMBUKAI_INSTITUTION_ID = "da80e9d9-02bf-48f0-beb5-57cb9d148b08";
+  const { user } = useAuth();
+  const [institutionId, setInstitutionId] = useState<string | null>(null);
+
+  // Fetch the logged-in user's institution
+  useEffect(() => {
+    const fetchInstitution = async () => {
+      if (!user) return;
+      const { data } = await supabase
+        .from("profiles")
+        .select("institution_id")
+        .eq("user_id", user.id)
+        .single();
+      if (data?.institution_id) setInstitutionId(data.institution_id);
+    };
+    fetchInstitution();
+  }, [user]);
 
   const handleSubmit = async () => {
     if (!config || !country) return;
+    if (!institutionId) {
+      toast({ title: "No institution", description: "Your account is not linked to an institution. Contact an admin.", variant: "destructive" });
+      return;
+    }
 
     setSubmitting(true);
     try {
-      const institutionId = YAMBUKAI_INSTITUTION_ID;
-      const userId = null; // No auth yet
 
       const borrowerPayload = {
         institution_id: institutionId,
@@ -273,7 +290,7 @@ const NewApplicationWizard = () => {
       const applicationPayload = {
         institution_id: institutionId,
         borrower_id: borrower.id,
-        created_by: userId,
+        created_by: user?.id || null,
         country,
         product_category: category,
         product_type: formData.product || null,
