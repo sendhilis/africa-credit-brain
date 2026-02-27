@@ -166,21 +166,31 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
 
   try {
-    const { extraction_id } = await req.json();
-    if (!extraction_id) throw new Error("extraction_id is required");
+    console.log("extract-document: parsing request body");
+    const body = await req.json();
+    const extraction_id = body?.extraction_id;
+    if (!extraction_id) throw new Error("extraction_id is required, got: " + JSON.stringify(body));
+
+    console.log("extract-document: extraction_id =", extraction_id);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    if (!supabaseUrl || !serviceKey) throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
     const supabase = createClient(supabaseUrl, serviceKey);
 
     // Fetch the extraction record
+    console.log("extract-document: fetching extraction record");
     const { data: extraction, error: extErr } = await supabase
       .from("document_extractions")
       .select("*")
       .eq("id", extraction_id)
       .single();
 
-    if (extErr || !extraction) throw new Error(extErr?.message || "Extraction record not found");
+    if (extErr || !extraction) {
+      console.error("extract-document: fetch error:", JSON.stringify(extErr));
+      throw new Error(extErr?.message || "Extraction record not found");
+    }
+    console.log("extract-document: record found, doc_type =", extraction.document_type);
 
     // Update status to processing
     await supabase
@@ -189,17 +199,21 @@ serve(async (req) => {
       .eq("id", extraction_id);
 
     // Download the file from storage
+    console.log("extract-document: downloading file from", extraction.storage_path);
     const { data: fileData, error: fileErr } = await supabase.storage
       .from("application-documents")
       .download(extraction.storage_path);
 
     if (fileErr || !fileData) {
+      const errMsg = fileErr?.message || "File not found in storage";
+      console.error("extract-document: download error:", JSON.stringify(fileErr));
       await supabase
         .from("document_extractions")
-        .update({ extraction_status: "failed", error_message: fileErr?.message || "File not found in storage" })
+        .update({ extraction_status: "failed", error_message: errMsg })
         .eq("id", extraction_id);
-      throw new Error(fileErr?.message || "Failed to download file");
+      throw new Error(errMsg);
     }
+    console.log("extract-document: file downloaded, size =", fileData.size);
 
     // Convert to base64 for AI (chunked to avoid call stack overflow)
     const arrayBuffer = await fileData.arrayBuffer();
