@@ -441,6 +441,7 @@ export type Database = {
       }
       scorecard_results: {
         Row: {
+          ai_insights: Json | null
           application_id: string
           base_score: number
           feature_contributions: Json
@@ -456,6 +457,7 @@ export type Database = {
           woe_details: Json
         }
         Insert: {
+          ai_insights?: Json | null
           application_id: string
           base_score: number
           feature_contributions?: Json
@@ -471,6 +473,7 @@ export type Database = {
           woe_details?: Json
         }
         Update: {
+          ai_insights?: Json | null
           application_id?: string
           base_score?: number
           feature_contributions?: Json

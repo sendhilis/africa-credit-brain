@@ -495,6 +495,128 @@ serve(async (req) => {
       incomeHistory: (incomeRes.data || []) as IncomeRecord[],
     });
 
+    // ── AI Insights Layer ──────────────────────────────────────
+    // Call Lovable AI to provide qualitative analysis over the scorecard output
+    let aiInsights = null;
+    try {
+      const lovableKey = Deno.env.get("LOVABLE_API_KEY")!;
+      const aiPrompt = `You are a senior credit risk analyst reviewing a statistical scorecard output for an African lending market application. Provide qualitative insights that the model cannot capture.
+
+SCORECARD OUTPUT:
+- Final Score: ${result.score} (${result.score_band})
+- Probability of Default: ${(result.probability_of_default * 100).toFixed(1)}%
+- Recommendation: ${result.recommendation}
+
+FACTOR CONTRIBUTIONS:
+${result.woe_details.map((w: any) => `- ${w.feature}: Raw=${w.raw_value}, Bin="${w.bin}", WoE=${w.woe}, Points=${w.points_contribution}`).join("\n")}
+
+TIME-SERIES:
+- Payment History: ${JSON.stringify(result.time_series_features.payment_history)}
+- Income Stability: ${JSON.stringify(result.time_series_features.income_stability)}
+
+APPLICATION CONTEXT:
+- Country: ${app.country}, Product: ${app.product_category}/${app.product_type || "N/A"}
+- Loan: ${app.requested_amount} ${app.currency || ""} over ${app.tenor_months} months
+- Purpose: ${app.purpose || "N/A"}
+- Collateral: ${app.collateral || "None"}
+- Borrower: ${borrower?.full_name}, Age: ${borrower?.date_of_birth || "N/A"}, Gender: ${borrower?.gender || "N/A"}
+${app.product_category !== "retail" ? `- Business: ${borrower?.business_name || "N/A"}, Sector: ${borrower?.sector || "N/A"}, Years: ${borrower?.years_in_operation || "N/A"}` : ""}
+
+Use the provide_insights tool to return your analysis.`;
+
+      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${lovableKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-3-flash-preview",
+          messages: [
+            { role: "system", content: "You are a senior credit risk analyst. Analyze the statistical scorecard output and provide actionable insights on factors the model may miss. Be specific and data-driven." },
+            { role: "user", content: aiPrompt },
+          ],
+          tools: [{
+            type: "function",
+            function: {
+              name: "provide_insights",
+              description: "Return structured AI insights on the credit score",
+              parameters: {
+                type: "object",
+                properties: {
+                  score_adjustment: {
+                    type: "object",
+                    properties: {
+                      direction: { type: "string", enum: ["increase", "decrease", "maintain"] },
+                      magnitude: { type: "string", enum: ["minor", "moderate", "significant"] },
+                      adjusted_score: { type: "integer", description: "Suggested adjusted score (300-900)" },
+                      rationale: { type: "string", description: "Why the score should be adjusted" },
+                    },
+                    required: ["direction", "magnitude", "adjusted_score", "rationale"],
+                    additionalProperties: false,
+                  },
+                  risk_flags: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        flag: { type: "string" },
+                        severity: { type: "string", enum: ["low", "medium", "high"] },
+                        detail: { type: "string" },
+                      },
+                      required: ["flag", "severity", "detail"],
+                      additionalProperties: false,
+                    },
+                  },
+                  mitigants: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        factor: { type: "string" },
+                        detail: { type: "string" },
+                      },
+                      required: ["factor", "detail"],
+                      additionalProperties: false,
+                    },
+                  },
+                  data_gaps: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Missing data that could improve scoring accuracy",
+                  },
+                  narrative: {
+                    type: "string",
+                    description: "2-4 sentence expert narrative summarizing the AI analysis",
+                  },
+                },
+                required: ["score_adjustment", "risk_flags", "mitigants", "data_gaps", "narrative"],
+                additionalProperties: false,
+              },
+            },
+          }],
+          tool_choice: { type: "function", function: { name: "provide_insights" } },
+        }),
+      });
+
+      if (aiResponse.ok) {
+        const aiData = await aiResponse.json();
+        const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+        if (toolCall) {
+          aiInsights = JSON.parse(toolCall.function.arguments);
+        }
+      } else {
+        const errStatus = aiResponse.status;
+        console.error("AI insights error:", errStatus);
+        if (errStatus === 429 || errStatus === 402) {
+          aiInsights = { error: errStatus === 429 ? "Rate limited" : "Credits exhausted", narrative: "AI insights unavailable due to rate limiting. Scorecard results are unaffected." };
+        }
+      }
+    } catch (aiErr) {
+      console.error("AI insights failed (non-blocking):", aiErr);
+      aiInsights = { error: "AI analysis unavailable", narrative: "AI insights could not be generated. The statistical scorecard score remains valid." };
+    }
+
     // Save results to both applications and scorecard_results
     const [updateRes, insertRes] = await Promise.all([
       supabase
@@ -522,13 +644,14 @@ serve(async (req) => {
           woe_details: result.woe_details,
           time_series_features: result.time_series_features,
           summary: result.summary,
+          ai_insights: aiInsights,
         }),
     ]);
 
     if (updateRes.error) throw updateRes.error;
     if (insertRes.error) console.error("Scorecard result insert error:", insertRes.error);
 
-    return new Response(JSON.stringify({ success: true, ...result }), {
+    return new Response(JSON.stringify({ success: true, ...result, ai_insights: aiInsights }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
