@@ -22,22 +22,30 @@ const Login = () => {
 
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
             data: { display_name: displayName },
           },
         });
+        console.log("Signup response:", { data, error });
         if (error) throw error;
-        navigate("/");
+        if (data.session) {
+          navigate("/");
+        } else {
+          toast.success("Account created! You can now sign in.");
+          setIsSignUp(false);
+        }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        console.log("Login response:", { data, error });
         if (error) throw error;
         navigate("/");
       }
     } catch (error: any) {
-      toast.error(error.message);
+      console.error("Auth error:", error);
+      toast.error(error.message || "Authentication failed. Please try again.");
     } finally {
       setLoading(false);
     }
