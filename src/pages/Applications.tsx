@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Filter, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import NewApplicationWizard from "@/components/application/NewApplicationWizard";
 
@@ -28,6 +29,7 @@ const getStatusColor = (status: string) => {
 };
 
 const Applications = () => {
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [rows, setRows] = useState<ApplicationRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -100,7 +102,7 @@ const Applications = () => {
                 {filtered.length === 0 ? (
                   <tr><td colSpan={7} className="py-8 text-center text-muted-foreground">No applications found. Create one to get started.</td></tr>
                 ) : filtered.map((app) => (
-                  <tr key={app.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30 cursor-pointer">
+                  <tr key={app.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30 cursor-pointer" onClick={() => navigate(`/applications/${app.id}`)}>
                     <td className="py-3 font-mono text-xs text-muted-foreground">{app.app_code}</td>
                     <td className="py-3 font-medium text-foreground">{app.borrower?.full_name || "—"}</td>
                     <td className="py-3 text-muted-foreground">{app.country}</td>
