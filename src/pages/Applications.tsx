@@ -3,12 +3,9 @@ import GlassCard from "@/components/GlassCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Filter } from "lucide-react";
+import { Search, Filter } from "lucide-react";
 import { useState } from "react";
+import NewApplicationWizard from "@/components/application/NewApplicationWizard";
 
 const applications = [
   { id: "APP-2847", name: "Amara Diallo", country: "Senegal", product: "Micro-loan", score: 745, status: "Approved", date: "2026-02-27" },
@@ -27,122 +24,6 @@ const getStatusColor = (status: string) => {
   return "bg-destructive/20 text-destructive border-destructive/30";
 };
 
-const countryIdHints: Record<string, string> = {
-  kenya: "National ID / Huduma Namba",
-  nigeria: "BVN / NIN / Voter's Card",
-  ghana: "Ghana Card / Voter ID",
-  rwanda: "National ID (Indangamuntu)",
-  senegal: "CNI / NINEA",
-  tanzania: "NIDA / Voter ID",
-  zimbabwe: "National ID / Passport",
-  sierra_leone: "National ID / Voter ID",
-  mali: "NINA / CNI",
-  uganda: "NIN / Voter ID",
-  south_africa: "RSA ID / Passport",
-  mozambique: "BI / NUIT",
-  zambia: "NRC / Passport",
-  ethiopia: "Kebele ID / Fayda ID",
-};
-
-const countryPhoneHints: Record<string, string> = {
-  kenya: "+254 7XX XXX XXX",
-  nigeria: "+234 8XX XXX XXXX",
-  ghana: "+233 XX XXX XXXX",
-  rwanda: "+250 78X XXX XXX",
-  senegal: "+221 7X XXX XXXX",
-  tanzania: "+255 7XX XXX XXX",
-  zimbabwe: "+263 7X XXX XXXX",
-  sierra_leone: "+232 XX XXXXXX",
-  mali: "+223 XX XX XX XX",
-  uganda: "+256 7XX XXX XXX",
-  south_africa: "+27 XX XXX XXXX",
-  mozambique: "+258 8X XXX XXXX",
-  zambia: "+260 9XX XXX XXX",
-  ethiopia: "+251 9XX XXX XXX",
-};
-
-const NewApplicationModal = () => {
-  const [country, setCountry] = useState("");
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button className="gap-2">
-          <Plus className="h-4 w-4" /> New Application
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="glass-card border-glass-border sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="font-display text-xl">New Application</DialogTitle>
-        </DialogHeader>
-        <Tabs defaultValue="retail" className="mt-4">
-          <TabsList className="grid w-full grid-cols-3 bg-muted">
-            <TabsTrigger value="retail">Retail Individual</TabsTrigger>
-            <TabsTrigger value="micro">Micro-enterprise</TabsTrigger>
-            <TabsTrigger value="sme">SME</TabsTrigger>
-          </TabsList>
-          <TabsContent value="retail" className="mt-4 space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-xs text-muted-foreground">Full Name</Label>
-                <Input placeholder="Enter borrower name" className="mt-1 bg-muted/50 border-border" />
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">Country</Label>
-                <Select value={country} onValueChange={setCountry}>
-                  <SelectTrigger className="mt-1 bg-muted/50 border-border">
-                    <SelectValue placeholder="Select country" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="kenya">Kenya</SelectItem>
-                    <SelectItem value="nigeria">Nigeria</SelectItem>
-                    <SelectItem value="ghana">Ghana</SelectItem>
-                    <SelectItem value="rwanda">Rwanda</SelectItem>
-                    <SelectItem value="senegal">Senegal</SelectItem>
-                    <SelectItem value="tanzania">Tanzania</SelectItem>
-                    <SelectItem value="zimbabwe">Zimbabwe</SelectItem>
-                    <SelectItem value="sierra_leone">Sierra Leone</SelectItem>
-                    <SelectItem value="mali">Mali</SelectItem>
-                    <SelectItem value="uganda">Uganda</SelectItem>
-                    <SelectItem value="south_africa">South Africa</SelectItem>
-                    <SelectItem value="mozambique">Mozambique</SelectItem>
-                    <SelectItem value="zambia">Zambia</SelectItem>
-                    <SelectItem value="ethiopia">Ethiopia</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">ID Type & Number</Label>
-                <Input placeholder={countryIdHints[country] || "National ID number"} className="mt-1 bg-muted/50 border-border" />
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">Mobile Number</Label>
-                <Input placeholder={countryPhoneHints[country] || "+XXX XXX XXX XXX"} className="mt-1 bg-muted/50 border-border" />
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">Requested Amount</Label>
-                <Input placeholder="50,000" type="number" className="mt-1 bg-muted/50 border-border" />
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">Tenor (months)</Label>
-                <Input placeholder="12" type="number" className="mt-1 bg-muted/50 border-border" />
-              </div>
-            </div>
-            <Button className="w-full">Submit Application</Button>
-          </TabsContent>
-          <TabsContent value="micro" className="mt-4">
-            <p className="py-8 text-center text-sm text-muted-foreground">Micro-enterprise form — same structure with business fields</p>
-            <Button className="w-full">Submit Application</Button>
-          </TabsContent>
-          <TabsContent value="sme" className="mt-4">
-            <p className="py-8 text-center text-sm text-muted-foreground">SME form — includes trade license, business registration fields</p>
-            <Button className="w-full">Submit Application</Button>
-          </TabsContent>
-        </Tabs>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
 const Applications = () => {
   const [search, setSearch] = useState("");
 
@@ -153,7 +34,7 @@ const Applications = () => {
           <h1 className="font-display text-3xl font-bold text-foreground">Applications</h1>
           <p className="mt-1 text-sm text-muted-foreground">Manage borrower applications across all markets</p>
         </div>
-        <NewApplicationModal />
+        <NewApplicationWizard />
       </div>
 
       {/* Filters */}
