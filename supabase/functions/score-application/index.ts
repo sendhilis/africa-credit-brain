@@ -8,21 +8,23 @@ const corsHeaders = {
 };
 
 // ──────────────────────────────────────────────────────────────
-// SCORECARD MODEL v1.0 — WoE/IV Logistic Regression
+// SCORECARD MODEL v1.1 — WoE/IV Logistic Regression + Bureau Score
 // Calibrated for African lending markets (Kenya, Nigeria, Ghana, Uganda, Rwanda)
+// Bureau score receives PRIMARY weight when available
 // ──────────────────────────────────────────────────────────────
 
 // Scaling parameters (standard scorecard alignment)
 const BASE_SCORE = 600;
-const BASE_ODDS = 50; // 50:1 good-to-bad at base score
-const PDO = 20; // Points to Double the Odds
+const BASE_ODDS = 50;
+const PDO = 20;
 const FACTOR = PDO / Math.LN2;
 const OFFSET = BASE_SCORE - FACTOR * Math.log(BASE_ODDS);
 
 // Model coefficients (β weights from logistic regression)
-// These represent a pre-trained model calibrated on African microfinance data
+// v1.1: bureau_score added with highest magnitude coefficient
 const MODEL_COEFFICIENTS = {
   intercept: -1.8,
+  bureau_score: -1.50, // PRIMARY: strongest protective factor when available
   debt_to_income: 0.85,
   age: -0.42,
   loan_to_income: 0.65,
@@ -36,16 +38,25 @@ const MODEL_COEFFICIENTS = {
   savings_ratio: -0.48,
 };
 
-// WoE bins for each feature — derived from Information Value analysis
+// WoE bins for each feature
 interface WoEBin {
   label: string;
   min: number;
   max: number;
   woe: number;
-  event_rate: number; // observed default rate in bin
+  event_rate: number;
 }
 
 const WOE_BINS: Record<string, WoEBin[]> = {
+  bureau_score: [
+    { label: "Excellent (750+)", min: 750, max: 900, woe: -1.45, event_rate: 0.02 },
+    { label: "Good (700-749)", min: 700, max: 749, woe: -0.85, event_rate: 0.04 },
+    { label: "Fair (650-699)", min: 650, max: 699, woe: -0.25, event_rate: 0.08 },
+    { label: "Below Average (600-649)", min: 600, max: 649, woe: 0.35, event_rate: 0.14 },
+    { label: "Poor (500-599)", min: 500, max: 599, woe: 0.82, event_rate: 0.24 },
+    { label: "Very Poor (<500)", min: 0, max: 499, woe: 1.55, event_rate: 0.42 },
+    { label: "No Bureau Data", min: -1, max: -1, woe: 0.10, event_rate: 0.11 },
+  ],
   debt_to_income: [
     { label: "≤ 20%", min: 0, max: 0.2, woe: -0.85, event_rate: 0.03 },
     { label: "20-40%", min: 0.2, max: 0.4, woe: -0.32, event_rate: 0.06 },
@@ -110,18 +121,34 @@ const WOE_BINS: Record<string, WoEBin[]> = {
   ],
 };
 
-// Feature weight percentages for the justification breakdown
-const FEATURE_WEIGHTS: Record<string, { name: string; weight: number }> = {
-  payment_history_score: { name: "Payment History", weight: 25 },
-  debt_to_income: { name: "Debt-to-Income Ratio", weight: 18 },
-  income_stability_cv: { name: "Income Stability", weight: 15 },
-  loan_to_income: { name: "Loan-to-Income Ratio", weight: 12 },
-  savings_ratio: { name: "Savings Capacity", weight: 10 },
-  age: { name: "Borrower Age", weight: 6 },
-  existing_loan_count: { name: "Existing Obligations", weight: 5 },
-  business_years: { name: "Business Tenure", weight: 4 },
-  dependents: { name: "Dependents", weight: 3 },
-  collateral_flag: { name: "Collateral", weight: 2 },
+// Feature weight percentages — DYNAMIC based on bureau availability
+// When bureau score IS available: it gets 30%, others scale down proportionally
+// When bureau score is NOT available: original weights apply
+const FEATURE_WEIGHTS_WITH_BUREAU: Record<string, { name: string; weight: number }> = {
+  bureau_score:           { name: "Credit Bureau Score", weight: 30 },
+  payment_history_score:  { name: "Payment History", weight: 17 },
+  debt_to_income:         { name: "Debt-to-Income Ratio", weight: 13 },
+  income_stability_cv:    { name: "Income Stability", weight: 10 },
+  loan_to_income:         { name: "Loan-to-Income Ratio", weight: 8 },
+  savings_ratio:          { name: "Savings Capacity", weight: 7 },
+  age:                    { name: "Borrower Age", weight: 4 },
+  existing_loan_count:    { name: "Existing Obligations", weight: 4 },
+  business_years:         { name: "Business Tenure", weight: 3 },
+  dependents:             { name: "Dependents", weight: 2 },
+  collateral_flag:        { name: "Collateral", weight: 2 },
+};
+
+const FEATURE_WEIGHTS_WITHOUT_BUREAU: Record<string, { name: string; weight: number }> = {
+  payment_history_score:  { name: "Payment History", weight: 25 },
+  debt_to_income:         { name: "Debt-to-Income Ratio", weight: 18 },
+  income_stability_cv:    { name: "Income Stability", weight: 15 },
+  loan_to_income:         { name: "Loan-to-Income Ratio", weight: 12 },
+  savings_ratio:          { name: "Savings Capacity", weight: 10 },
+  age:                    { name: "Borrower Age", weight: 6 },
+  existing_loan_count:    { name: "Existing Obligations", weight: 5 },
+  business_years:         { name: "Business Tenure", weight: 4 },
+  dependents:             { name: "Dependents", weight: 3 },
+  collateral_flag:        { name: "Collateral", weight: 2 },
 };
 
 // ──────────────────────────────────────────────────────────────
@@ -132,11 +159,11 @@ function findBin(bins: WoEBin[], value: number): WoEBin {
   for (const bin of bins) {
     if (value >= bin.min && value <= bin.max) return bin;
   }
-  return bins[bins.length - 1]; // fallback to last bin
+  return bins[bins.length - 1];
 }
 
 function calculateAge(dob: string | null): number {
-  if (!dob) return 30; // default assumption
+  if (!dob) return 30;
   const birth = new Date(dob);
   const now = new Date();
   let age = now.getFullYear() - birth.getFullYear();
@@ -149,10 +176,8 @@ function calculateAge(dob: string | null): number {
 
 function countExistingLoans(existingLoans: string | null): number {
   if (!existingLoans || existingLoans.toLowerCase() === "none" || existingLoans.trim() === "") return 0;
-  // Try to parse as number first
   const num = parseInt(existingLoans);
   if (!isNaN(num)) return num;
-  // Count comma-separated items
   return existingLoans.split(",").length;
 }
 
@@ -218,7 +243,6 @@ function computePaymentHistoryScore(payments: PaymentRecord[]): {
   const avgDpd = sorted.reduce((s, p) => s + Math.max(0, p.days_past_due), 0) / sorted.length;
   const worstDpd = Math.max(...sorted.map(p => p.days_past_due));
 
-  // Trend: compare first half vs second half performance
   const mid = Math.floor(sorted.length / 2);
   const firstHalf = sorted.slice(0, mid);
   const secondHalf = sorted.slice(mid);
@@ -252,7 +276,6 @@ function computeIncomeStability(incomes: IncomeRecord[]): {
   const std = Math.sqrt(variance);
   const cv = mean > 0 ? std / mean : 1;
 
-  // Linear trend
   const n = amounts.length;
   const xMean = (n - 1) / 2;
   let num = 0, den = 0;
@@ -280,6 +303,13 @@ interface ScorecardInput {
 
 function runScorecard(input: ScorecardInput) {
   const { app, borrower, paymentHistory, incomeHistory } = input;
+
+  // Determine if bureau score is available
+  const hasBureauScore = app.bureau_score !== null && app.bureau_score !== undefined;
+  const bureauScore = hasBureauScore ? app.bureau_score : null;
+
+  // Select appropriate weight scheme
+  const FEATURE_WEIGHTS = hasBureauScore ? FEATURE_WEIGHTS_WITH_BUREAU : FEATURE_WEIGHTS_WITHOUT_BUREAU;
 
   // 1. Extract raw features
   const monthlyIncome = app.monthly_income || 0;
@@ -312,6 +342,11 @@ function runScorecard(input: ScorecardInput) {
     }
   };
 
+  // Bureau score — only binned if available
+  if (hasBureauScore) {
+    binAndStore("bureau_score", bureauScore!);
+  }
+
   binAndStore("debt_to_income", dti);
   binAndStore("age", age);
   binAndStore("loan_to_income", loanToIncome);
@@ -319,16 +354,16 @@ function runScorecard(input: ScorecardInput) {
   binAndStore("dependents", dependents);
   binAndStore("payment_history_score", paymentStats.has_history ? paymentStats.score : -0.5);
   binAndStore("income_stability_cv", incomeStats.has_history ? incomeStats.cv : -0.5);
-  binAndStore("business_years", app.product_category !== "retail" ? businessYears : 5); // neutral for retail
+  binAndStore("business_years", app.product_category !== "retail" ? businessYears : 5);
   binAndStore("savings_ratio", savingsRatio);
 
   // 5. Compute log-odds (linear predictor)
-  let logOdds = -MODEL_COEFFICIENTS.intercept; // negative because higher odds = lower risk
+  let logOdds = -MODEL_COEFFICIENTS.intercept;
   const contributions: Record<string, number> = {};
 
   for (const [key, fv] of Object.entries(featureValues)) {
     const coeff = MODEL_COEFFICIENTS[key as keyof typeof MODEL_COEFFICIENTS] || 0;
-    const contribution = -coeff * fv.woe; // negative: lower woe = lower risk = more points
+    const contribution = -coeff * fv.woe;
     logOdds += contribution;
     contributions[key] = contribution;
   }
@@ -359,7 +394,6 @@ function runScorecard(input: ScorecardInput) {
   const factors = Object.entries(FEATURE_WEIGHTS).map(([key, fw]) => {
     const fv = featureValues[key];
     const contrib = contributions[key] || 0;
-    // Normalize contribution to 0-100 score (higher = better for the borrower)
     const normalizedScore = Math.max(0, Math.min(100, 50 + contrib * 30));
     return {
       name: fw.name,
@@ -369,14 +403,16 @@ function runScorecard(input: ScorecardInput) {
         ? `Value: ${typeof fv.value === "number" && fv.value % 1 !== 0 ? (fv.value * 100).toFixed(1) + "%" : fv.value} → Bin: ${fv.bin.label} (WoE: ${fv.woe.toFixed(2)})`
         : key === "collateral_flag"
           ? hasCollateral ? "Collateral provided — risk mitigant applied" : "No collateral — higher risk exposure"
-          : "Data not available",
+          : key === "bureau_score"
+            ? "No bureau data available — not factored into score"
+            : "Data not available",
     };
   });
 
   // 8. Generate reason codes
   const sortedContribs = Object.entries(contributions)
     .map(([key, contrib]) => ({ key, contrib, name: FEATURE_WEIGHTS[key]?.name || key }))
-    .sort((a, b) => a.contrib - b.contrib); // most negative first (worst contributors)
+    .sort((a, b) => a.contrib - b.contrib);
 
   const reasonCodes = sortedContribs.slice(0, 5).map((c, i) => ({
     code: `RC${String(i + 1).padStart(2, "0")}`,
@@ -388,7 +424,6 @@ function runScorecard(input: ScorecardInput) {
     impact: (c.contrib < -0.1 ? "negative" : c.contrib > 0.1 ? "positive" : "neutral") as "positive" | "negative" | "neutral",
   }));
 
-  // Add positive factors
   const positiveContribs = sortedContribs.filter(c => c.contrib > 0.1).sort((a, b) => b.contrib - a.contrib);
   for (const c of positiveContribs.slice(0, 3)) {
     if (!reasonCodes.find(rc => rc.description.startsWith(c.name))) {
@@ -404,7 +439,12 @@ function runScorecard(input: ScorecardInput) {
   const topNeg = sortedContribs.filter(c => c.contrib < -0.1).slice(0, 2).map(c => c.name);
   const topPos = sortedContribs.filter(c => c.contrib > 0.1).sort((a, b) => b.contrib - a.contrib).slice(0, 2).map(c => c.name);
 
-  let summary = `Statistical scorecard model v1.0 produced a score of ${finalScore} (${scoreBand}), indicating a ${(pd * 100).toFixed(1)}% estimated probability of default. `;
+  let summary = `Statistical scorecard model v1.1 produced a score of ${finalScore} (${scoreBand}), indicating a ${(pd * 100).toFixed(1)}% estimated probability of default. `;
+  if (hasBureauScore) {
+    summary += `Credit Bureau score of ${bureauScore} was factored in as the primary input (30% weight). `;
+  } else {
+    summary += `No Credit Bureau score was available — scoring relied on application and behavioral data only. `;
+  }
   if (topPos.length > 0) summary += `Key strengths: ${topPos.join(", ")}. `;
   if (topNeg.length > 0) summary += `Key risks: ${topNeg.join(", ")}. `;
   if (paymentStats.has_history) {
@@ -435,7 +475,7 @@ function runScorecard(input: ScorecardInput) {
     reason_codes: reasonCodes,
     factors,
     summary,
-    model_version: "v1.0-woe-lr",
+    model_version: hasBureauScore ? "v1.1-woe-lr-bureau" : "v1.1-woe-lr",
     woe_details: woeDetails,
     time_series_features: {
       payment_history: paymentStats,
@@ -443,6 +483,7 @@ function runScorecard(input: ScorecardInput) {
     },
     base_score: BASE_SCORE,
     scaling: { pdo: PDO, base_odds: BASE_ODDS, factor: FACTOR, offset: OFFSET },
+    bureau_score_used: hasBureauScore,
   };
 }
 
@@ -496,16 +537,21 @@ serve(async (req) => {
     });
 
     // ── AI Insights Layer ──────────────────────────────────────
-    // Call Lovable AI to provide qualitative analysis over the scorecard output
     let aiInsights = null;
     try {
       const lovableKey = Deno.env.get("LOVABLE_API_KEY")!;
+      const bureauContext = app.bureau_score !== null
+        ? `- Credit Bureau Score: ${app.bureau_score} (PRIMARY weight: 30%)`
+        : `- Credit Bureau Score: NOT AVAILABLE (scoring relied on application data only)`;
+
       const aiPrompt = `You are a senior credit risk analyst reviewing a statistical scorecard output for an African lending market application. Provide qualitative insights that the model cannot capture.
 
 SCORECARD OUTPUT:
 - Final Score: ${result.score} (${result.score_band})
 - Probability of Default: ${(result.probability_of_default * 100).toFixed(1)}%
 - Recommendation: ${result.recommendation}
+- Model Version: ${result.model_version}
+${bureauContext}
 
 FACTOR CONTRIBUTIONS:
 ${result.woe_details.map((w: any) => `- ${w.feature}: Raw=${w.raw_value}, Bin="${w.bin}", WoE=${w.woe}, Points=${w.points_contribution}`).join("\n")}

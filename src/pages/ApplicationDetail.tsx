@@ -349,6 +349,7 @@ const ApplicationDetail = () => {
           <InfoRow label="Collateral" value={app.collateral} />
           <InfoRow label="Product" value={app.product_type || app.product_category} />
           <InfoRow label="Country" value={app.country} />
+          <InfoRow label="Bureau Score" value={(app as any).bureau_score ? `${(app as any).bureau_score} / 900` : "Not available"} />
           <InfoRow label="Created" value={new Date(app.created_at).toLocaleDateString()} />
         </GlassCard>
 
