@@ -772,8 +772,8 @@ const NewApplicationWizard = () => {
               </p>
 
               {[
-                { key: "bank_statement", icon: CreditCard, title: "Bank Statements", desc: "Last 3–6 months. Extracts: income flows, variability, recurring obligations.", formats: "PDF, JPEG, PNG", accept: ".pdf,.jpg,.jpeg,.png" },
-                { key: "utility_bill", icon: Banknote, title: "Utility Bills", desc: "Electricity, water, or internet. Extracts: payment regularity, address verification.", formats: "PDF, JPEG", accept: ".pdf,.jpg,.jpeg" },
+                { key: "bank_statement", icon: CreditCard, title: "Bank Statements (min. 3 months)", desc: "Must cover at least 3 consecutive months. Extracts: income flows, variability, recurring obligations. Documents covering less than 3 months will be rejected.", formats: "PDF, JPEG, PNG", accept: ".pdf,.jpg,.jpeg,.png" },
+                { key: "utility_bill", icon: Banknote, title: "Utility Bills (min. 3 months)", desc: "Must cover at least 3 consecutive months. Electricity, water, or internet. Extracts: payment regularity, address verification. Single-month bills will be rejected.", formats: "PDF, JPEG", accept: ".pdf,.jpg,.jpeg" },
                 ...(category !== "retail" ? [
                   { key: "trade_license", icon: Building2, title: config.businessRegistration.label, desc: "Business registration document. Extracts: registration date, activity codes, address.", formats: "PDF, JPEG", accept: ".pdf,.jpg,.jpeg" },
                   { key: "financial_statement", icon: FileText, title: "Financial Statements / Receipts", desc: "P&L, balance sheet, or sales receipts. Extracts: revenue, margins, cash position.", formats: "PDF, XLSX", accept: ".pdf,.xlsx,.xls" },

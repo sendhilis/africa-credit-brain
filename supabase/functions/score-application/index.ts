@@ -547,6 +547,28 @@ serve(async (req) => {
       if (bd.average_monthly_expenses && (!app.monthly_expenses || bankExtraction.confidence_score > 0.7)) {
         app.monthly_expenses = bd.average_monthly_expenses;
       }
+
+      // Enrich income history from OCR salary deposits if we don't have enough income records
+      const existingIncomeCount = (incomeRes.data || []).length;
+      if (bd.salary_deposits?.length > 0 && existingIncomeCount < 3) {
+        const ocrIncomeRecords: IncomeRecord[] = bd.salary_deposits.map((dep: any) => ({
+          income_amount: dep.amount,
+          period_start: dep.date,
+          period_end: dep.date,
+        }));
+        // Merge OCR income records with existing ones for time-series analysis
+        if (incomeRes.data) {
+          incomeRes.data.push(...ocrIncomeRecords);
+        } else {
+          (incomeRes as any).data = ocrIncomeRecords;
+        }
+        console.log(`Enriched income history with ${ocrIncomeRecords.length} OCR salary deposits`);
+      }
+
+      // Extract bank statement time-series features for scoring context
+      if (bd.statement_period) {
+        console.log(`Bank statement period: ${bd.statement_period.start_date} to ${bd.statement_period.end_date}`);
+      }
     }
 
     if (financialExtraction?.extracted_data) {
