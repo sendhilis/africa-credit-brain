@@ -429,10 +429,20 @@ const ApplicationDetail = () => {
                   {/* Show invalid document warning */}
                   {extraction?.extraction_status === "invalid" && extraction.extracted_data && (
                     <div className="mt-2 ml-5.5 p-2.5 rounded-md bg-warning/5 border border-warning/20">
-                      <div className="text-xs text-warning font-medium mb-1">Document does not match expected type</div>
+                      <div className="text-xs text-warning font-medium mb-1">
+                        {extraction.extracted_data.meets_period_requirement === false
+                          ? "⏱ Insufficient time period"
+                          : "Document does not match expected type"}
+                      </div>
                       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                         <div><span className="text-muted-foreground">Expected:</span> <span className="text-foreground capitalize">{(extraction.extracted_data.expected_type || doc.type || "").replace(/_/g, " ")}</span></div>
                         <div><span className="text-muted-foreground">Detected:</span> <span className="text-foreground capitalize">{(extraction.extracted_data.detected_type || "unknown").replace(/_/g, " ")}</span></div>
+                        {extraction.extracted_data.period_months != null && (
+                          <div><span className="text-muted-foreground">Period:</span> <span className="text-foreground">{extraction.extracted_data.period_months} month(s) — min. 3 required</span></div>
+                        )}
+                        {extraction.extracted_data.period_start && extraction.extracted_data.period_end && (
+                          <div><span className="text-muted-foreground">Date Range:</span> <span className="text-foreground">{extraction.extracted_data.period_start} to {extraction.extracted_data.period_end}</span></div>
+                        )}
                         {extraction.extracted_data.validation_reason && (
                           <div className="col-span-2"><span className="text-muted-foreground">Reason:</span> <span className="text-foreground">{extraction.extracted_data.validation_reason}</span></div>
                         )}

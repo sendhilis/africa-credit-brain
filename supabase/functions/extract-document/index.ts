@@ -239,7 +239,7 @@ serve(async (req) => {
 
     const validationSchema = {
       name: "validate_document",
-      description: "Validate whether the uploaded document matches the expected type",
+      description: "Validate whether the uploaded document matches the expected type and meets period requirements",
       parameters: {
         type: "object",
         properties: {
@@ -251,11 +251,26 @@ serve(async (req) => {
           },
           validation_reason: { type: "string", description: "Brief explanation of why the document is or isn't valid (e.g. 'This is a business proposal PDF, not a bank statement')" },
           confidence: { type: "number", description: "0-1 confidence in the classification" },
+          period_start: { type: "string", description: "YYYY-MM-DD — earliest date covered by the document (for bank statements and utility bills)" },
+          period_end: { type: "string", description: "YYYY-MM-DD — latest date covered by the document (for bank statements and utility bills)" },
+          period_months: { type: "number", description: "Approximate number of months the document covers" },
+          meets_period_requirement: { type: "boolean", description: "True if the document covers at least 3 months (required for bank_statement and utility_bill)" },
         },
         required: ["is_valid", "detected_type", "validation_reason", "confidence"],
         additionalProperties: false,
       },
     };
+
+    const requiresPeriod = docType === "bank_statement" || docType === "utility_bill";
+    const periodRule = requiresPeriod
+      ? `\n\nPERIOD REQUIREMENT (CRITICAL for ${docType.replace(/_/g, " ")}):
+- This document MUST cover at least 3 consecutive months of data.
+- Look at the statement period, transaction dates, or billing dates to determine the time range.
+- Set period_start, period_end, and period_months based on what you observe.
+- Set meets_period_requirement=true ONLY if the document covers >= 3 months.
+- If the document covers less than 3 months, set is_valid=false and explain that it does not meet the minimum 3-month period requirement.
+- If you cannot determine the period from the document, set meets_period_requirement=false and explain why.`
+      : "";
 
     const validationPrompt = `You are a document verification specialist. Analyze this uploaded document and determine if it genuinely is a "${docType.replace(/_/g, " ")}".
 
@@ -266,7 +281,7 @@ CRITICAL RULES:
 - An id_copy MUST be a government-issued identification document (passport, national ID, driver's license).
 - A financial_statement MUST be formal accounting documents (P&L, balance sheet, cash flow statement).
 
-If the document does NOT match the expected type, set is_valid=false and identify what it actually is. Be strict — do not accept vaguely related documents.`;
+If the document does NOT match the expected type, set is_valid=false and identify what it actually is. Be strict — do not accept vaguely related documents.${periodRule}`;
 
     const validationResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -301,6 +316,10 @@ If the document does NOT match the expected type, set is_valid=false and identif
     let isValid = true;
     let detectedType = docType;
     let validationReason = "";
+    let periodStart: string | null = null;
+    let periodEnd: string | null = null;
+    let periodMonths: number | null = null;
+    let meetsPeriodRequirement: boolean | null = null;
 
     if (validationResponse.ok) {
       const valData = await validationResponse.json();
@@ -310,13 +329,32 @@ If the document does NOT match the expected type, set is_valid=false and identif
         isValid = valResult.is_valid;
         detectedType = valResult.detected_type || docType;
         validationReason = valResult.validation_reason || "";
+        periodStart = valResult.period_start || null;
+        periodEnd = valResult.period_end || null;
+        periodMonths = valResult.period_months || null;
+        meetsPeriodRequirement = valResult.meets_period_requirement ?? null;
         console.log("extract-document: validation result:", JSON.stringify(valResult));
+
+        // Enforce 3-month period requirement for bank statements and utility bills
+        const requiresPeriodCheck = docType === "bank_statement" || docType === "utility_bill";
+        if (isValid && requiresPeriodCheck && meetsPeriodRequirement === false) {
+          isValid = false;
+          const periodInfo = periodMonths != null 
+            ? `Document covers only ~${periodMonths} month(s)` 
+            : "Could not determine the period covered";
+          validationReason = `${periodInfo}. Bank statements and utility bills must cover at least 3 consecutive months.`;
+          console.log("extract-document: PERIOD VALIDATION FAILED:", validationReason);
+        }
       }
     }
 
     // If document is not valid, save as invalid and skip extraction
     if (!isValid) {
       console.log("extract-document: document INVALID, detected as:", detectedType);
+      const invalidReason = meetsPeriodRequirement === false 
+        ? `Insufficient period: ${validationReason}` 
+        : `Invalid document: ${validationReason}`;
+      
       await supabase
         .from("document_extractions")
         .update({
@@ -326,9 +364,13 @@ If the document does NOT match the expected type, set is_valid=false and identif
             detected_type: detectedType, 
             validation_reason: validationReason,
             expected_type: docType,
+            period_start: periodStart,
+            period_end: periodEnd,
+            period_months: periodMonths,
+            meets_period_requirement: meetsPeriodRequirement,
           },
           confidence_score: 0,
-          error_message: `Invalid document: ${validationReason}`,
+          error_message: invalidReason,
         })
         .eq("id", extraction_id);
 
@@ -337,6 +379,10 @@ If the document does NOT match the expected type, set is_valid=false and identif
         is_valid: false, 
         detected_type: detectedType,
         validation_reason: validationReason,
+        period_start: periodStart,
+        period_end: periodEnd,
+        period_months: periodMonths,
+        meets_period_requirement: meetsPeriodRequirement,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
