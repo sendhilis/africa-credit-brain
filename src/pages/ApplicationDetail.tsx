@@ -95,6 +95,7 @@ const ApplicationDetail = () => {
   const [actionNotes, setActionNotes] = useState("");
   const [scoreResult, setScoreResult] = useState<any>(null);
   const [scorecardDetail, setScorecardDetail] = useState<any>(null);
+  const [documentExtractions, setDocumentExtractions] = useState<any[]>([]);
 
   const fetchApp = async () => {
     if (!id) return;
@@ -119,6 +120,13 @@ const ApplicationDetail = () => {
           .single();
         if (scData) setScorecardDetail(scData);
       }
+      // Fetch document extractions
+      const { data: extractions } = await supabase
+        .from("document_extractions")
+        .select("*")
+        .eq("application_id", id!)
+        .order("created_at", { ascending: true });
+      if (extractions) setDocumentExtractions(extractions);
     }
     setLoading(false);
   };
@@ -386,19 +394,99 @@ const ApplicationDetail = () => {
           </GlassCard>
         )}
 
-        {/* Documents */}
-        <GlassCard hover={false}>
+        {/* Documents & OCR Extractions */}
+        <GlassCard hover={false} className={documentExtractions.length > 0 ? "md:col-span-2" : ""}>
           <h3 className="font-display text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-            <FileText className="h-4 w-4 text-primary" /> Documents
+            <FileText className="h-4 w-4 text-primary" /> Documents & OCR Extractions
           </h3>
           {Array.isArray(app.documents) && app.documents.length > 0 ? (
-            app.documents.map((doc: any, i: number) => (
-              <div key={i} className="flex items-center gap-2 py-1.5 border-b border-border/30 last:border-0">
-                <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-sm text-foreground">{doc.type || doc.filename}</span>
-                <Badge variant="outline" className="text-xs ml-auto">Mock</Badge>
-              </div>
-            ))
+            app.documents.map((doc: any, i: number) => {
+              const extraction = documentExtractions.find(e => e.document_type === doc.type);
+              return (
+                <div key={i} className="py-2.5 border-b border-border/30 last:border-0">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-sm text-foreground capitalize">{(doc.type || "").replace(/_/g, " ")}</span>
+                    {extraction ? (
+                      <Badge variant="outline" className={`text-xs ml-auto ${
+                        extraction.extraction_status === "completed" ? "bg-success/10 text-success border-success/20" :
+                        extraction.extraction_status === "processing" ? "bg-primary/10 text-primary border-primary/20" :
+                        extraction.extraction_status === "failed" ? "bg-destructive/10 text-destructive border-destructive/20" :
+                        "bg-muted/50 text-muted-foreground border-border"
+                      }`}>
+                        {extraction.extraction_status === "completed" ? `OCR ✓ (${Math.round((extraction.confidence_score || 0) * 100)}%)` :
+                         extraction.extraction_status === "processing" ? "Extracting…" :
+                         extraction.extraction_status === "failed" ? "OCR Failed" : "Pending"}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-xs ml-auto">
+                        {doc.storage_path ? "Uploaded" : "Mock"}
+                      </Badge>
+                    )}
+                  </div>
+                  {/* Show extracted data summary */}
+                  {extraction?.extraction_status === "completed" && extraction.extracted_data && (
+                    <div className="mt-2 ml-5.5 p-2.5 rounded-md bg-muted/20 border border-border/30">
+                      {doc.type === "bank_statement" && (
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                          {extraction.extracted_data.bank_name && <div><span className="text-muted-foreground">Bank:</span> <span className="text-foreground">{extraction.extracted_data.bank_name}</span></div>}
+                          {extraction.extracted_data.average_monthly_income != null && <div><span className="text-muted-foreground">Avg. Monthly Income:</span> <span className="text-success font-medium">{extraction.extracted_data.currency} {extraction.extracted_data.average_monthly_income?.toLocaleString()}</span></div>}
+                          {extraction.extracted_data.average_monthly_expenses != null && <div><span className="text-muted-foreground">Avg. Monthly Expenses:</span> <span className="text-foreground">{extraction.extracted_data.currency} {extraction.extracted_data.average_monthly_expenses?.toLocaleString()}</span></div>}
+                          {extraction.extracted_data.total_credits != null && <div><span className="text-muted-foreground">Total Credits:</span> <span className="text-foreground">{extraction.extracted_data.currency} {extraction.extracted_data.total_credits?.toLocaleString()}</span></div>}
+                          {extraction.extracted_data.total_debits != null && <div><span className="text-muted-foreground">Total Debits:</span> <span className="text-foreground">{extraction.extracted_data.currency} {extraction.extracted_data.total_debits?.toLocaleString()}</span></div>}
+                          {extraction.extracted_data.income_regularity && <div><span className="text-muted-foreground">Income Pattern:</span> <span className="text-foreground capitalize">{extraction.extracted_data.income_regularity}</span></div>}
+                          {extraction.extracted_data.bounce_count != null && <div><span className="text-muted-foreground">Bounces:</span> <span className={extraction.extracted_data.bounce_count > 0 ? "text-destructive font-medium" : "text-foreground"}>{extraction.extracted_data.bounce_count}</span></div>}
+                          {extraction.extracted_data.recurring_obligations?.length > 0 && (
+                            <div className="col-span-2 mt-1">
+                              <span className="text-muted-foreground">Recurring Obligations:</span>
+                              <div className="mt-1 space-y-0.5">
+                                {extraction.extracted_data.recurring_obligations.map((ob: any, j: number) => (
+                                  <div key={j} className="text-foreground">{ob.description}: {extraction.extracted_data.currency} {ob.amount?.toLocaleString()} ({ob.frequency})</div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {doc.type === "trade_license" && (
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                          {extraction.extracted_data.business_name && <div><span className="text-muted-foreground">Business:</span> <span className="text-foreground">{extraction.extracted_data.business_name}</span></div>}
+                          {extraction.extracted_data.registration_number && <div><span className="text-muted-foreground">Reg #:</span> <span className="text-foreground">{extraction.extracted_data.registration_number}</span></div>}
+                          {extraction.extracted_data.registration_date && <div><span className="text-muted-foreground">Registered:</span> <span className="text-foreground">{extraction.extracted_data.registration_date}</span></div>}
+                          {extraction.extracted_data.business_activity && <div><span className="text-muted-foreground">Activity:</span> <span className="text-foreground">{extraction.extracted_data.business_activity}</span></div>}
+                          {extraction.extracted_data.is_active !== undefined && <div><span className="text-muted-foreground">Status:</span> <span className={extraction.extracted_data.is_active ? "text-success" : "text-destructive"}>{extraction.extracted_data.is_active ? "Active" : "Inactive"}</span></div>}
+                        </div>
+                      )}
+                      {doc.type === "financial_statement" && (
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                          {extraction.extracted_data.total_revenue != null && <div><span className="text-muted-foreground">Revenue:</span> <span className="text-foreground">{extraction.extracted_data.currency} {extraction.extracted_data.total_revenue?.toLocaleString()}</span></div>}
+                          {extraction.extracted_data.net_profit != null && <div><span className="text-muted-foreground">Net Profit:</span> <span className="text-foreground">{extraction.extracted_data.currency} {extraction.extracted_data.net_profit?.toLocaleString()}</span></div>}
+                          {extraction.extracted_data.profit_margin_pct != null && <div><span className="text-muted-foreground">Margin:</span> <span className="text-foreground">{extraction.extracted_data.profit_margin_pct}%</span></div>}
+                          {extraction.extracted_data.monthly_revenue_estimate != null && <div><span className="text-muted-foreground">Monthly Revenue Est.:</span> <span className="text-success font-medium">{extraction.extracted_data.currency} {extraction.extracted_data.monthly_revenue_estimate?.toLocaleString()}</span></div>}
+                        </div>
+                      )}
+                      {doc.type === "id_copy" && (
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                          {extraction.extracted_data.full_name && <div><span className="text-muted-foreground">Name:</span> <span className="text-foreground">{extraction.extracted_data.full_name}</span></div>}
+                          {extraction.extracted_data.id_number && <div><span className="text-muted-foreground">ID:</span> <span className="text-foreground">{extraction.extracted_data.id_number}</span></div>}
+                          {extraction.extracted_data.date_of_birth && <div><span className="text-muted-foreground">DOB:</span> <span className="text-foreground">{extraction.extracted_data.date_of_birth}</span></div>}
+                        </div>
+                      )}
+                      {doc.type === "utility_bill" && (
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                          {extraction.extracted_data.provider_name && <div><span className="text-muted-foreground">Provider:</span> <span className="text-foreground">{extraction.extracted_data.provider_name}</span></div>}
+                          {extraction.extracted_data.billing_address && <div><span className="text-muted-foreground">Address:</span> <span className="text-foreground">{extraction.extracted_data.billing_address}</span></div>}
+                          {extraction.extracted_data.payment_status && <div><span className="text-muted-foreground">Payment:</span> <span className={`capitalize ${extraction.extracted_data.payment_status === "paid" ? "text-success" : "text-destructive"}`}>{extraction.extracted_data.payment_status}</span></div>}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {extraction?.extraction_status === "failed" && extraction.error_message && (
+                    <p className="mt-1 ml-5.5 text-xs text-destructive">{extraction.error_message}</p>
+                  )}
+                </div>
+              );
+            })
           ) : (
             <p className="text-sm text-muted-foreground">No documents attached</p>
           )}

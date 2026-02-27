@@ -135,6 +135,7 @@ const NewApplicationWizard = () => {
   const [psychometricMethod, setPsychometricMethod] = useState<string | null>(null);
   const [sendingLink, setSendingLink] = useState(false);
   const [hasDraft, setHasDraft] = useState(false);
+  const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
 
   const config = useMemo(() => country ? countryConfigs[country] : null, [country]);
 
@@ -312,20 +313,54 @@ const NewApplicationWizard = () => {
         export_income_pct: formData.export_income ? parseFloat(formData.export_income) : null,
         bureau_score: formData.bureau_score ? parseInt(formData.bureau_score) : null,
         alt_data_consents: altDataConsents,
-        documents: Object.entries(documents).map(([type, filename]) => ({ type, filename })),
+        documents: Object.entries(documents).map(([type, storagePath]) => ({ type, storage_path: storagePath, filename: storagePath.split('/').pop() || storagePath })),
         psychometric_method: psychometricMethod || null,
         psychometric_status: psychometricStatus === "not_started" ? "pending" : psychometricStatus,
         psychometric_phone: formData.psychometric_phone || formData.phone || null,
         notes: formData.notes || null,
       };
 
-      const { error: appError } = await supabase
+      const { data: appResult, error: appError } = await supabase
         .from("applications")
-        .insert(applicationPayload);
+        .insert(applicationPayload)
+        .select("id")
+        .single();
 
       if (appError) throw appError;
 
-      toast({ title: "Application submitted", description: `Application for ${formData.name} has been created and queued for scoring.` });
+      // Create document extraction records and trigger OCR for each uploaded doc
+      const docEntries = Object.entries(documents);
+      if (docEntries.length > 0 && appResult?.id) {
+        for (const [docType, storagePath] of docEntries) {
+          // Move file from pending to application folder
+          const newPath = `${institutionId}/${appResult.id}/${storagePath.split('/').pop()}`;
+          await supabase.storage
+            .from("application-documents")
+            .move(storagePath, newPath);
+
+          // Create extraction record
+          const { data: extractionRecord } = await supabase
+            .from("document_extractions")
+            .insert({
+              application_id: appResult.id,
+              institution_id: institutionId,
+              document_type: docType,
+              storage_path: newPath,
+              extraction_status: "pending",
+            })
+            .select("id")
+            .single();
+
+          // Trigger OCR extraction (non-blocking)
+          if (extractionRecord?.id) {
+            supabase.functions.invoke("extract-document", {
+              body: { extraction_id: extractionRecord.id },
+            }).catch(err => console.error("OCR trigger error:", err));
+          }
+        }
+      }
+
+      toast({ title: "Application submitted", description: `Application for ${formData.name} has been created. ${docEntries.length > 0 ? "Document OCR extraction is running in the background." : "Queued for scoring."}` });
       resetForm();
       setOpen(false);
     } catch (err: any) {
@@ -723,7 +758,7 @@ const NewApplicationWizard = () => {
             </div>
           )}
 
-          {/* Step 4: Documents */}
+           {/* Step 4: Documents */}
           {step === 3 && config && (
             <div className="space-y-5">
               <p className="text-sm text-muted-foreground">
@@ -731,13 +766,13 @@ const NewApplicationWizard = () => {
               </p>
 
               {[
-                { key: "bank_statement", icon: CreditCard, title: "Bank Statements", desc: "Last 3–6 months. Extracts: income flows, variability, recurring obligations.", formats: "PDF, JPEG, PNG" },
-                { key: "utility_bill", icon: Banknote, title: "Utility Bills", desc: "Electricity, water, or internet. Extracts: payment regularity, address verification.", formats: "PDF, JPEG" },
+                { key: "bank_statement", icon: CreditCard, title: "Bank Statements", desc: "Last 3–6 months. Extracts: income flows, variability, recurring obligations.", formats: "PDF, JPEG, PNG", accept: ".pdf,.jpg,.jpeg,.png" },
+                { key: "utility_bill", icon: Banknote, title: "Utility Bills", desc: "Electricity, water, or internet. Extracts: payment regularity, address verification.", formats: "PDF, JPEG", accept: ".pdf,.jpg,.jpeg" },
                 ...(category !== "retail" ? [
-                  { key: "trade_license", icon: Building2, title: config.businessRegistration.label, desc: "Business registration document. Extracts: registration date, activity codes, address.", formats: "PDF, JPEG" },
-                  { key: "financial_statement", icon: FileText, title: "Financial Statements / Receipts", desc: "P&L, balance sheet, or sales receipts. Extracts: revenue, margins, cash position.", formats: "PDF, XLSX" },
+                  { key: "trade_license", icon: Building2, title: config.businessRegistration.label, desc: "Business registration document. Extracts: registration date, activity codes, address.", formats: "PDF, JPEG", accept: ".pdf,.jpg,.jpeg" },
+                  { key: "financial_statement", icon: FileText, title: "Financial Statements / Receipts", desc: "P&L, balance sheet, or sales receipts. Extracts: revenue, margins, cash position.", formats: "PDF, XLSX", accept: ".pdf,.xlsx,.xls" },
                 ] : []),
-                { key: "id_copy", icon: Shield, title: "ID Document Copy", desc: "Clear photo of the selected ID. Used for KYC verification and identity matching.", formats: "JPEG, PNG" },
+                { key: "id_copy", icon: Shield, title: "ID Document Copy", desc: "Clear photo of the selected ID. Used for KYC verification and identity matching.", formats: "JPEG, PNG", accept: ".jpg,.jpeg,.png" },
               ].map(doc => (
                 <div key={doc.key} className="p-4 rounded-lg bg-muted/30 border border-border/50 border-dashed hover:border-primary/30 transition-colors">
                   <div className="flex items-start gap-3">
@@ -751,16 +786,66 @@ const NewApplicationWizard = () => {
                     </div>
                     <div className="flex flex-col items-end gap-2">
                       {documents[doc.key] ? (
-                        <Badge variant="outline" className="bg-success/10 text-success border-success/20 text-xs">Uploaded</Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="bg-success/10 text-success border-success/20 text-xs">
+                            <CheckCircle2 className="h-3 w-3 mr-1" /> Uploaded
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                            onClick={() => setDocuments(prev => {
+                              const next = { ...prev };
+                              delete next[doc.key];
+                              return next;
+                            })}
+                          >
+                            ×
+                          </Button>
+                        </div>
                       ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-1.5 text-xs border-border"
-                          onClick={() => setDocuments(prev => ({ ...prev, [doc.key]: "mock_file.pdf" }))}
-                        >
-                          <Upload className="h-3 w-3" /> Upload
-                        </Button>
+                        <>
+                          <input
+                            type="file"
+                            id={`file-${doc.key}`}
+                            className="hidden"
+                            accept={doc.accept}
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file || !institutionId) return;
+                              setUploadingDoc(doc.key);
+                              try {
+                                const filePath = `${institutionId}/pending/${doc.key}_${Date.now()}_${file.name}`;
+                                const { error: uploadErr } = await supabase.storage
+                                  .from("application-documents")
+                                  .upload(filePath, file);
+                                if (uploadErr) throw uploadErr;
+                                setDocuments(prev => ({ ...prev, [doc.key]: filePath }));
+                                toast({ title: "Document uploaded", description: `${doc.title} uploaded successfully. OCR extraction will run after submission.` });
+                              } catch (err: any) {
+                                console.error("Upload error:", err);
+                                toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+                              } finally {
+                                setUploadingDoc(null);
+                                e.target.value = "";
+                              }
+                            }}
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5 text-xs border-border"
+                            disabled={uploadingDoc === doc.key}
+                            onClick={() => document.getElementById(`file-${doc.key}`)?.click()}
+                          >
+                            {uploadingDoc === doc.key ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Upload className="h-3 w-3" />
+                            )}
+                            {uploadingDoc === doc.key ? "Uploading…" : "Upload"}
+                          </Button>
+                        </>
                       )}
                     </div>
                   </div>
