@@ -361,7 +361,7 @@ const ScoreJustification = ({
                   {impactIcons[rc.impact]}
                   <div>
                     <span className="text-xs font-mono font-medium">{rc.code}</span>
-                    <p className="text-sm mt-0.5">{rc.description}</p>
+                    <p className="text-sm mt-0.5 text-foreground">{rc.description}</p>
                   </div>
                 </div>
               ))}
