@@ -233,6 +233,118 @@ serve(async (req) => {
     // Call Lovable AI for extraction
     const lovableKey = Deno.env.get("LOVABLE_API_KEY")!;
 
+    // ── Phase 1: Document Validation ──
+    // Ask AI to classify and validate the document BEFORE extraction
+    console.log("extract-document: running document validation");
+
+    const validationSchema = {
+      name: "validate_document",
+      description: "Validate whether the uploaded document matches the expected type",
+      parameters: {
+        type: "object",
+        properties: {
+          is_valid: { type: "boolean", description: "True if the document genuinely matches the expected_type" },
+          detected_type: { 
+            type: "string", 
+            enum: ["bank_statement", "trade_license", "financial_statement", "utility_bill", "id_copy", "receipt", "invoice", "letter", "contract", "report", "presentation", "spreadsheet", "unknown", "junk"],
+            description: "What type of document this actually appears to be"
+          },
+          validation_reason: { type: "string", description: "Brief explanation of why the document is or isn't valid (e.g. 'This is a business proposal PDF, not a bank statement')" },
+          confidence: { type: "number", description: "0-1 confidence in the classification" },
+        },
+        required: ["is_valid", "detected_type", "validation_reason", "confidence"],
+        additionalProperties: false,
+      },
+    };
+
+    const validationPrompt = `You are a document verification specialist. Analyze this uploaded document and determine if it genuinely is a "${docType.replace(/_/g, " ")}".
+
+CRITICAL RULES:
+- A bank_statement MUST show bank account transactions, balances, deposits, withdrawals with dates. A random financial report, proposal, or spreadsheet is NOT a bank statement.
+- A utility_bill MUST be an actual bill from a utility provider (electricity, water, gas, internet) showing charges. A random document is NOT a utility bill.
+- A trade_license MUST be an official government/authority document granting permission to operate a business.
+- An id_copy MUST be a government-issued identification document (passport, national ID, driver's license).
+- A financial_statement MUST be formal accounting documents (P&L, balance sheet, cash flow statement).
+
+If the document does NOT match the expected type, set is_valid=false and identify what it actually is. Be strict — do not accept vaguely related documents.`;
+
+    const validationResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${lovableKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: validationPrompt },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: `Expected document type: "${docType.replace(/_/g, " ")}". Is this document valid?` },
+              { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64}` } },
+            ],
+          },
+        ],
+        tools: [{ type: "function", function: validationSchema }],
+        tool_choice: { type: "function", function: { name: "validate_document" } },
+      }),
+    });
+
+    if (!validationResponse.ok) {
+      const errStatus = validationResponse.status;
+      const errText = await validationResponse.text();
+      console.error("Validation AI error:", errStatus, errText);
+      // If validation fails, fall through to extraction anyway
+    }
+
+    let isValid = true;
+    let detectedType = docType;
+    let validationReason = "";
+
+    if (validationResponse.ok) {
+      const valData = await validationResponse.json();
+      const valToolCall = valData.choices?.[0]?.message?.tool_calls?.[0];
+      if (valToolCall) {
+        const valResult = JSON.parse(valToolCall.function.arguments);
+        isValid = valResult.is_valid;
+        detectedType = valResult.detected_type || docType;
+        validationReason = valResult.validation_reason || "";
+        console.log("extract-document: validation result:", JSON.stringify(valResult));
+      }
+    }
+
+    // If document is not valid, save as invalid and skip extraction
+    if (!isValid) {
+      console.log("extract-document: document INVALID, detected as:", detectedType);
+      await supabase
+        .from("document_extractions")
+        .update({
+          extraction_status: "invalid",
+          extracted_data: { 
+            is_valid: false, 
+            detected_type: detectedType, 
+            validation_reason: validationReason,
+            expected_type: docType,
+          },
+          confidence_score: 0,
+          error_message: `Invalid document: ${validationReason}`,
+        })
+        .eq("id", extraction_id);
+
+      return new Response(JSON.stringify({ 
+        success: false, 
+        is_valid: false, 
+        detected_type: detectedType,
+        validation_reason: validationReason,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ── Phase 2: Data Extraction (only for valid documents) ──
+    console.log("extract-document: document VALID, proceeding with extraction");
+
     const systemPrompt = `You are a document extraction specialist for African financial documents. Extract structured data from the provided document image/PDF with high accuracy. 
 Pay special attention to:
 - Currency amounts (distinguish between local currency and USD)
@@ -257,17 +369,11 @@ If data is unclear or missing, omit optional fields rather than guessing. Set co
             role: "user",
             content: [
               { type: "text", text: userPrompt },
-              {
-                type: "image_url",
-                image_url: { url: `data:${mimeType};base64,${base64}` },
-              },
+              { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64}` } },
             ],
           },
         ],
-        tools: [{
-          type: "function",
-          function: schema,
-        }],
+        tools: [{ type: "function", function: schema }],
         tool_choice: { type: "function", function: { name: schema.name } },
       }),
     });
@@ -306,6 +412,8 @@ If data is unclear or missing, omit optional fields rather than guessing. Set co
     }
 
     const extractedData = JSON.parse(toolCall.function.arguments);
+    extractedData.is_valid = true;
+    extractedData.detected_type = docType;
     const confidence = extractedData.confidence || 0.5;
 
     // Save extraction results

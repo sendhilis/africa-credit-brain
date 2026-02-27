@@ -410,11 +410,13 @@ const ApplicationDetail = () => {
                     {extraction ? (
                       <Badge variant="outline" className={`text-xs ml-auto ${
                         extraction.extraction_status === "completed" ? "bg-success/10 text-success border-success/20" :
+                        extraction.extraction_status === "invalid" ? "bg-warning/10 text-warning border-warning/20" :
                         extraction.extraction_status === "processing" ? "bg-primary/10 text-primary border-primary/20" :
                         extraction.extraction_status === "failed" ? "bg-destructive/10 text-destructive border-destructive/20" :
                         "bg-muted/50 text-muted-foreground border-border"
                       }`}>
                         {extraction.extraction_status === "completed" ? `OCR ✓ (${Math.round((extraction.confidence_score || 0) * 100)}%)` :
+                         extraction.extraction_status === "invalid" ? "⚠ Invalid Document" :
                          extraction.extraction_status === "processing" ? "Extracting…" :
                          extraction.extraction_status === "failed" ? "OCR Failed" : "Pending"}
                       </Badge>
@@ -424,6 +426,19 @@ const ApplicationDetail = () => {
                       </Badge>
                     )}
                   </div>
+                  {/* Show invalid document warning */}
+                  {extraction?.extraction_status === "invalid" && extraction.extracted_data && (
+                    <div className="mt-2 ml-5.5 p-2.5 rounded-md bg-warning/5 border border-warning/20">
+                      <div className="text-xs text-warning font-medium mb-1">Document does not match expected type</div>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                        <div><span className="text-muted-foreground">Expected:</span> <span className="text-foreground capitalize">{(extraction.extracted_data.expected_type || doc.type || "").replace(/_/g, " ")}</span></div>
+                        <div><span className="text-muted-foreground">Detected:</span> <span className="text-foreground capitalize">{(extraction.extracted_data.detected_type || "unknown").replace(/_/g, " ")}</span></div>
+                        {extraction.extracted_data.validation_reason && (
+                          <div className="col-span-2"><span className="text-muted-foreground">Reason:</span> <span className="text-foreground">{extraction.extracted_data.validation_reason}</span></div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   {/* Show extracted data summary */}
                   {extraction?.extraction_status === "completed" && extraction.extracted_data && (
                     <div className="mt-2 ml-5.5 p-2.5 rounded-md bg-muted/20 border border-border/30">
