@@ -514,8 +514,8 @@ serve(async (req) => {
 
     const borrower = app.borrower;
 
-    // Fetch time-series data in parallel
-    const [paymentRes, incomeRes] = await Promise.all([
+    // Fetch time-series data and OCR extractions in parallel
+    const [paymentRes, incomeRes, ocrRes] = await Promise.all([
       supabase
         .from("payment_history")
         .select("status, days_past_due, amount_due, amount_paid, due_date")
@@ -526,7 +526,35 @@ serve(async (req) => {
         .select("income_amount, period_start, period_end")
         .eq("borrower_id", app.borrower_id)
         .order("period_start", { ascending: true }),
+      supabase
+        .from("document_extractions")
+        .select("document_type, extracted_data, extraction_status, confidence_score")
+        .eq("application_id", application_id)
+        .eq("extraction_status", "completed"),
     ]);
+
+    // Enrich application data with OCR extractions before scoring
+    const ocrExtractions = ocrRes.data || [];
+    const bankExtraction = ocrExtractions.find((e: any) => e.document_type === "bank_statement");
+    const financialExtraction = ocrExtractions.find((e: any) => e.document_type === "financial_statement");
+
+    if (bankExtraction?.extracted_data) {
+      const bd = bankExtraction.extracted_data;
+      // Use OCR income/expenses if not already set or if OCR confidence is high
+      if (bd.average_monthly_income && (!app.monthly_income || bankExtraction.confidence_score > 0.7)) {
+        app.monthly_income = bd.average_monthly_income;
+      }
+      if (bd.average_monthly_expenses && (!app.monthly_expenses || bankExtraction.confidence_score > 0.7)) {
+        app.monthly_expenses = bd.average_monthly_expenses;
+      }
+    }
+
+    if (financialExtraction?.extracted_data) {
+      const fd = financialExtraction.extracted_data;
+      if (fd.monthly_revenue_estimate && !app.monthly_revenue) {
+        app.monthly_revenue = fd.monthly_revenue_estimate;
+      }
+    }
 
     // Run the scorecard
     const result = runScorecard({
@@ -567,6 +595,9 @@ APPLICATION CONTEXT:
 - Collateral: ${app.collateral || "None"}
 - Borrower: ${borrower?.full_name}, Age: ${borrower?.date_of_birth || "N/A"}, Gender: ${borrower?.gender || "N/A"}
 ${app.product_category !== "retail" ? `- Business: ${borrower?.business_name || "N/A"}, Sector: ${borrower?.sector || "N/A"}, Years: ${borrower?.years_in_operation || "N/A"}` : ""}
+
+OCR DOCUMENT EXTRACTIONS:
+${ocrExtractions.length > 0 ? ocrExtractions.map((e: any) => `- ${e.document_type}: ${JSON.stringify(e.extracted_data)}`).join("\n") : "No OCR extractions available"}
 
 Use the provide_insights tool to return your analysis.`;
 

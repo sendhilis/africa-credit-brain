@@ -241,6 +241,63 @@ export type Database = {
           },
         ]
       }
+      document_extractions: {
+        Row: {
+          application_id: string
+          confidence_score: number | null
+          created_at: string
+          document_type: string
+          error_message: string | null
+          extracted_data: Json | null
+          extraction_status: string
+          id: string
+          institution_id: string
+          storage_path: string
+          updated_at: string
+        }
+        Insert: {
+          application_id: string
+          confidence_score?: number | null
+          created_at?: string
+          document_type: string
+          error_message?: string | null
+          extracted_data?: Json | null
+          extraction_status?: string
+          id?: string
+          institution_id: string
+          storage_path: string
+          updated_at?: string
+        }
+        Update: {
+          application_id?: string
+          confidence_score?: number | null
+          created_at?: string
+          document_type?: string
+          error_message?: string | null
+          extracted_data?: Json | null
+          extraction_status?: string
+          id?: string
+          institution_id?: string
+          storage_path?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_extractions_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_extractions_institution_id_fkey"
+            columns: ["institution_id"]
+            isOneToOne: false
+            referencedRelation: "institutions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       income_history: {
         Row: {
           borrower_id: string
