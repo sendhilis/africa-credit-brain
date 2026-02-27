@@ -27,7 +27,42 @@ const getStatusColor = (status: string) => {
   return "bg-destructive/20 text-destructive border-destructive/30";
 };
 
+const countryIdHints: Record<string, string> = {
+  kenya: "National ID / Huduma Namba",
+  nigeria: "BVN / NIN / Voter's Card",
+  ghana: "Ghana Card / Voter ID",
+  rwanda: "National ID (Indangamuntu)",
+  senegal: "CNI / NINEA",
+  tanzania: "NIDA / Voter ID",
+  zimbabwe: "National ID / Passport",
+  sierra_leone: "National ID / Voter ID",
+  mali: "NINA / CNI",
+  uganda: "NIN / Voter ID",
+  south_africa: "RSA ID / Passport",
+  mozambique: "BI / NUIT",
+  zambia: "NRC / Passport",
+  ethiopia: "Kebele ID / Fayda ID",
+};
+
+const countryPhoneHints: Record<string, string> = {
+  kenya: "+254 7XX XXX XXX",
+  nigeria: "+234 8XX XXX XXXX",
+  ghana: "+233 XX XXX XXXX",
+  rwanda: "+250 78X XXX XXX",
+  senegal: "+221 7X XXX XXXX",
+  tanzania: "+255 7XX XXX XXX",
+  zimbabwe: "+263 7X XXX XXXX",
+  sierra_leone: "+232 XX XXXXXX",
+  mali: "+223 XX XX XX XX",
+  uganda: "+256 7XX XXX XXX",
+  south_africa: "+27 XX XXX XXXX",
+  mozambique: "+258 8X XXX XXXX",
+  zambia: "+260 9XX XXX XXX",
+  ethiopia: "+251 9XX XXX XXX",
+};
+
 const NewApplicationModal = () => {
+  const [country, setCountry] = useState("");
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -52,16 +87,8 @@ const NewApplicationModal = () => {
                 <Input placeholder="Enter borrower name" className="mt-1 bg-muted/50 border-border" />
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground">ID Type & Number</Label>
-                <Input placeholder="NIN / BVN / National ID" className="mt-1 bg-muted/50 border-border" />
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">Mobile Number</Label>
-                <Input placeholder="+254 700 000 000" className="mt-1 bg-muted/50 border-border" />
-              </div>
-              <div>
                 <Label className="text-xs text-muted-foreground">Country</Label>
-                <Select>
+                <Select value={country} onValueChange={setCountry}>
                   <SelectTrigger className="mt-1 bg-muted/50 border-border">
                     <SelectValue placeholder="Select country" />
                   </SelectTrigger>
@@ -72,8 +99,24 @@ const NewApplicationModal = () => {
                     <SelectItem value="rwanda">Rwanda</SelectItem>
                     <SelectItem value="senegal">Senegal</SelectItem>
                     <SelectItem value="tanzania">Tanzania</SelectItem>
+                    <SelectItem value="zimbabwe">Zimbabwe</SelectItem>
+                    <SelectItem value="sierra_leone">Sierra Leone</SelectItem>
+                    <SelectItem value="mali">Mali</SelectItem>
+                    <SelectItem value="uganda">Uganda</SelectItem>
+                    <SelectItem value="south_africa">South Africa</SelectItem>
+                    <SelectItem value="mozambique">Mozambique</SelectItem>
+                    <SelectItem value="zambia">Zambia</SelectItem>
+                    <SelectItem value="ethiopia">Ethiopia</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">ID Type & Number</Label>
+                <Input placeholder={countryIdHints[country] || "National ID number"} className="mt-1 bg-muted/50 border-border" />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Mobile Number</Label>
+                <Input placeholder={countryPhoneHints[country] || "+XXX XXX XXX XXX"} className="mt-1 bg-muted/50 border-border" />
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Requested Amount</Label>
