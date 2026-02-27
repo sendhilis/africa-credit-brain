@@ -14,6 +14,7 @@ import Reports from "./pages/Reports";
 import Fairness from "./pages/Fairness";
 import Developers from "./pages/Developers";
 import Admin from "./pages/Admin";
+import ApplicationDetail from "./pages/ApplicationDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/applications" element={<ProtectedRoute><Applications /></ProtectedRoute>} />
+            <Route path="/applications/:id" element={<ProtectedRoute><ApplicationDetail /></ProtectedRoute>} />
             <Route path="/integrations" element={<ProtectedRoute><Integrations /></ProtectedRoute>} />
             <Route path="/models" element={<ProtectedRoute><Models /></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
