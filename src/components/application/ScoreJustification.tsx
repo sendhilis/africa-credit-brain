@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import GlassCard from "@/components/GlassCard";
 import {
   TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle2, XCircle,
-  Activity, BarChart3, Layers
+  Activity, BarChart3, Layers, Sparkles, ShieldAlert, ShieldCheck, CircleHelp
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -49,6 +49,20 @@ interface TimeSeriesFeatures {
   };
 }
 
+interface AIInsights {
+  score_adjustment?: {
+    direction: "increase" | "decrease" | "maintain";
+    magnitude: "minor" | "moderate" | "significant";
+    adjusted_score: number;
+    rationale: string;
+  };
+  risk_flags?: Array<{ flag: string; severity: "low" | "medium" | "high"; detail: string }>;
+  mitigants?: Array<{ factor: string; detail: string }>;
+  data_gaps?: string[];
+  narrative?: string;
+  error?: string;
+}
+
 interface ScoreJustificationProps {
   score: number;
   scoreBand: string;
@@ -61,6 +75,7 @@ interface ScoreJustificationProps {
   modelVersion?: string;
   woeDetails?: WoEDetail[];
   timeSeriesFeatures?: TimeSeriesFeatures;
+  aiInsights?: AIInsights | null;
 }
 
 const impactIcons = {
@@ -103,6 +118,7 @@ const ScoreJustification = ({
   modelVersion,
   woeDetails,
   timeSeriesFeatures,
+  aiInsights,
 }: ScoreJustificationProps) => {
   const recConfig = recommendationConfig[recommendation as keyof typeof recommendationConfig] || recommendationConfig.review;
   const RecIcon = recConfig.icon;
@@ -232,6 +248,11 @@ const ScoreJustification = ({
             <TabsTrigger value="woe">WoE Details</TabsTrigger>
           )}
           <TabsTrigger value="reasons">Reason Codes</TabsTrigger>
+          {aiInsights && !aiInsights.error && (
+            <TabsTrigger value="ai" className="gap-1">
+              <Sparkles className="h-3.5 w-3.5" /> AI Insights
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* Factor Breakdown */}
@@ -347,6 +368,117 @@ const ScoreJustification = ({
             </div>
           </GlassCard>
         </TabsContent>
+
+        {/* AI Insights */}
+        {aiInsights && !aiInsights.error && (
+          <TabsContent value="ai">
+            <div className="space-y-4">
+              {/* Score Adjustment Suggestion */}
+              {aiInsights.score_adjustment && (
+                <GlassCard hover={false}>
+                  <h3 className="font-display text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-accent" /> AI Score Assessment
+                  </h3>
+                  <div className="flex items-start gap-4 mb-3">
+                    <div className={`px-4 py-3 rounded-lg border text-center min-w-[120px] ${
+                      aiInsights.score_adjustment.direction === "increase"
+                        ? "bg-success/10 border-success/20"
+                        : aiInsights.score_adjustment.direction === "decrease"
+                          ? "bg-destructive/10 border-destructive/20"
+                          : "bg-muted/50 border-border"
+                    }`}>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider">Suggested</p>
+                      <p className="font-display text-2xl font-bold text-foreground mt-1">
+                        {aiInsights.score_adjustment.adjusted_score}
+                      </p>
+                      <p className={`text-xs font-medium mt-1 ${
+                        aiInsights.score_adjustment.direction === "increase" ? "text-success" :
+                          aiInsights.score_adjustment.direction === "decrease" ? "text-destructive" : "text-muted-foreground"
+                      }`}>
+                        {aiInsights.score_adjustment.direction === "increase" ? "↑" :
+                          aiInsights.score_adjustment.direction === "decrease" ? "↓" : "→"}{" "}
+                        {aiInsights.score_adjustment.magnitude} {aiInsights.score_adjustment.direction === "maintain" ? "— no change" : aiInsights.score_adjustment.direction}
+                      </p>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm text-foreground/90 leading-relaxed">{aiInsights.score_adjustment.rationale}</p>
+                    </div>
+                  </div>
+                  {aiInsights.narrative && (
+                    <div className="mt-3 p-3 rounded-lg bg-accent/5 border border-accent/10">
+                      <p className="text-sm text-foreground/80 leading-relaxed italic">{aiInsights.narrative}</p>
+                    </div>
+                  )}
+                </GlassCard>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Risk Flags */}
+                {aiInsights.risk_flags && aiInsights.risk_flags.length > 0 && (
+                  <GlassCard hover={false}>
+                    <h3 className="font-display text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                      <ShieldAlert className="h-4 w-4 text-destructive" /> Risk Flags
+                    </h3>
+                    <div className="space-y-2">
+                      {aiInsights.risk_flags.map((rf, i) => (
+                        <div key={i} className={`p-2.5 rounded-lg border ${
+                          rf.severity === "high" ? "bg-destructive/10 border-destructive/20" :
+                            rf.severity === "medium" ? "bg-warning/10 border-warning/20" :
+                              "bg-muted/50 border-border"
+                        }`}>
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge variant="outline" className={`text-xs ${
+                              rf.severity === "high" ? "border-destructive/30 text-destructive" :
+                                rf.severity === "medium" ? "border-warning/30 text-warning" :
+                                  "border-border text-muted-foreground"
+                            }`}>
+                              {rf.severity}
+                            </Badge>
+                            <span className="text-sm font-medium text-foreground">{rf.flag}</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">{rf.detail}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </GlassCard>
+                )}
+
+                {/* Mitigants */}
+                {aiInsights.mitigants && aiInsights.mitigants.length > 0 && (
+                  <GlassCard hover={false}>
+                    <h3 className="font-display text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                      <ShieldCheck className="h-4 w-4 text-success" /> Mitigating Factors
+                    </h3>
+                    <div className="space-y-2">
+                      {aiInsights.mitigants.map((m, i) => (
+                        <div key={i} className="p-2.5 rounded-lg border bg-success/5 border-success/15">
+                          <span className="text-sm font-medium text-foreground">{m.factor}</span>
+                          <p className="text-xs text-muted-foreground mt-0.5">{m.detail}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </GlassCard>
+                )}
+              </div>
+
+              {/* Data Gaps */}
+              {aiInsights.data_gaps && aiInsights.data_gaps.length > 0 && (
+                <GlassCard hover={false}>
+                  <h3 className="font-display text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                    <CircleHelp className="h-4 w-4 text-accent" /> Data Gaps — Could Improve Accuracy
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {aiInsights.data_gaps.map((gap, i) => (
+                      <Badge key={i} variant="outline" className="text-xs bg-accent/5 border-accent/20 text-accent">
+                        {gap}
+                      </Badge>
+                    ))}
+                  </div>
+                </GlassCard>
+              )}
+            </div>
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
