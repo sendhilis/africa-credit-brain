@@ -1,0 +1,1 @@
+ALTER TABLE public.applications ADD COLUMN bureau_score integer NULL;

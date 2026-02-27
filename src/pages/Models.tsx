@@ -11,8 +11,8 @@ import { useState } from "react";
 // ─── Actual model data from score-application edge function ───
 
 const MODEL_META = {
-  name: "WoE/IV Logistic Regression Scorecard",
-  version: "v1.0",
+  name: "WoE/IV Logistic Regression Scorecard + Bureau",
+  version: "v1.1",
   calibration: "African lending markets (Kenya, Nigeria, Ghana, Uganda, Rwanda)",
   baseScore: 600,
   baseOdds: "50:1 good-to-bad",
@@ -20,19 +20,20 @@ const MODEL_META = {
   scoreRange: "300 – 900",
 };
 
-const MODEL_COEFFICIENTS: Record<string, { label: string; beta: number; weight: number }> = {
+const MODEL_COEFFICIENTS: Record<string, { label: string; beta: number; weight: number; note?: string }> = {
   intercept:              { label: "Intercept",              beta: -1.80, weight: 0 },
-  payment_history_score:  { label: "Payment History",        beta: -1.20, weight: 25 },
-  debt_to_income:         { label: "Debt-to-Income Ratio",   beta:  0.85, weight: 18 },
-  income_stability_cv:    { label: "Income Stability (CV)",  beta:  0.72, weight: 15 },
-  loan_to_income:         { label: "Loan-to-Income Ratio",   beta:  0.65, weight: 12 },
-  savings_ratio:          { label: "Savings Capacity",       beta: -0.48, weight: 10 },
+  bureau_score:           { label: "Credit Bureau Score",    beta: -1.50, weight: 30, note: "PRIMARY — only when available" },
+  payment_history_score:  { label: "Payment History",        beta: -1.20, weight: 17 },
+  debt_to_income:         { label: "Debt-to-Income Ratio",   beta:  0.85, weight: 13 },
+  income_stability_cv:    { label: "Income Stability (CV)",  beta:  0.72, weight: 10 },
+  loan_to_income:         { label: "Loan-to-Income Ratio",   beta:  0.65, weight: 8 },
+  savings_ratio:          { label: "Savings Capacity",       beta: -0.48, weight: 7 },
   employment_stability:   { label: "Employment Stability",   beta: -0.55, weight: 0 },
-  age:                    { label: "Borrower Age",           beta: -0.42, weight: 6 },
-  existing_loan_count:    { label: "Existing Obligations",   beta:  0.38, weight: 5 },
+  age:                    { label: "Borrower Age",           beta: -0.42, weight: 4 },
+  existing_loan_count:    { label: "Existing Obligations",   beta:  0.38, weight: 4 },
   collateral_flag:        { label: "Collateral",             beta: -0.35, weight: 2 },
-  business_years:         { label: "Business Tenure",        beta: -0.28, weight: 4 },
-  dependents:             { label: "Dependents",             beta:  0.15, weight: 3 },
+  business_years:         { label: "Business Tenure",        beta: -0.28, weight: 3 },
+  dependents:             { label: "Dependents",             beta:  0.15, weight: 2 },
 };
 
 interface WoEBin {
@@ -44,6 +45,18 @@ interface WoEBin {
 }
 
 const WOE_BINS: Record<string, { label: string; bins: WoEBin[] }> = {
+  bureau_score: {
+    label: "Credit Bureau Score",
+    bins: [
+      { label: "Excellent (750+)",       min: 750, max: 900, woe: -1.45, event_rate: 0.02 },
+      { label: "Good (700-749)",         min: 700, max: 749, woe: -0.85, event_rate: 0.04 },
+      { label: "Fair (650-699)",         min: 650, max: 699, woe: -0.25, event_rate: 0.08 },
+      { label: "Below Average (600-649)",min: 600, max: 649, woe:  0.35, event_rate: 0.14 },
+      { label: "Poor (500-599)",         min: 500, max: 599, woe:  0.82, event_rate: 0.24 },
+      { label: "Very Poor (<500)",       min: 0,   max: 499, woe:  1.55, event_rate: 0.42 },
+      { label: "No Bureau Data",         min: -1,  max: -1,  woe:  0.10, event_rate: 0.11 },
+    ],
+  },
   debt_to_income: {
     label: "Debt-to-Income Ratio",
     bins: [
@@ -236,8 +249,8 @@ const Models = () => {
         {/* Coefficients Tab */}
         <TabsContent value="coefficients">
           <GlassCard hover={false}>
-            <h2 className="mb-1 font-display text-lg font-semibold text-foreground">Model Coefficients (β)</h2>
-            <p className="mb-4 text-xs text-muted-foreground">Logistic regression coefficients — positive β increases risk (higher PD), negative β decreases risk</p>
+            <h2 className="mb-1 font-display text-lg font-semibold text-foreground">Model Coefficients (β) — v1.1</h2>
+            <p className="mb-4 text-xs text-muted-foreground">Logistic regression coefficients — positive β increases risk (higher PD), negative β decreases risk. Bureau Score receives primary weight when available.</p>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>

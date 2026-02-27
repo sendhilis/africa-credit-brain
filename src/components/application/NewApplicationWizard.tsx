@@ -310,6 +310,7 @@ const NewApplicationWizard = () => {
         usd_income: formData.usd_income ? parseFloat(formData.usd_income) : null,
         usd_revenue: formData.usd_revenue ? parseFloat(formData.usd_revenue) : null,
         export_income_pct: formData.export_income ? parseFloat(formData.export_income) : null,
+        bureau_score: formData.bureau_score ? parseInt(formData.bureau_score) : null,
         alt_data_consents: altDataConsents,
         documents: Object.entries(documents).map(([type, filename]) => ({ type, filename })),
         psychometric_method: psychometricMethod || null,
@@ -616,6 +617,15 @@ const NewApplicationWizard = () => {
                   </Field>
                 </FieldGroup>
               )}
+
+              <FieldGroup label="Credit Bureau Score (if available)">
+                <Field label="Bureau Score (300-900)" span2>
+                  <Input type="number" placeholder="e.g. 720 — leave blank if not available" className="bg-muted/50 border-border" min={300} max={900} value={formData.bureau_score || ""} onChange={e => updateField("bureau_score", e.target.value)} />
+                </Field>
+                <p className="col-span-2 text-xs text-muted-foreground -mt-1">
+                  If a Credit Bureau score is available, it receives <span className="font-semibold text-primary">primary weight (30%)</span> in the scoring model. Leave blank if the borrower has no bureau record.
+                </p>
+              </FieldGroup>
 
               <FieldGroup label="Banking Details">
                 <Field label="Primary Bank">

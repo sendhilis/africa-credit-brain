@@ -19,6 +19,7 @@ export type Database = {
           alt_data_consents: Json | null
           app_code: string
           borrower_id: string
+          bureau_score: number | null
           collateral: string | null
           country: string
           created_at: string
@@ -58,6 +59,7 @@ export type Database = {
           alt_data_consents?: Json | null
           app_code?: string
           borrower_id: string
+          bureau_score?: number | null
           collateral?: string | null
           country: string
           created_at?: string
@@ -97,6 +99,7 @@ export type Database = {
           alt_data_consents?: Json | null
           app_code?: string
           borrower_id?: string
+          bureau_score?: number | null
           collateral?: string | null
           country?: string
           created_at?: string
