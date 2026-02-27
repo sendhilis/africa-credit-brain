@@ -238,6 +238,60 @@ export type Database = {
           },
         ]
       }
+      income_history: {
+        Row: {
+          borrower_id: string
+          created_at: string
+          currency: string
+          id: string
+          income_amount: number
+          income_source: string | null
+          institution_id: string
+          period_end: string
+          period_start: string
+          verified: boolean | null
+        }
+        Insert: {
+          borrower_id: string
+          created_at?: string
+          currency?: string
+          id?: string
+          income_amount: number
+          income_source?: string | null
+          institution_id: string
+          period_end: string
+          period_start: string
+          verified?: boolean | null
+        }
+        Update: {
+          borrower_id?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          income_amount?: number
+          income_source?: string | null
+          institution_id?: string
+          period_end?: string
+          period_start?: string
+          verified?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "income_history_borrower_id_fkey"
+            columns: ["borrower_id"]
+            isOneToOne: false
+            referencedRelation: "borrowers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "income_history_institution_id_fkey"
+            columns: ["institution_id"]
+            isOneToOne: false
+            referencedRelation: "institutions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       institutions: {
         Row: {
           country: string
@@ -267,6 +321,85 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      payment_history: {
+        Row: {
+          amount_due: number
+          amount_paid: number | null
+          application_id: string | null
+          borrower_id: string
+          created_at: string
+          currency: string
+          days_past_due: number | null
+          due_date: string
+          id: string
+          installment_number: number
+          institution_id: string
+          loan_amount: number
+          paid_date: string | null
+          status: string
+          total_installments: number
+          updated_at: string
+        }
+        Insert: {
+          amount_due: number
+          amount_paid?: number | null
+          application_id?: string | null
+          borrower_id: string
+          created_at?: string
+          currency?: string
+          days_past_due?: number | null
+          due_date: string
+          id?: string
+          installment_number: number
+          institution_id: string
+          loan_amount: number
+          paid_date?: string | null
+          status?: string
+          total_installments: number
+          updated_at?: string
+        }
+        Update: {
+          amount_due?: number
+          amount_paid?: number | null
+          application_id?: string | null
+          borrower_id?: string
+          created_at?: string
+          currency?: string
+          days_past_due?: number | null
+          due_date?: string
+          id?: string
+          installment_number?: number
+          institution_id?: string
+          loan_amount?: number
+          paid_date?: string | null
+          status?: string
+          total_installments?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_history_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_history_borrower_id_fkey"
+            columns: ["borrower_id"]
+            isOneToOne: false
+            referencedRelation: "borrowers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_history_institution_id_fkey"
+            columns: ["institution_id"]
+            isOneToOne: false
+            referencedRelation: "institutions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -302,6 +435,62 @@ export type Database = {
             columns: ["institution_id"]
             isOneToOne: false
             referencedRelation: "institutions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scorecard_results: {
+        Row: {
+          application_id: string
+          base_score: number
+          feature_contributions: Json
+          final_score: number
+          id: string
+          model_version: string
+          probability_of_default: number
+          recommendation: string
+          score_band: string
+          scored_at: string
+          summary: string | null
+          time_series_features: Json
+          woe_details: Json
+        }
+        Insert: {
+          application_id: string
+          base_score: number
+          feature_contributions?: Json
+          final_score: number
+          id?: string
+          model_version?: string
+          probability_of_default: number
+          recommendation: string
+          score_band: string
+          scored_at?: string
+          summary?: string | null
+          time_series_features?: Json
+          woe_details?: Json
+        }
+        Update: {
+          application_id?: string
+          base_score?: number
+          feature_contributions?: Json
+          final_score?: number
+          id?: string
+          model_version?: string
+          probability_of_default?: number
+          recommendation?: string
+          score_band?: string
+          scored_at?: string
+          summary?: string | null
+          time_series_features?: Json
+          woe_details?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scorecard_results_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
             referencedColumns: ["id"]
           },
         ]
