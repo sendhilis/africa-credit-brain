@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import InstitutionOnboardingDialog from "@/components/admin/InstitutionOnboardingDialog";
 import InstitutionUsersPanel from "@/components/admin/InstitutionUsersPanel";
+import InstitutionSettingsDialog from "@/components/admin/InstitutionSettingsDialog";
 
 interface Institution {
   id: string;
@@ -20,6 +21,8 @@ const Admin = () => {
   const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [selectedInstitution, setSelectedInstitution] = useState<Institution | null>(null);
 
   const fetchInstitutions = useCallback(async () => {
     setLoading(true);
@@ -73,7 +76,11 @@ const Admin = () => {
                         {inst.status}
                       </Badge>
                     </td>
-                    <td className="py-3"><Button size="sm" variant="ghost"><Settings className="h-4 w-4" /></Button></td>
+                    <td className="py-3">
+                      <Button size="sm" variant="ghost" onClick={() => { setSelectedInstitution(inst); setSettingsOpen(true); }}>
+                        <Settings className="h-4 w-4" />
+                      </Button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -90,6 +97,13 @@ const Admin = () => {
       <InstitutionOnboardingDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
+        onSuccess={fetchInstitutions}
+      />
+
+      <InstitutionSettingsDialog
+        institution={selectedInstitution}
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
         onSuccess={fetchInstitutions}
       />
     </DashboardLayout>
