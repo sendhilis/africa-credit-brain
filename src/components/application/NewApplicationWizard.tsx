@@ -332,11 +332,17 @@ const NewApplicationWizard = () => {
       const docEntries = Object.entries(documents);
       if (docEntries.length > 0 && appResult?.id) {
         for (const [docType, storagePath] of docEntries) {
-          // Move file from pending to application folder
+          // Try to move file from pending to application folder
           const newPath = `${institutionId}/${appResult.id}/${storagePath.split('/').pop()}`;
-          await supabase.storage
+          const { error: moveErr } = await supabase.storage
             .from("application-documents")
             .move(storagePath, newPath);
+
+          // Use whichever path the file is actually at
+          const finalPath = moveErr ? storagePath : newPath;
+          if (moveErr) {
+            console.warn("File move failed, using original path:", moveErr.message);
+          }
 
           // Create extraction record
           const { data: extractionRecord } = await supabase
@@ -345,7 +351,7 @@ const NewApplicationWizard = () => {
               application_id: appResult.id,
               institution_id: institutionId,
               document_type: docType,
-              storage_path: newPath,
+              storage_path: finalPath,
               extraction_status: "pending",
             })
             .select("id")
