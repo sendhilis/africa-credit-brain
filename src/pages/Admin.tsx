@@ -2,9 +2,10 @@ import DashboardLayout from "@/components/DashboardLayout";
 import GlassCard from "@/components/GlassCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Settings, Users, Building2, Globe, Loader2 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Settings, Building2, Globe, Loader2 } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import InstitutionOnboardingDialog from "@/components/admin/InstitutionOnboardingDialog";
 
 interface Institution {
   id: string;
@@ -17,15 +18,16 @@ interface Institution {
 const Admin = () => {
   const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
-  useEffect(() => {
-    const fetch = async () => {
-      const { data } = await supabase.from("institutions").select("*").order("created_at", { ascending: false });
-      if (data) setInstitutions(data);
-      setLoading(false);
-    };
-    fetch();
+  const fetchInstitutions = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase.from("institutions").select("*").order("created_at", { ascending: false });
+    if (data) setInstitutions(data);
+    setLoading(false);
   }, []);
+
+  useEffect(() => { fetchInstitutions(); }, [fetchInstitutions]);
 
   return (
     <DashboardLayout>
@@ -34,7 +36,9 @@ const Admin = () => {
           <h1 className="font-display text-3xl font-bold text-foreground">Admin</h1>
           <p className="mt-1 text-sm text-muted-foreground">Manage institutions, users, and platform settings</p>
         </div>
-        <Button className="gap-2"><Building2 className="h-4 w-4" /> Onboard Institution</Button>
+        <Button className="gap-2" onClick={() => setDialogOpen(true)}>
+          <Building2 className="h-4 w-4" /> Onboard Institution
+        </Button>
       </div>
 
       <GlassCard hover={false}>
@@ -62,7 +66,9 @@ const Admin = () => {
                     <td className="py-3 text-muted-foreground flex items-center gap-1"><Globe className="h-3 w-3" />{inst.country}</td>
                     <td className="py-3 text-muted-foreground">{inst.products}</td>
                     <td className="py-3">
-                      <Badge variant="outline" className={inst.status === "Active" ? "bg-success/20 text-success border-success/30" : "bg-warning/20 text-warning border-warning/30"}>
+                      <Badge variant="outline" className={
+                        inst.status === "Active" ? "bg-success/20 text-success border-success/30" : "bg-warning/20 text-warning border-warning/30"
+                      }>
                         {inst.status}
                       </Badge>
                     </td>
@@ -74,6 +80,12 @@ const Admin = () => {
           </div>
         )}
       </GlassCard>
+
+      <InstitutionOnboardingDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onSuccess={fetchInstitutions}
+      />
     </DashboardLayout>
   );
 };
