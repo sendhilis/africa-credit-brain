@@ -222,28 +222,16 @@ const NewApplicationWizard = () => {
     }, 5000);
   };
 
+  // Yambukai Finance institution ID (temporary - will use auth-based lookup later)
+  const YAMBUKAI_INSTITUTION_ID = "da80e9d9-02bf-48f0-beb5-57cb9d148b08";
+
   const handleSubmit = async () => {
     if (!config || !country) return;
 
     setSubmitting(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      let institutionId: string | null = null;
-      if (user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("institution_id")
-          .eq("user_id", user.id)
-          .single();
-        institutionId = profile?.institution_id ?? null;
-      }
-
-      if (!institutionId) {
-        toast({ title: "No institution linked", description: "Your profile must be linked to an institution to create applications.", variant: "destructive" });
-        setSubmitting(false);
-        return;
-      }
+      const institutionId = YAMBUKAI_INSTITUTION_ID;
+      const userId = null; // No auth yet
 
       const borrowerPayload = {
         institution_id: institutionId,
@@ -285,7 +273,7 @@ const NewApplicationWizard = () => {
       const applicationPayload = {
         institution_id: institutionId,
         borrower_id: borrower.id,
-        created_by: user!.id,
+        created_by: userId,
         country,
         product_category: category,
         product_type: formData.product || null,
