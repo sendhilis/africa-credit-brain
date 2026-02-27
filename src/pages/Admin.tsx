@@ -6,6 +6,7 @@ import { Settings, Building2, Globe, Loader2 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import InstitutionOnboardingDialog from "@/components/admin/InstitutionOnboardingDialog";
+import InstitutionUsersPanel from "@/components/admin/InstitutionUsersPanel";
 
 interface Institution {
   id: string;
@@ -80,6 +81,11 @@ const Admin = () => {
           </div>
         )}
       </GlassCard>
+
+      {/* User Management */}
+      <div className="mt-6">
+        <InstitutionUsersPanel />
+      </div>
 
       <InstitutionOnboardingDialog
         open={dialogOpen}

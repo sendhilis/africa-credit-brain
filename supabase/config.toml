@@ -2,3 +2,9 @@ project_id = "vbzyihhaqtqpozrxvggr"
 
 [functions.score-application]
 verify_jwt = false
+
+[functions.onboard-institution]
+verify_jwt = false
+
+[functions.manage-institution-users]
+verify_jwt = false
