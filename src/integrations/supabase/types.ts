@@ -14,16 +14,351 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      applications: {
+        Row: {
+          alt_data_consents: Json | null
+          app_code: string
+          borrower_id: string
+          collateral: string | null
+          country: string
+          created_at: string
+          created_by: string | null
+          currency: string | null
+          dependents: number | null
+          documents: Json | null
+          employer: string | null
+          existing_loans: string | null
+          export_income_pct: number | null
+          id: string
+          institution_id: string
+          monthly_expenses: number | null
+          monthly_income: number | null
+          monthly_rent: number | null
+          monthly_revenue: number | null
+          notes: string | null
+          probability_of_default: number | null
+          product_category: Database["public"]["Enums"]["product_category"]
+          product_type: string | null
+          psychometric_method: string | null
+          psychometric_phone: string | null
+          psychometric_status: string | null
+          purpose: string | null
+          reason_codes: Json | null
+          requested_amount: number | null
+          score: number | null
+          score_band: string | null
+          scored_at: string | null
+          status: Database["public"]["Enums"]["application_status"]
+          tenor_months: number | null
+          updated_at: string
+          usd_income: number | null
+          usd_revenue: number | null
+        }
+        Insert: {
+          alt_data_consents?: Json | null
+          app_code?: string
+          borrower_id: string
+          collateral?: string | null
+          country: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string | null
+          dependents?: number | null
+          documents?: Json | null
+          employer?: string | null
+          existing_loans?: string | null
+          export_income_pct?: number | null
+          id?: string
+          institution_id: string
+          monthly_expenses?: number | null
+          monthly_income?: number | null
+          monthly_rent?: number | null
+          monthly_revenue?: number | null
+          notes?: string | null
+          probability_of_default?: number | null
+          product_category?: Database["public"]["Enums"]["product_category"]
+          product_type?: string | null
+          psychometric_method?: string | null
+          psychometric_phone?: string | null
+          psychometric_status?: string | null
+          purpose?: string | null
+          reason_codes?: Json | null
+          requested_amount?: number | null
+          score?: number | null
+          score_band?: string | null
+          scored_at?: string | null
+          status?: Database["public"]["Enums"]["application_status"]
+          tenor_months?: number | null
+          updated_at?: string
+          usd_income?: number | null
+          usd_revenue?: number | null
+        }
+        Update: {
+          alt_data_consents?: Json | null
+          app_code?: string
+          borrower_id?: string
+          collateral?: string | null
+          country?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string | null
+          dependents?: number | null
+          documents?: Json | null
+          employer?: string | null
+          existing_loans?: string | null
+          export_income_pct?: number | null
+          id?: string
+          institution_id?: string
+          monthly_expenses?: number | null
+          monthly_income?: number | null
+          monthly_rent?: number | null
+          monthly_revenue?: number | null
+          notes?: string | null
+          probability_of_default?: number | null
+          product_category?: Database["public"]["Enums"]["product_category"]
+          product_type?: string | null
+          psychometric_method?: string | null
+          psychometric_phone?: string | null
+          psychometric_status?: string | null
+          purpose?: string | null
+          reason_codes?: Json | null
+          requested_amount?: number | null
+          score?: number | null
+          score_band?: string | null
+          scored_at?: string | null
+          status?: Database["public"]["Enums"]["application_status"]
+          tenor_months?: number | null
+          updated_at?: string
+          usd_income?: number | null
+          usd_revenue?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "applications_borrower_id_fkey"
+            columns: ["borrower_id"]
+            isOneToOne: false
+            referencedRelation: "borrowers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_institution_id_fkey"
+            columns: ["institution_id"]
+            isOneToOne: false
+            referencedRelation: "institutions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      borrowers: {
+        Row: {
+          address: string | null
+          business_name: string | null
+          business_registration: string | null
+          business_type: string | null
+          country: string
+          created_at: string
+          date_of_birth: string | null
+          email: string | null
+          employees: number | null
+          extra_data: Json | null
+          full_name: string
+          gender: string | null
+          id: string
+          id_number: string | null
+          id_type: string | null
+          institution_id: string
+          location_detail: string | null
+          marital_status: string | null
+          phone: string | null
+          sector: string | null
+          social_id: string | null
+          tax_id: string | null
+          updated_at: string
+          years_in_operation: number | null
+        }
+        Insert: {
+          address?: string | null
+          business_name?: string | null
+          business_registration?: string | null
+          business_type?: string | null
+          country: string
+          created_at?: string
+          date_of_birth?: string | null
+          email?: string | null
+          employees?: number | null
+          extra_data?: Json | null
+          full_name: string
+          gender?: string | null
+          id?: string
+          id_number?: string | null
+          id_type?: string | null
+          institution_id: string
+          location_detail?: string | null
+          marital_status?: string | null
+          phone?: string | null
+          sector?: string | null
+          social_id?: string | null
+          tax_id?: string | null
+          updated_at?: string
+          years_in_operation?: number | null
+        }
+        Update: {
+          address?: string | null
+          business_name?: string | null
+          business_registration?: string | null
+          business_type?: string | null
+          country?: string
+          created_at?: string
+          date_of_birth?: string | null
+          email?: string | null
+          employees?: number | null
+          extra_data?: Json | null
+          full_name?: string
+          gender?: string | null
+          id?: string
+          id_number?: string | null
+          id_type?: string | null
+          institution_id?: string
+          location_detail?: string | null
+          marital_status?: string | null
+          phone?: string | null
+          sector?: string | null
+          social_id?: string | null
+          tax_id?: string | null
+          updated_at?: string
+          years_in_operation?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "borrowers_institution_id_fkey"
+            columns: ["institution_id"]
+            isOneToOne: false
+            referencedRelation: "institutions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      institutions: {
+        Row: {
+          country: string
+          created_at: string
+          id: string
+          name: string
+          products: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          country: string
+          created_at?: string
+          id?: string
+          name: string
+          products?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          country?: string
+          created_at?: string
+          id?: string
+          name?: string
+          products?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          institution_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          institution_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          institution_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_institution_id_fkey"
+            columns: ["institution_id"]
+            isOneToOne: false
+            referencedRelation: "institutions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          id: string
+          institution_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          institution_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          institution_id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_institution_id_fkey"
+            columns: ["institution_id"]
+            isOneToOne: false
+            referencedRelation: "institutions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      user_institution_id: { Args: { _user_id: string }; Returns: string }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "credit_officer" | "underwriter" | "viewer"
+      application_status:
+        | "draft"
+        | "submitted"
+        | "review"
+        | "approved"
+        | "declined"
+        | "disbursed"
+      product_category: "retail" | "micro" | "sme"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +485,17 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "credit_officer", "underwriter", "viewer"],
+      application_status: [
+        "draft",
+        "submitted",
+        "review",
+        "approved",
+        "declined",
+        "disbursed",
+      ],
+      product_category: ["retail", "micro", "sme"],
+    },
   },
 } as const
