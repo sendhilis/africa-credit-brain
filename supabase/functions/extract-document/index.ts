@@ -201,9 +201,15 @@ serve(async (req) => {
       throw new Error(fileErr?.message || "Failed to download file");
     }
 
-    // Convert to base64 for AI
+    // Convert to base64 for AI (chunked to avoid call stack overflow)
     const arrayBuffer = await fileData.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    const bytes = new Uint8Array(arrayBuffer);
+    const chunkSize = 8192;
+    let binaryStr = "";
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binaryStr += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    }
+    const base64 = btoa(binaryStr);
     const mimeType = fileData.type || "application/pdf";
 
     // Determine schema based on document type
@@ -356,9 +362,10 @@ If data is unclear or missing, omit optional fields rather than guessing. Set co
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
-    console.error("extract-document error:", e);
+    const errMsg = e instanceof Error ? e.message : (typeof e === "string" ? e : JSON.stringify(e));
+    console.error("extract-document error:", errMsg, e);
     return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
+      JSON.stringify({ error: errMsg || "Unknown error" }),
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
