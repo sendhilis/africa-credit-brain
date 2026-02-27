@@ -27,11 +27,10 @@ const Login = () => {
           password,
           options: {
             data: { display_name: displayName },
-            emailRedirectTo: window.location.origin,
           },
         });
         if (error) throw error;
-        toast.success("Check your email to confirm your account before signing in.");
+        navigate("/");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
