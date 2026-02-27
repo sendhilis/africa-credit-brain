@@ -1,5 +1,8 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -98,11 +101,118 @@ const NewApplicationWizard = () => {
   const next = () => setStep(s => Math.min(s + 1, STEPS.length - 1));
   const prev = () => setStep(s => Math.max(s - 1, 0));
 
-  const handleSubmit = () => {
-    // In production: POST to API
-    console.log("Application submitted:", { category, country, formData, altDataConsents, documents });
-    resetForm();
-    setOpen(false);
+  const { toast } = useToast();
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!config || !country) return;
+
+    setSubmitting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // Get user's institution_id from profile
+      let institutionId: string | null = null;
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("institution_id")
+          .eq("user_id", user.id)
+          .single();
+        institutionId = profile?.institution_id ?? null;
+      }
+
+      if (!institutionId) {
+        toast({ title: "No institution linked", description: "Your profile must be linked to an institution to create applications.", variant: "destructive" });
+        setSubmitting(false);
+        return;
+      }
+
+      // 1. Upsert borrower
+      const borrowerPayload = {
+        institution_id: institutionId,
+        country,
+        full_name: formData.name || "Unknown",
+        date_of_birth: formData.dob || null,
+        gender: formData.gender || null,
+        marital_status: formData.marital || null,
+        id_type: formData.id_type || null,
+        id_number: formData.id_number || null,
+        tax_id: formData.tax_id || null,
+        social_id: formData.social_id || null,
+        phone: formData.phone || null,
+        email: formData.email || null,
+        address: formData.address || null,
+        location_detail: formData.county || formData.state || formData.region || formData.province || formData.district || null,
+        business_name: category !== "retail" ? (formData.business_name || null) : null,
+        business_registration: category !== "retail" ? (formData.business_reg || null) : null,
+        business_type: category !== "retail" ? (formData.business_type || null) : null,
+        years_in_operation: category !== "retail" && formData.years_operation ? parseInt(formData.years_operation) : null,
+        sector: formData.sector || null,
+        employees: formData.employees ? parseInt(formData.employees) : null,
+        extra_data: {
+          bank: formData.bank,
+          account_number: formData.account_number,
+          bank_years: formData.bank_years,
+          avg_balance: formData.avg_balance,
+        },
+      };
+
+      const { data: borrower, error: borrowerError } = await supabase
+        .from("borrowers")
+        .insert(borrowerPayload)
+        .select("id")
+        .single();
+
+      if (borrowerError) throw borrowerError;
+
+      // 2. Create application
+      const applicationPayload = {
+        institution_id: institutionId,
+        borrower_id: borrower.id,
+        created_by: user!.id,
+        country,
+        product_category: category,
+        product_type: formData.product || null,
+        status: "submitted" as const,
+        requested_amount: formData.amount ? parseFloat(formData.amount) : null,
+        currency: config.currency,
+        tenor_months: formData.tenor ? parseInt(formData.tenor) : null,
+        purpose: formData.purpose || null,
+        collateral: formData.collateral || null,
+        monthly_income: formData.monthly_income ? parseFloat(formData.monthly_income) : null,
+        monthly_expenses: formData.monthly_expenses ? parseFloat(formData.monthly_expenses) : null,
+        monthly_rent: formData.rent ? parseFloat(formData.rent) : null,
+        dependents: formData.dependents ? parseInt(formData.dependents) : null,
+        existing_loans: formData.existing_loans || null,
+        employer: formData.employer || null,
+        monthly_revenue: formData.monthly_revenue ? parseFloat(formData.monthly_revenue) : null,
+        usd_income: formData.usd_income ? parseFloat(formData.usd_income) : null,
+        usd_revenue: formData.usd_revenue ? parseFloat(formData.usd_revenue) : null,
+        export_income_pct: formData.export_income ? parseFloat(formData.export_income) : null,
+        alt_data_consents: altDataConsents,
+        documents: Object.entries(documents).map(([type, filename]) => ({ type, filename })),
+        psychometric_method: formData.psychometric_method || null,
+        psychometric_status: "pending",
+        psychometric_phone: formData.psychometric_phone || null,
+        notes: formData.notes || null,
+      };
+
+      const { error: appError } = await supabase
+        .from("applications")
+        .insert(applicationPayload);
+
+      if (appError) throw appError;
+
+      toast({ title: "Application submitted", description: `Application for ${formData.name} has been created and queued for scoring.` });
+      resetForm();
+      setOpen(false);
+    } catch (err: any) {
+      console.error("Submit error:", err);
+      toast({ title: "Submission failed", description: err.message || "An error occurred while saving the application.", variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -638,8 +748,8 @@ const NewApplicationWizard = () => {
               Next <ChevronRight className="h-4 w-4" />
             </Button>
           ) : (
-            <Button onClick={handleSubmit} className="gap-1.5 bg-success hover:bg-success/90 text-success-foreground">
-              <CheckCircle2 className="h-4 w-4" /> Submit Application
+            <Button onClick={handleSubmit} disabled={submitting} className="gap-1.5 bg-success hover:bg-success/90 text-success-foreground">
+              <CheckCircle2 className="h-4 w-4" /> {submitting ? "Submitting…" : "Submit Application"}
             </Button>
           )}
         </div>
