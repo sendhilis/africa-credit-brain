@@ -94,6 +94,7 @@ const ApplicationDetail = () => {
   const [updating, setUpdating] = useState(false);
   const [actionNotes, setActionNotes] = useState("");
   const [scoreResult, setScoreResult] = useState<any>(null);
+  const [scorecardDetail, setScorecardDetail] = useState<any>(null);
 
   const fetchApp = async () => {
     if (!id) return;
@@ -107,6 +108,17 @@ const ApplicationDetail = () => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       setApp(data as any);
+      // Fetch latest scorecard result if scored
+      if (data?.scored_at) {
+        const { data: scData } = await supabase
+          .from("scorecard_results")
+          .select("*")
+          .eq("application_id", id!)
+          .order("scored_at", { ascending: false })
+          .limit(1)
+          .single();
+        if (scData) setScorecardDetail(scData);
+      }
     }
     setLoading(false);
   };
@@ -124,7 +136,7 @@ const ApplicationDetail = () => {
       if (data?.error) throw new Error(data.error);
       setScoreResult(data);
       toast({ title: "Scoring complete", description: `Score: ${data.score} (${data.score_band})` });
-      await fetchApp();
+      await fetchApp(); // This also fetches scorecard_results
     } catch (err: any) {
       toast({ title: "Scoring failed", description: err.message, variant: "destructive" });
     } finally {
@@ -182,8 +194,11 @@ const ApplicationDetail = () => {
     probability_of_default: app.probability_of_default || 0,
     recommendation: app.status === "approved" ? "approve" : app.status === "declined" ? "decline" : "review",
     reason_codes: Array.isArray(app.reason_codes) ? app.reason_codes : [],
-    factors: [],
-    summary: "",
+    factors: scorecardDetail?.feature_contributions || [],
+    summary: scorecardDetail?.summary || "",
+    model_version: scorecardDetail?.model_version,
+    woe_details: scorecardDetail?.woe_details,
+    time_series_features: scorecardDetail?.time_series_features,
   } : null);
 
   return (
@@ -295,6 +310,9 @@ const ApplicationDetail = () => {
             factors={displayScore.factors}
             summary={displayScore.summary}
             scoredAt={app.scored_at || new Date().toISOString()}
+            modelVersion={displayScore.model_version}
+            woeDetails={displayScore.woe_details}
+            timeSeriesFeatures={displayScore.time_series_features}
           />
         </div>
       )}
