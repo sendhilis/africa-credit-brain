@@ -16,19 +16,37 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const retryFetch = async <T,>(fn: () => Promise<T>, retries = 3, delay = 1000): Promise<T> => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        return await fn();
+      } catch (err: any) {
+        if (err?.name === "AuthRetryableFetchError" && i < retries - 1) {
+          console.warn(`Retrying auth request (${i + 1}/${retries})...`);
+          await new Promise((r) => setTimeout(r, delay * (i + 1)));
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw new Error("Authentication failed after retries.");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
       if (isSignUp) {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: { display_name: displayName },
-          },
-        });
+        const { data, error } = await retryFetch(() =>
+          supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              data: { display_name: displayName },
+            },
+          })
+        );
         console.log("Signup response:", { data, error });
         if (error) throw error;
         if (data.session) {
@@ -38,7 +56,9 @@ const Login = () => {
           setIsSignUp(false);
         }
       } else {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data, error } = await retryFetch(() =>
+          supabase.auth.signInWithPassword({ email, password })
+        );
         console.log("Login response:", { data, error });
         if (error) throw error;
         navigate("/");
