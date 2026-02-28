@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
+  Presentation,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -24,6 +25,7 @@ const navItems = [
   { to: "/reports", icon: BarChart3, label: "Reports" },
   { to: "/fairness", icon: Shield, label: "Fairness & Performance" },
   { to: "/developers", icon: Code2, label: "Developers" },
+  { to: "/showcase", icon: Presentation, label: "Showcase" },
   { to: "/admin", icon: Settings, label: "Admin" },
 ];
 
