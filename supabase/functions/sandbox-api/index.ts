@@ -116,16 +116,20 @@ Deno.serve(async (req) => {
     // The path after /sandbox-api becomes the API endpoint
     // e.g. /sandbox-api/v1/score → /v1/score  
     const pathParts = url.pathname.split("/sandbox-api");
-    const apiPath = pathParts.length > 1 ? pathParts[1] : url.searchParams.get("path") || "/v1/health";
-    
-    // Strip ID suffix for parameterized routes like /v1/score/abc123
-    const normalizedPath = apiPath.replace(/\/[a-f0-9-]{8,}$/, "");
-    const routeKey = `${req.method} ${normalizedPath}`;
+    const urlPath = pathParts.length > 1 ? pathParts[1] : "";
 
     let body: any = {};
     if (req.method === "POST") {
       try { body = await req.json(); } catch { body = {}; }
     }
+
+    // Resolve path: URL path > body.path > query param > default
+    const apiPath = (urlPath && urlPath.length > 1) ? urlPath : (body?.path || url.searchParams.get("path") || "/v1/health");
+    const resolvedMethod = body?.method || req.method;
+
+    // Strip ID suffix for parameterized routes
+    const normalizedPath = apiPath.replace(/\/[a-f0-9-]{8,}$/, "");
+    const routeKey = `${resolvedMethod} ${normalizedPath}`;
 
     // Validate API key if provided
     let apiKeyId: string | null = null;
