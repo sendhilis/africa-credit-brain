@@ -15,6 +15,7 @@ import Fairness from "./pages/Fairness";
 import Developers from "./pages/Developers";
 import Admin from "./pages/Admin";
 import ApplicationDetail from "./pages/ApplicationDetail";
+import Showcase from "./pages/Showcase";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -37,6 +38,7 @@ const App = () => (
             <Route path="/fairness" element={<ProtectedRoute><Fairness /></ProtectedRoute>} />
             <Route path="/developers" element={<ProtectedRoute><Developers /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+            <Route path="/showcase" element={<ProtectedRoute><Showcase /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
