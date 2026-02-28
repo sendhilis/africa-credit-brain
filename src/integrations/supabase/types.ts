@@ -14,6 +14,116 @@ export type Database = {
   }
   public: {
     Tables: {
+      api_keys: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          environment: string
+          id: string
+          institution_id: string
+          is_active: boolean
+          key_hash: string
+          key_prefix: string
+          label: string
+          last_used_at: string | null
+          revoked_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          environment?: string
+          id?: string
+          institution_id: string
+          is_active?: boolean
+          key_hash: string
+          key_prefix: string
+          label?: string
+          last_used_at?: string | null
+          revoked_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          environment?: string
+          id?: string
+          institution_id?: string
+          is_active?: boolean
+          key_hash?: string
+          key_prefix?: string
+          label?: string
+          last_used_at?: string | null
+          revoked_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_keys_institution_id_fkey"
+            columns: ["institution_id"]
+            isOneToOne: false
+            referencedRelation: "institutions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_request_logs: {
+        Row: {
+          api_key_id: string | null
+          created_at: string
+          endpoint: string
+          environment: string
+          id: string
+          institution_id: string
+          ip_address: string | null
+          latency_ms: number | null
+          method: string
+          request_body: Json | null
+          response_body: Json | null
+          status_code: number
+        }
+        Insert: {
+          api_key_id?: string | null
+          created_at?: string
+          endpoint: string
+          environment?: string
+          id?: string
+          institution_id: string
+          ip_address?: string | null
+          latency_ms?: number | null
+          method: string
+          request_body?: Json | null
+          response_body?: Json | null
+          status_code: number
+        }
+        Update: {
+          api_key_id?: string | null
+          created_at?: string
+          endpoint?: string
+          environment?: string
+          id?: string
+          institution_id?: string
+          ip_address?: string | null
+          latency_ms?: number | null
+          method?: string
+          request_body?: Json | null
+          response_body?: Json | null
+          status_code?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_request_logs_api_key_id_fkey"
+            columns: ["api_key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_request_logs_institution_id_fkey"
+            columns: ["institution_id"]
+            isOneToOne: false
+            referencedRelation: "institutions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       applications: {
         Row: {
           alt_data_consents: Json | null
@@ -580,6 +690,50 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "user_roles_institution_id_fkey"
+            columns: ["institution_id"]
+            isOneToOne: false
+            referencedRelation: "institutions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      webhook_configs: {
+        Row: {
+          created_at: string
+          environment: string
+          events: string[]
+          id: string
+          institution_id: string
+          is_active: boolean
+          secret: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          environment?: string
+          events?: string[]
+          id?: string
+          institution_id: string
+          is_active?: boolean
+          secret: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          environment?: string
+          events?: string[]
+          id?: string
+          institution_id?: string
+          is_active?: boolean
+          secret?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_configs_institution_id_fkey"
             columns: ["institution_id"]
             isOneToOne: false
             referencedRelation: "institutions"
