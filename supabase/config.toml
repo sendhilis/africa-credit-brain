@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.extract-document]
 verify_jwt = false
+
+[functions.sandbox-api]
+verify_jwt = false
+
+[functions.manage-api-keys]
+verify_jwt = false
