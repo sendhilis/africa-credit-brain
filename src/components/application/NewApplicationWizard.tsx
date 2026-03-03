@@ -15,7 +15,8 @@ import { Progress } from "@/components/ui/progress";
 import {
   Plus, ChevronRight, ChevronLeft, User, Building2, FileText,
   Smartphone, Upload, Brain, CheckCircle2, ArrowRight, Globe, CreditCard,
-  Banknote, Shield, Wifi, Send, Clock, Loader2
+  Banknote, Shield, Wifi, Send, Clock, Loader2, TrendingUp, Share2,
+  BarChart3, Store, Landmark, Users
 } from "lucide-react";
 import { countryConfigs, productTypes, type CountryConfig } from "./countryConfig";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,14 +26,49 @@ type PsychometricStatus = "not_started" | "link_sent" | "in_progress" | "complet
 
 const STORAGE_KEY = "africaone_wizard_draft";
 
-const STEPS = [
-  { id: "borrower", label: "Borrower Info", icon: User },
-  { id: "financial", label: "Financial Profile", icon: Banknote },
-  { id: "altdata", label: "Alt-Data Consent", icon: Wifi },
-  { id: "documents", label: "Documents", icon: FileText },
-  { id: "psychometric", label: "Psychometric", icon: Brain },
-  { id: "review", label: "Review & Submit", icon: CheckCircle2 },
-];
+// Dynamic steps based on category
+const getSteps = (category: ProductCategory) => {
+  const base = [
+    { id: "borrower", label: "Personal Info", icon: User },
+  ];
+  
+  if (category === "retail") {
+    return [
+      ...base,
+      { id: "financial", label: "Financial Profile", icon: Banknote },
+      { id: "altdata", label: "Alt-Data Consent", icon: Wifi },
+      { id: "documents", label: "Documents", icon: FileText },
+      { id: "psychometric", label: "Psychometric", icon: Brain },
+      { id: "review", label: "Review & Submit", icon: CheckCircle2 },
+    ];
+  }
+  
+  if (category === "micro") {
+    return [
+      ...base,
+      { id: "business", label: "Business Profile", icon: Store },
+      { id: "cashflow", label: "Cash Flow & Savings", icon: TrendingUp },
+      { id: "financial", label: "Loan & Repayment", icon: Banknote },
+      { id: "altdata", label: "Alt-Data Consent", icon: Wifi },
+      { id: "documents", label: "Documents", icon: FileText },
+      { id: "psychometric", label: "Psychometric", icon: Brain },
+      { id: "review", label: "Review & Submit", icon: CheckCircle2 },
+    ];
+  }
+  
+  // SME
+  return [
+    ...base,
+    { id: "corporate", label: "Corporate Profile", icon: Landmark },
+    { id: "financials", label: "Financial Analysis", icon: BarChart3 },
+    { id: "cashflow", label: "Cash Flow & Stability", icon: TrendingUp },
+    { id: "social", label: "Social & Digital", icon: Share2 },
+    { id: "financial", label: "Loan Request", icon: Banknote },
+    { id: "altdata", label: "Alt-Data Consent", icon: Wifi },
+    { id: "documents", label: "Documents", icon: FileText },
+    { id: "review", label: "Review & Submit", icon: CheckCircle2 },
+  ];
+};
 
 interface WizardDraft {
   step: number;
@@ -57,7 +93,6 @@ const loadDraft = (): WizardDraft | null => {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const draft: WizardDraft = JSON.parse(raw);
-    // Expire drafts older than 24h
     if (Date.now() - draft.savedAt > 24 * 60 * 60 * 1000) {
       localStorage.removeItem(STORAGE_KEY);
       return null;
@@ -72,7 +107,7 @@ const clearDraft = () => {
   try { localStorage.removeItem(STORAGE_KEY); } catch {}
 };
 
-const StepIndicator = ({ currentStep, steps }: { currentStep: number; steps: typeof STEPS }) => (
+const StepIndicator = ({ currentStep, steps }: { currentStep: number; steps: ReturnType<typeof getSteps> }) => (
   <div className="flex items-center gap-1 mb-6 overflow-x-auto pb-2">
     {steps.map((step, i) => {
       const Icon = step.icon;
@@ -138,19 +173,18 @@ const NewApplicationWizard = () => {
   const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
 
   const config = useMemo(() => country ? countryConfigs[country] : null, [country]);
+  const steps = useMemo(() => getSteps(category), [category]);
 
-  // Check for existing draft on mount
   useEffect(() => {
     const draft = loadDraft();
     if (draft) setHasDraft(true);
   }, []);
 
-  // Auto-save draft whenever form state changes (only while dialog is open)
   useEffect(() => {
     if (!open) return;
     const timeout = setTimeout(() => {
       saveDraft({ step, category, country, formData, altDataConsents, documents, psychometricStatus, psychometricMethod });
-    }, 500); // debounce
+    }, 500);
     return () => clearTimeout(timeout);
   }, [open, step, category, country, formData, altDataConsents, documents, psychometricStatus, psychometricMethod]);
 
@@ -188,13 +222,18 @@ const NewApplicationWizard = () => {
     }
   };
 
-  const next = () => setStep(s => Math.min(s + 1, STEPS.length - 1));
+  const next = () => setStep(s => Math.min(s + 1, steps.length - 1));
   const prev = () => setStep(s => Math.max(s - 1, 0));
+
+  // Reset step to 0 when category changes
+  const handleCategoryChange = (v: string) => {
+    setCategory(v as ProductCategory);
+    setStep(0);
+  };
 
   const { toast } = useToast();
   const [submitting, setSubmitting] = useState(false);
 
-  // Psychometric: Send link via SMS/WhatsApp
   const handleSendPsychometricLink = async () => {
     const phone = formData.psychometric_phone || formData.phone;
     if (!phone) {
@@ -202,7 +241,6 @@ const NewApplicationWizard = () => {
       return;
     }
     setSendingLink(true);
-    // Simulate sending (in production this would call an edge function)
     await new Promise(r => setTimeout(r, 1500));
     setPsychometricStatus("link_sent");
     setPsychometricMethod("sms");
@@ -211,13 +249,11 @@ const NewApplicationWizard = () => {
     toast({ title: "Assessment link sent", description: `Psychometric survey link sent to ${phone}. The borrower has 48 hours to complete it.` });
   };
 
-  // Psychometric: Start in-branch
   const handleStartInBranch = () => {
     setPsychometricStatus("in_progress");
     setPsychometricMethod("in_branch");
     updateField("psychometric_method", "in_branch");
     toast({ title: "In-branch assessment started", description: "Guide the borrower through the psychometric questionnaire now." });
-    // Simulate completion after a short time (demo)
     setTimeout(() => {
       setPsychometricStatus("completed");
       toast({ title: "Assessment completed", description: "Psychometric assessment has been recorded successfully." });
@@ -227,7 +263,6 @@ const NewApplicationWizard = () => {
   const { user } = useAuth();
   const [institutionId, setInstitutionId] = useState<string | null>(null);
 
-  // Fetch the logged-in user's institution
   useEffect(() => {
     const fetchInstitution = async () => {
       if (!user) return;
@@ -250,6 +285,45 @@ const NewApplicationWizard = () => {
 
     setSubmitting(true);
     try {
+      // Build extra_data with all category-specific fields
+      const extraData: Record<string, any> = {
+        bank: formData.bank,
+        account_number: formData.account_number,
+        bank_years: formData.bank_years,
+        avg_balance: formData.avg_balance,
+      };
+
+      // Capture all micro/sme specific fields into extra_data
+      const specialKeys = [
+        ...(config.microFields?.map(f => f.key) || []),
+        ...(config.smeFields?.map(f => f.key) || []),
+        ...(config.socialMediaFields?.map(f => f.key) || []),
+        ...(config.cashFlowFields?.map(f => f.key) || []),
+        ...(config.businessStabilityFields?.map(f => f.key) || []),
+        "employment_type", "employment_years", "payslip_net", "other_income", "other_income_amount",
+        "suburb", "primary_currency",
+        "legal_structure", "cr_number", "vat_registered", "vat_number",
+        "annual_turnover_zwl", "annual_turnover_usd", "gross_margin_pct", "net_profit_margin_pct",
+        "monthly_fixed_costs", "avg_monthly_revenue_6m", "revenue_volatility",
+        "highest_month_revenue", "lowest_month_revenue", "receivables_days", "payables_days",
+        "forex_exposure_pct", "top_3_customers_pct", "top_supplier_dependency", "export_contracts",
+        "years_audited_financials", "directors_count", "key_person_risk",
+        "bank_accounts_count", "primary_bank", "bank_avg_balance_6m", "bounced_cheques_12m",
+        "trading_location", "business_description", "daily_sales_zwl", "daily_sales_usd",
+        "peak_season", "low_season_revenue_pct", "stock_source", "cross_border", "cross_border_routes",
+        "ecocash_daily_vol", "innbucks_balance", "savings_club", "mukando_amount",
+        "group_lending", "repayment_history_informal", "supplier_credit_days",
+        "cash_cycle_days", "seasonal_business", "worst_month_cover", "dscr", "current_ratio",
+        "premises_type", "premises_years", "staff_turnover_pct", "licenses_current",
+        "insurance_coverage", "succession_plan",
+        "facebook_page", "facebook_followers", "facebook_reviews_avg",
+        "whatsapp_business", "instagram_handle", "instagram_followers",
+        "google_maps_listing", "google_reviews_count", "google_reviews_avg", "online_marketplace",
+      ];
+
+      specialKeys.forEach(key => {
+        if (formData[key]) extraData[key] = formData[key];
+      });
 
       const borrowerPayload = {
         institution_id: institutionId,
@@ -265,19 +339,14 @@ const NewApplicationWizard = () => {
         phone: formData.phone || null,
         email: formData.email || null,
         address: formData.address || null,
-        location_detail: formData.county || formData.state || formData.region || formData.province || formData.district || null,
+        location_detail: formData.province || formData.county || formData.state || formData.region || formData.district || null,
         business_name: category !== "retail" ? (formData.business_name || null) : null,
-        business_registration: category !== "retail" ? (formData.business_reg || null) : null,
-        business_type: category !== "retail" ? (formData.business_type || null) : null,
-        years_in_operation: category !== "retail" && formData.years_operation ? parseInt(formData.years_operation) : null,
+        business_registration: category !== "retail" ? (formData.business_reg || formData.cr_number || null) : null,
+        business_type: category !== "retail" ? (formData.business_type || formData.legal_structure || null) : null,
+        years_in_operation: category !== "retail" && (formData.years_operation || formData.years_trading) ? parseInt(formData.years_operation || formData.years_trading) : null,
         sector: formData.sector || null,
         employees: formData.employees ? parseInt(formData.employees) : null,
-        extra_data: {
-          bank: formData.bank,
-          account_number: formData.account_number,
-          bank_years: formData.bank_years,
-          avg_balance: formData.avg_balance,
-        },
+        extra_data: extraData,
       };
 
       const { data: borrower, error: borrowerError } = await supabase
@@ -328,23 +397,17 @@ const NewApplicationWizard = () => {
 
       if (appError) throw appError;
 
-      // Create document extraction records and trigger OCR for each uploaded doc
       const docEntries = Object.entries(documents);
       if (docEntries.length > 0 && appResult?.id) {
         for (const [docType, storagePath] of docEntries) {
-          // Try to move file from pending to application folder
           const newPath = `${institutionId}/${appResult.id}/${storagePath.split('/').pop()}`;
           const { error: moveErr } = await supabase.storage
             .from("application-documents")
             .move(storagePath, newPath);
 
-          // Use whichever path the file is actually at
           const finalPath = moveErr ? storagePath : newPath;
-          if (moveErr) {
-            console.warn("File move failed, using original path:", moveErr.message);
-          }
+          if (moveErr) console.warn("File move failed, using original path:", moveErr.message);
 
-          // Create extraction record
           const { data: extractionRecord } = await supabase
             .from("document_extractions")
             .insert({
@@ -357,7 +420,6 @@ const NewApplicationWizard = () => {
             .select("id")
             .single();
 
-          // Trigger OCR extraction (non-blocking)
           if (extractionRecord?.id) {
             supabase.functions.invoke("extract-document", {
               body: { extraction_id: extractionRecord.id },
@@ -379,8 +441,915 @@ const NewApplicationWizard = () => {
 
   const handleOpenChange = (v: boolean) => {
     setOpen(v);
-    if (!v) {
-      // Don't reset — draft is already saved
+  };
+
+  // Get current step ID
+  const currentStepId = steps[step]?.id;
+
+  // Helper to render fields from config arrays
+  const renderConfigFields = (fields: { key: string; label: string; placeholder: string; type: string; section?: string; options?: { value: string; label: string }[] }[], sectionFilter?: string) => {
+    const filtered = sectionFilter ? fields.filter(f => f.section === sectionFilter) : fields;
+    return filtered.map(f => (
+      <Field key={f.key} label={f.label}>
+        {f.type === "select" && f.options ? (
+          <Select value={formData[f.key] || ""} onValueChange={v => updateField(f.key, v)}>
+            <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
+            <SelectContent>
+              {f.options.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        ) : (
+          <Input type={f.type} placeholder={f.placeholder} className="bg-muted/50 border-border" value={formData[f.key] || ""} onChange={e => updateField(f.key, e.target.value)} />
+        )}
+      </Field>
+    ));
+  };
+
+  // Collateral options (Zim-specific if available, otherwise generic)
+  const collateralOptions = config?.collateralOptions || [
+    { value: "none", label: "None (Unsecured)" },
+    { value: "salary", label: "Salary Assignment" },
+    { value: "property", label: "Property / Land" },
+    { value: "vehicle", label: "Vehicle" },
+    { value: "group_guarantee", label: "Group Guarantee" },
+    { value: "inventory", label: "Inventory / Stock" },
+  ];
+
+  const loanPurposes = config?.loanPurposes || [
+    { value: "working_capital", label: "Working Capital" },
+    { value: "asset_purchase", label: "Asset Purchase" },
+    { value: "education", label: "Education" },
+    { value: "medical", label: "Medical" },
+    { value: "agriculture", label: "Agriculture" },
+    { value: "housing", label: "Housing / Rent" },
+    { value: "personal", label: "Personal / Consumption" },
+    { value: "debt_consolidation", label: "Debt Consolidation" },
+  ];
+
+  // ── RENDER STEPS ──
+
+  const renderBorrowerStep = () => (
+    <div className="space-y-5">
+      <FieldGroup label="Country & Product">
+        <Field label="Country">
+          <Select value={country} onValueChange={setCountry}>
+            <SelectTrigger className="bg-muted/50 border-border">
+              <SelectValue placeholder="Select country" />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(countryConfigs).map(([key, c]) => (
+                <SelectItem key={key} value={key}>{c.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field label="Product Type">
+          <Select value={formData.product || ""} onValueChange={v => updateField("product", v)}>
+            <SelectTrigger className="bg-muted/50 border-border">
+              <SelectValue placeholder="Select product" />
+            </SelectTrigger>
+            <SelectContent>
+              {productTypes.map(p => (
+                <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+      </FieldGroup>
+
+      <FieldGroup label={category === "retail" ? "Personal Details" : "Contact Person / Owner"}>
+        <Field label="Full Name">
+          <Input placeholder="Enter full name" className="bg-muted/50 border-border" value={formData.name || ""} onChange={e => updateField("name", e.target.value)} />
+        </Field>
+        <Field label="Date of Birth">
+          <Input type="date" className="bg-muted/50 border-border" value={formData.dob || ""} onChange={e => updateField("dob", e.target.value)} />
+        </Field>
+        <Field label="Gender">
+          <Select value={formData.gender || ""} onValueChange={v => updateField("gender", v)}>
+            <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="male">Male</SelectItem>
+              <SelectItem value="female">Female</SelectItem>
+              <SelectItem value="other">Other</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field label="Marital Status">
+          <Select value={formData.marital || ""} onValueChange={v => updateField("marital", v)}>
+            <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="single">Single</SelectItem>
+              <SelectItem value="married">Married</SelectItem>
+              <SelectItem value="divorced">Divorced</SelectItem>
+              <SelectItem value="widowed">Widowed</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
+      </FieldGroup>
+
+      {config && (
+        <>
+          <FieldGroup label="Identification">
+            <Field label="ID Type">
+              <Select value={formData.id_type || ""} onValueChange={v => updateField("id_type", v)}>
+                <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select ID type" /></SelectTrigger>
+                <SelectContent>
+                  {config.idTypes.map(id => (
+                    <SelectItem key={id.value} value={id.value}>{id.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="ID Number">
+              <Input
+                placeholder={config.idTypes.find(i => i.value === formData.id_type)?.placeholder || "Enter ID number"}
+                className="bg-muted/50 border-border"
+                value={formData.id_number || ""}
+                onChange={e => updateField("id_number", e.target.value)}
+              />
+            </Field>
+            {config.taxId && (
+              <Field label={config.taxId.label}>
+                <Input placeholder={config.taxId.placeholder} className="bg-muted/50 border-border" value={formData.tax_id || ""} onChange={e => updateField("tax_id", e.target.value)} />
+              </Field>
+            )}
+            {config.socialId && (
+              <Field label={config.socialId.label}>
+                <Input placeholder={config.socialId.placeholder} className="bg-muted/50 border-border" value={formData.social_id || ""} onChange={e => updateField("social_id", e.target.value)} />
+              </Field>
+            )}
+          </FieldGroup>
+
+          <FieldGroup label="Contact">
+            <Field label="Mobile Number">
+              <Input placeholder={config.phonePlaceholder} className="bg-muted/50 border-border" value={formData.phone || ""} onChange={e => updateField("phone", e.target.value)} />
+            </Field>
+            <Field label="Email (optional)">
+              <Input type="email" placeholder="borrower@email.com" className="bg-muted/50 border-border" value={formData.email || ""} onChange={e => updateField("email", e.target.value)} />
+            </Field>
+            <Field label="Physical Address" span2>
+              <Input placeholder="Street, area, city" className="bg-muted/50 border-border" value={formData.address || ""} onChange={e => updateField("address", e.target.value)} />
+            </Field>
+          </FieldGroup>
+
+          {config.additionalRetailFields.filter(f => ["county","state","region","province","district","suburb"].includes(f.key)).map(f => (
+            <FieldGroup key={f.key} label="Location Details">
+              <Field label={f.label}>
+                <Input placeholder={f.placeholder} className="bg-muted/50 border-border" value={formData[f.key] || ""} onChange={e => updateField(f.key, e.target.value)} />
+              </Field>
+            </FieldGroup>
+          ))}
+        </>
+      )}
+    </div>
+  );
+
+  // ── MICRO: Business Profile Step ──
+  const renderMicroBusinessStep = () => {
+    if (!config) return null;
+    const microFields = config.microFields || [];
+    const sections = [...new Set(microFields.map(f => f.section).filter(Boolean))];
+    
+    return (
+      <div className="space-y-5">
+        <div className="p-3 rounded-lg bg-accent/5 border border-accent/20">
+          <p className="text-xs text-muted-foreground">
+            <span className="font-semibold text-accent">Micro-enterprise</span> — Capture the informal business profile. Market traders, cross-border traders, small vendors. Focus on trading patterns and cash flow stability.
+          </p>
+        </div>
+
+        <FieldGroup label="Basic Business Details">
+          <Field label="Business / Trading Name">
+            <Input placeholder="Registered or trading name" className="bg-muted/50 border-border" value={formData.business_name || ""} onChange={e => updateField("business_name", e.target.value)} />
+          </Field>
+          <Field label={config.businessRegistration.label}>
+            <Input placeholder={config.businessRegistration.placeholder} className="bg-muted/50 border-border" value={formData.business_reg || ""} onChange={e => updateField("business_reg", e.target.value)} />
+          </Field>
+          <Field label="Business Type">
+            <Select value={formData.business_type || ""} onValueChange={v => updateField("business_type", v)}>
+              <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="sole_proprietor">Sole Proprietor</SelectItem>
+                <SelectItem value="partnership">Partnership</SelectItem>
+                <SelectItem value="cooperative">Cooperative / SACCO</SelectItem>
+                <SelectItem value="vendor">Market Vendor / Trader</SelectItem>
+                <SelectItem value="cross_border">Cross-Border Trader</SelectItem>
+                <SelectItem value="artisan">Artisan / Skilled Trade</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+        </FieldGroup>
+
+        {sections.map(section => (
+          <FieldGroup key={section!} label={section!}>
+            {renderConfigFields(microFields, section)}
+          </FieldGroup>
+        ))}
+      </div>
+    );
+  };
+
+  // ── MICRO: Cash Flow & Savings Step ──
+  const renderMicroCashFlowStep = () => {
+    if (!config) return null;
+    const microFields = config.microFields || [];
+
+    return (
+      <div className="space-y-5">
+        <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+          <p className="text-xs text-muted-foreground">
+            <span className="font-semibold text-primary">Cash Flow & Savings Analysis</span> — Understanding cash flow volatility and informal savings mechanisms (Mukando, group lending) is critical for micro-enterprise scoring.
+          </p>
+        </div>
+
+        <FieldGroup label="Revenue & Expenses">
+          {config.additionalBusinessFields.map(f => (
+            <Field key={f.key} label={f.label}>
+              <Input type={f.type} placeholder={f.placeholder} className="bg-muted/50 border-border" value={formData[f.key] || ""} onChange={e => updateField(f.key, e.target.value)} />
+            </Field>
+          ))}
+          <Field label={`Monthly Expenses (${config.currency})`}>
+            <Input type="number" placeholder="20000" className="bg-muted/50 border-border" value={formData.monthly_expenses || ""} onChange={e => updateField("monthly_expenses", e.target.value)} />
+          </Field>
+        </FieldGroup>
+
+        <FieldGroup label="Income & Employment">
+          {config.additionalRetailFields.filter(f => ["monthly_income","employer","usd_income"].includes(f.key)).map(f => (
+            <Field key={f.key} label={f.label}>
+              <Input type={f.type} placeholder={f.placeholder} className="bg-muted/50 border-border" value={formData[f.key] || ""} onChange={e => updateField(f.key, e.target.value)} />
+            </Field>
+          ))}
+        </FieldGroup>
+
+        {country === "zimbabwe" && (
+          <FieldGroup label="Multi-Currency (Zimbabwe)">
+            <Field label="Primary Transaction Currency">
+              <Select value={formData.primary_currency || ""} onValueChange={v => updateField("primary_currency", v)}>
+                <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="zwl">ZWL (Zimbabwe Dollar)</SelectItem>
+                  <SelectItem value="usd">USD</SelectItem>
+                  <SelectItem value="zar">ZAR (South African Rand)</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+          </FieldGroup>
+        )}
+
+        <FieldGroup label="Credit Bureau Score (if available)">
+          <Field label="Bureau Score (300-900)" span2>
+            <Input type="number" placeholder="e.g. 720 — leave blank if not available" className="bg-muted/50 border-border" min={300} max={900} value={formData.bureau_score || ""} onChange={e => updateField("bureau_score", e.target.value)} />
+          </Field>
+        </FieldGroup>
+      </div>
+    );
+  };
+
+  // ── SME: Corporate Profile Step ──
+  const renderSMECorporateStep = () => {
+    if (!config) return null;
+    const smeFields = config.smeFields || [];
+
+    return (
+      <div className="space-y-5">
+        <div className="p-3 rounded-lg bg-accent/5 border border-accent/20">
+          <p className="text-xs text-muted-foreground">
+            <span className="font-semibold text-accent">SME Corporate Profile</span> — Formal business governance, legal structure, and registration details are weighted heavily in SME scoring.
+          </p>
+        </div>
+
+        <FieldGroup label="Business Registration">
+          <Field label="Business Name">
+            <Input placeholder="Registered company name" className="bg-muted/50 border-border" value={formData.business_name || ""} onChange={e => updateField("business_name", e.target.value)} />
+          </Field>
+          {renderConfigFields(smeFields, "Corporate Profile")}
+          <Field label="Years in Operation">
+            <Input type="number" placeholder="5" className="bg-muted/50 border-border" value={formData.years_operation || ""} onChange={e => updateField("years_operation", e.target.value)} />
+          </Field>
+          <Field label="Sector">
+            <Input placeholder="Mining, Manufacturing, Agriculture…" className="bg-muted/50 border-border" value={formData.sector || ""} onChange={e => updateField("sector", e.target.value)} />
+          </Field>
+          <Field label="Number of Employees">
+            <Input type="number" placeholder="25" className="bg-muted/50 border-border" value={formData.employees || ""} onChange={e => updateField("employees", e.target.value)} />
+          </Field>
+        </FieldGroup>
+
+        {config.businessStabilityFields && (
+          <FieldGroup label="Business Stability Indicators">
+            {renderConfigFields(config.businessStabilityFields)}
+          </FieldGroup>
+        )}
+
+        <FieldGroup label="Governance">
+          {renderConfigFields(smeFields, "Governance")}
+        </FieldGroup>
+      </div>
+    );
+  };
+
+  // ── SME: Financial Analysis Step ──
+  const renderSMEFinancialsStep = () => {
+    if (!config) return null;
+    const smeFields = config.smeFields || [];
+
+    return (
+      <div className="space-y-5">
+        <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+          <p className="text-xs text-muted-foreground">
+            <span className="font-semibold text-primary">Financial Analysis</span> — Turnover, margins, and concentration risk drive SME credit decisioning. Audited financials carry higher weight.
+          </p>
+        </div>
+
+        <FieldGroup label="Revenue & Profitability">
+          {renderConfigFields(smeFields, "Financial Profile")}
+        </FieldGroup>
+
+        <FieldGroup label="Banking Relationship">
+          {renderConfigFields(smeFields, "Banking")}
+        </FieldGroup>
+
+        <FieldGroup label="Concentration Risk">
+          {renderConfigFields(smeFields, "Concentration Risk")}
+        </FieldGroup>
+
+        <FieldGroup label="Credit Bureau Score (if available)">
+          <Field label="Bureau Score (300-900)" span2>
+            <Input type="number" placeholder="e.g. 720 — leave blank if not available" className="bg-muted/50 border-border" min={300} max={900} value={formData.bureau_score || ""} onChange={e => updateField("bureau_score", e.target.value)} />
+          </Field>
+        </FieldGroup>
+      </div>
+    );
+  };
+
+  // ── SME: Cash Flow & Stability Step ──
+  const renderSMECashFlowStep = () => {
+    if (!config) return null;
+    const smeFields = config.smeFields || [];
+
+    return (
+      <div className="space-y-5">
+        <div className="p-3 rounded-lg bg-warning/5 border border-warning/20">
+          <p className="text-xs text-muted-foreground">
+            <span className="font-semibold text-warning">Cash Flow Volatility</span> — Revenue volatility (high/low month ratio), receivable/payable cycles, and forex exposure are critical risk indicators for SME lending.
+          </p>
+        </div>
+
+        <FieldGroup label="Cash Flow Analysis">
+          {renderConfigFields(smeFields, "Cash Flow Analysis")}
+        </FieldGroup>
+
+        {config.cashFlowFields && (
+          <FieldGroup label="Liquidity & Coverage Ratios">
+            {renderConfigFields(config.cashFlowFields)}
+          </FieldGroup>
+        )}
+
+        {country === "zimbabwe" && (
+          <FieldGroup label="Multi-Currency Exposure (Zimbabwe)">
+            <Field label="Primary Transaction Currency">
+              <Select value={formData.primary_currency || ""} onValueChange={v => updateField("primary_currency", v)}>
+                <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="zwl">ZWL (Zimbabwe Dollar)</SelectItem>
+                  <SelectItem value="usd">USD</SelectItem>
+                  <SelectItem value="zar">ZAR (South African Rand)</SelectItem>
+                  <SelectItem value="mixed">Multi-Currency Mix</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+          </FieldGroup>
+        )}
+      </div>
+    );
+  };
+
+  // ── SME: Social & Digital Footprint Step ──
+  const renderSocialMediaStep = () => {
+    if (!config) return null;
+
+    return (
+      <div className="space-y-5">
+        <div className="p-3 rounded-lg bg-success/5 border border-success/20">
+          <p className="text-xs text-muted-foreground">
+            <span className="font-semibold text-success">Social & Digital Footprint</span> — Online presence, customer reviews, and digital engagement provide alternative signals of business legitimacy, customer satisfaction, and brand strength.
+          </p>
+        </div>
+
+        {config.socialMediaFields && (
+          <FieldGroup label="Social Media & Online Presence">
+            {renderConfigFields(config.socialMediaFields)}
+          </FieldGroup>
+        )}
+
+        {!config.socialMediaFields && (
+          <FieldGroup label="Social Media & Online Presence">
+            <Field label="Facebook Business Page URL">
+              <Input placeholder="https://facebook.com/yourbusiness" className="bg-muted/50 border-border" value={formData.facebook_page || ""} onChange={e => updateField("facebook_page", e.target.value)} />
+            </Field>
+            <Field label="Facebook Followers / Likes">
+              <Input type="number" placeholder="500" className="bg-muted/50 border-border" value={formData.facebook_followers || ""} onChange={e => updateField("facebook_followers", e.target.value)} />
+            </Field>
+            <Field label="WhatsApp Business Number">
+              <Input placeholder={config.phonePlaceholder} className="bg-muted/50 border-border" value={formData.whatsapp_business || ""} onChange={e => updateField("whatsapp_business", e.target.value)} />
+            </Field>
+            <Field label="Google Maps Listing?">
+              <Input placeholder="Yes / No" className="bg-muted/50 border-border" value={formData.google_maps_listing || ""} onChange={e => updateField("google_maps_listing", e.target.value)} />
+            </Field>
+          </FieldGroup>
+        )}
+
+        <div className="p-3 rounded-lg bg-muted/20 border border-border/30">
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Scoring Impact</h4>
+          <div className="space-y-1.5 text-xs text-muted-foreground">
+            <p>• Active social media with positive reviews → <span className="text-success font-medium">+15-25 score points</span></p>
+            <p>• Google Maps listing with reviews → <span className="text-success font-medium">+10-15 score points</span></p>
+            <p>• No digital footprint → <span className="text-warning font-medium">Neutral (no penalty)</span></p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ── Financial / Loan Request Step (shared but category-aware) ──
+  const renderFinancialStep = () => {
+    if (!config) return null;
+
+    return (
+      <div className="space-y-5">
+        <FieldGroup label="Loan Request">
+          <Field label={`Requested Amount (${config.currency})`}>
+            <Input type="number" placeholder="50000" className="bg-muted/50 border-border" value={formData.amount || ""} onChange={e => updateField("amount", e.target.value)} />
+          </Field>
+          <Field label="Tenor (months)">
+            <Input type="number" placeholder="12" className="bg-muted/50 border-border" value={formData.tenor || ""} onChange={e => updateField("tenor", e.target.value)} />
+          </Field>
+          <Field label="Purpose of Loan">
+            <Select value={formData.purpose || ""} onValueChange={v => updateField("purpose", v)}>
+              <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select purpose" /></SelectTrigger>
+              <SelectContent>
+                {loanPurposes.map(p => (
+                  <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Collateral (if any)">
+            <Select value={formData.collateral || ""} onValueChange={v => updateField("collateral", v)}>
+              <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
+              <SelectContent>
+                {collateralOptions.map(c => (
+                  <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        </FieldGroup>
+
+        {/* Individual-specific: full income/expense capture */}
+        {category === "retail" && (
+          <>
+            <FieldGroup label="Income & Expenses">
+              {config.additionalRetailFields.filter(f => ["monthly_income","employer","usd_income","employment_type","employment_years","payslip_net","other_income","other_income_amount"].includes(f.key)).map(f => (
+                <Field key={f.key} label={f.label}>
+                  <Input type={f.type} placeholder={f.placeholder} className="bg-muted/50 border-border" value={formData[f.key] || ""} onChange={e => updateField(f.key, e.target.value)} />
+                </Field>
+              ))}
+              <Field label={`Monthly Expenses (${config.currency})`}>
+                <Input type="number" placeholder="20000" className="bg-muted/50 border-border" value={formData.monthly_expenses || ""} onChange={e => updateField("monthly_expenses", e.target.value)} />
+              </Field>
+              <Field label="Number of Dependents">
+                <Input type="number" placeholder="3" className="bg-muted/50 border-border" value={formData.dependents || ""} onChange={e => updateField("dependents", e.target.value)} />
+              </Field>
+              <Field label={`Monthly Rent / Housing (${config.currency})`}>
+                <Input type="number" placeholder="5000" className="bg-muted/50 border-border" value={formData.rent || ""} onChange={e => updateField("rent", e.target.value)} />
+              </Field>
+              <Field label="Existing Loan Obligations">
+                <Select value={formData.existing_loans || ""} onValueChange={v => updateField("existing_loans", v)}>
+                  <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No existing loans</SelectItem>
+                    <SelectItem value="1">1 active loan</SelectItem>
+                    <SelectItem value="2">2 active loans</SelectItem>
+                    <SelectItem value="3_plus">3+ active loans</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+            </FieldGroup>
+
+            {country === "zimbabwe" && (
+              <FieldGroup label="Multi-Currency Details (Zimbabwe)">
+                <Field label="Primary Transaction Currency">
+                  <Select value={formData.primary_currency || ""} onValueChange={v => updateField("primary_currency", v)}>
+                    <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="zwl">ZWL (Zimbabwe Dollar)</SelectItem>
+                      <SelectItem value="usd">USD</SelectItem>
+                      <SelectItem value="zar">ZAR (South African Rand)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </FieldGroup>
+            )}
+
+            <FieldGroup label="Credit Bureau Score (if available)">
+              <Field label="Bureau Score (300-900)" span2>
+                <Input type="number" placeholder="e.g. 720 — leave blank if not available" className="bg-muted/50 border-border" min={300} max={900} value={formData.bureau_score || ""} onChange={e => updateField("bureau_score", e.target.value)} />
+              </Field>
+            </FieldGroup>
+
+            <FieldGroup label="Banking Details">
+              <Field label="Primary Bank">
+                <Input placeholder="Bank name" className="bg-muted/50 border-border" value={formData.bank || ""} onChange={e => updateField("bank", e.target.value)} />
+              </Field>
+              <Field label="Account Number">
+                <Input placeholder="Account number" className="bg-muted/50 border-border" value={formData.account_number || ""} onChange={e => updateField("account_number", e.target.value)} />
+              </Field>
+              <Field label="Years with Bank">
+                <Input type="number" placeholder="3" className="bg-muted/50 border-border" value={formData.bank_years || ""} onChange={e => updateField("bank_years", e.target.value)} />
+              </Field>
+              <Field label={`Average Monthly Balance (${config.currency})`}>
+                <Input type="number" placeholder="10000" className="bg-muted/50 border-border" value={formData.avg_balance || ""} onChange={e => updateField("avg_balance", e.target.value)} />
+              </Field>
+            </FieldGroup>
+          </>
+        )}
+
+        {/* Micro: simplified loan fields */}
+        {category === "micro" && (
+          <>
+            <FieldGroup label="Repayment Capacity">
+              <Field label="Number of Dependents">
+                <Input type="number" placeholder="3" className="bg-muted/50 border-border" value={formData.dependents || ""} onChange={e => updateField("dependents", e.target.value)} />
+              </Field>
+              <Field label="Existing Loan Obligations">
+                <Select value={formData.existing_loans || ""} onValueChange={v => updateField("existing_loans", v)}>
+                  <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No existing loans</SelectItem>
+                    <SelectItem value="1">1 active loan</SelectItem>
+                    <SelectItem value="2">2 active loans</SelectItem>
+                    <SelectItem value="3_plus">3+ active loans</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+            </FieldGroup>
+          </>
+        )}
+
+        {/* SME: simplified — detailed financials captured in earlier steps */}
+        {category === "sme" && (
+          <>
+            <FieldGroup label="Repayment Capacity">
+              <Field label="Existing Loan Obligations">
+                <Select value={formData.existing_loans || ""} onValueChange={v => updateField("existing_loans", v)}>
+                  <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No existing loans</SelectItem>
+                    <SelectItem value="1">1 active loan</SelectItem>
+                    <SelectItem value="2">2 active loans</SelectItem>
+                    <SelectItem value="3_plus">3+ active loans</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Total Monthly Debt Service (ZWL)">
+                <Input type="number" placeholder="200000" className="bg-muted/50 border-border" value={formData.existing_repayments || ""} onChange={e => updateField("existing_repayments", e.target.value)} />
+              </Field>
+            </FieldGroup>
+          </>
+        )}
+
+        <Field label="Notes (optional)" span2>
+          <Textarea placeholder="Additional context for the underwriter…" className="bg-muted/50 border-border min-h-[60px]" value={formData.notes || ""} onChange={e => updateField("notes", e.target.value)} />
+        </Field>
+      </div>
+    );
+  };
+
+  // ── Alt-Data Consent Step ──
+  const renderAltDataStep = () => {
+    if (!config) return null;
+    return (
+      <div className="space-y-5">
+        <p className="text-sm text-muted-foreground">
+          Select which alternative data sources the borrower consents to share. Each source improves scoring accuracy.
+        </p>
+
+        <FieldGroup label={`Credit Bureaus (${config.label})`}>
+          <div className="col-span-2 space-y-2">
+            {config.bureaus.map(bureau => (
+              <label key={bureau} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border/50 hover:bg-muted/50 cursor-pointer transition-colors">
+                <Checkbox checked={altDataConsents[bureau] || false} onCheckedChange={() => toggleConsent(bureau)} />
+                <div className="flex-1">
+                  <span className="text-sm font-medium text-foreground">{bureau}</span>
+                  <p className="text-xs text-muted-foreground">Credit history, obligations, defaults</p>
+                </div>
+                <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">Bureau</Badge>
+              </label>
+            ))}
+          </div>
+        </FieldGroup>
+
+        <FieldGroup label="Mobile Wallet Data">
+          <div className="col-span-2 space-y-2">
+            {config.wallets.map(wallet => (
+              <label key={wallet} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border/50 hover:bg-muted/50 cursor-pointer transition-colors">
+                <Checkbox checked={altDataConsents[wallet] || false} onCheckedChange={() => toggleConsent(wallet)} />
+                <div className="flex-1">
+                  <span className="text-sm font-medium text-foreground">{wallet}</span>
+                  <p className="text-xs text-muted-foreground">Transaction history, inflows/outflows, balance trends</p>
+                </div>
+                <Badge variant="outline" className="text-xs bg-success/10 text-success border-success/20">Wallet</Badge>
+              </label>
+            ))}
+          </div>
+        </FieldGroup>
+
+        <FieldGroup label="Telco Data">
+          <div className="col-span-2 space-y-2">
+            {config.telcos.map(telco => (
+              <label key={telco} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border/50 hover:bg-muted/50 cursor-pointer transition-colors">
+                <Checkbox checked={altDataConsents[telco] || false} onCheckedChange={() => toggleConsent(telco)} />
+                <div className="flex-1">
+                  <span className="text-sm font-medium text-foreground">{telco}</span>
+                  <p className="text-xs text-muted-foreground">Airtime/data usage, SIM stability, recharge patterns</p>
+                </div>
+                <Badge variant="outline" className="text-xs bg-accent/10 text-accent border-accent/20">Telco</Badge>
+              </label>
+            ))}
+          </div>
+        </FieldGroup>
+
+        <FieldGroup label="Utility Bills">
+          <div className="col-span-2 space-y-2">
+            {config.utilities.map(util => (
+              <label key={util} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border/50 hover:bg-muted/50 cursor-pointer transition-colors">
+                <Checkbox checked={altDataConsents[util] || false} onCheckedChange={() => toggleConsent(util)} />
+                <div className="flex-1">
+                  <span className="text-sm font-medium text-foreground">{util}</span>
+                  <p className="text-xs text-muted-foreground">Payment regularity, consumption patterns</p>
+                </div>
+                <Badge variant="outline" className="text-xs bg-warning/10 text-warning border-warning/20">Utility</Badge>
+              </label>
+            ))}
+          </div>
+        </FieldGroup>
+
+        <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <Checkbox checked={altDataConsents["device_telemetry"] || false} onCheckedChange={() => toggleConsent("device_telemetry")} className="mt-0.5" />
+            <div>
+              <span className="text-sm font-medium text-foreground">Device Telemetry (optional)</span>
+              <p className="text-xs text-muted-foreground mt-0.5">Device type, SIM swap history, app usage patterns.</p>
+            </div>
+          </label>
+        </div>
+      </div>
+    );
+  };
+
+  // ── Documents Step ──
+  const renderDocumentsStep = () => {
+    if (!config) return null;
+    const docTypes = [
+      { key: "bank_statement", icon: CreditCard, title: "Bank Statements (min. 3 months)", desc: "Must cover at least 3 consecutive months. Extracts: income flows, variability.", formats: "PDF, JPEG, PNG", accept: ".pdf,.jpg,.jpeg,.png" },
+      { key: "utility_bill", icon: Banknote, title: "Utility Bills (min. 3 months)", desc: "Electricity, water. Extracts: payment regularity.", formats: "PDF, JPEG", accept: ".pdf,.jpg,.jpeg" },
+      ...(category !== "retail" ? [
+        { key: "trade_license", icon: Building2, title: config.businessRegistration.label, desc: "Business registration document.", formats: "PDF, JPEG", accept: ".pdf,.jpg,.jpeg" },
+        { key: "financial_statement", icon: FileText, title: "Financial Statements / Receipts", desc: "P&L, balance sheet, or sales receipts.", formats: "PDF, XLSX", accept: ".pdf,.xlsx,.xls" },
+      ] : []),
+      ...(category === "sme" ? [
+        { key: "tax_clearance", icon: Shield, title: "ZIMRA Tax Clearance (ITF 263)", desc: "Valid tax clearance certificate.", formats: "PDF", accept: ".pdf" },
+        { key: "management_accounts", icon: BarChart3, title: "Management Accounts (latest)", desc: "Monthly management accounts for cash flow analysis.", formats: "PDF, XLSX", accept: ".pdf,.xlsx,.xls" },
+      ] : []),
+      { key: "id_copy", icon: Shield, title: "ID Document Copy", desc: "Clear photo of the selected ID.", formats: "JPEG, PNG", accept: ".jpg,.jpeg,.png" },
+    ];
+
+    return (
+      <div className="space-y-5">
+        <p className="text-sm text-muted-foreground">
+          Upload supporting documents for OCR extraction. Extracted data feeds directly into the scoring model.
+        </p>
+        {docTypes.map(doc => (
+          <div key={doc.key} className="p-4 rounded-lg bg-muted/30 border border-border/50 border-dashed hover:border-primary/30 transition-colors">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-lg bg-muted/50">
+                <doc.icon className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div className="flex-1">
+                <h4 className="text-sm font-medium text-foreground">{doc.title}</h4>
+                <p className="text-xs text-muted-foreground mt-0.5">{doc.desc}</p>
+                <p className="text-xs text-muted-foreground/60 mt-1">Accepted: {doc.formats}</p>
+              </div>
+              <div className="flex flex-col items-end gap-2">
+                {documents[doc.key] ? (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="bg-success/10 text-success border-success/20 text-xs">
+                      <CheckCircle2 className="h-3 w-3 mr-1" /> Uploaded
+                    </Badge>
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => setDocuments(prev => { const next = { ...prev }; delete next[doc.key]; return next; })}>×</Button>
+                  </div>
+                ) : (
+                  <>
+                    <input type="file" id={`file-${doc.key}`} className="hidden" accept={doc.accept}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file || !institutionId) return;
+                        setUploadingDoc(doc.key);
+                        try {
+                          const filePath = `${institutionId}/pending/${doc.key}_${Date.now()}_${file.name}`;
+                          const { error: uploadErr } = await supabase.storage.from("application-documents").upload(filePath, file);
+                          if (uploadErr) throw uploadErr;
+                          setDocuments(prev => ({ ...prev, [doc.key]: filePath }));
+                          toast({ title: "Document uploaded", description: `${doc.title} uploaded. OCR will run after submission.` });
+                        } catch (err: any) {
+                          toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+                        } finally { setUploadingDoc(null); e.target.value = ""; }
+                      }}
+                    />
+                    <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border" disabled={uploadingDoc === doc.key}
+                      onClick={() => document.getElementById(`file-${doc.key}`)?.click()}>
+                      {uploadingDoc === doc.key ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                      {uploadingDoc === doc.key ? "Uploading…" : "Upload"}
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // ── Psychometric Step ──
+  const renderPsychometricStep = () => (
+    <div className="space-y-5">
+      <p className="text-sm text-muted-foreground">
+        A 5–10 minute behavioural micro-survey captures traits like conscientiousness, risk attitude, and financial planning horizon.
+      </p>
+
+      {(() => {
+        const statusConfig = PSYCHOMETRIC_STATUS_CONFIG[psychometricStatus];
+        const StatusIcon = statusConfig.icon;
+        return (
+          <div className={`p-4 rounded-lg border ${statusConfig.color}`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <StatusIcon className={`h-4 w-4 ${psychometricStatus === "in_progress" ? "animate-spin" : ""}`} />
+                <span className="text-sm font-medium">Status: {statusConfig.label}</span>
+              </div>
+              {psychometricMethod && (
+                <Badge variant="outline" className="text-xs border-border">
+                  {psychometricMethod === "sms" ? "SMS / WhatsApp" : "In-Branch"}
+                </Badge>
+              )}
+            </div>
+            {psychometricStatus === "link_sent" && (
+              <p className="text-xs mt-2 opacity-80">Link sent to {formData.psychometric_phone || formData.phone}. 48 hours to complete.</p>
+            )}
+            {psychometricStatus === "in_progress" && (
+              <div className="mt-3 space-y-2">
+                <Progress value={60} className="h-1.5" />
+              </div>
+            )}
+            {psychometricStatus === "completed" && (
+              <p className="text-xs mt-2 opacity-80">✓ All psychometric traits captured.</p>
+            )}
+          </div>
+        );
+      })()}
+
+      {(psychometricStatus === "not_started" || psychometricStatus === "expired") && (
+        <>
+          <FieldGroup label="Send Assessment">
+            <Field label="Phone for Assessment" span2>
+              <Input placeholder={config?.phonePlaceholder || "+XXX XXX XXX XXXX"} className="bg-muted/50 border-border"
+                value={formData.psychometric_phone || formData.phone || ""} onChange={e => updateField("psychometric_phone", e.target.value)} />
+            </Field>
+          </FieldGroup>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-4 rounded-lg bg-muted/30 border border-border/50 hover:border-primary/30 cursor-pointer transition-colors text-center space-y-3">
+              <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                <Smartphone className="h-6 w-6 text-primary" />
+              </div>
+              <h4 className="text-sm font-medium text-foreground">Send via SMS / WhatsApp</h4>
+              <p className="text-xs text-muted-foreground">Borrower completes remotely</p>
+              <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs border-border" onClick={handleSendPsychometricLink} disabled={sendingLink}>
+                {sendingLink ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                {sendingLink ? "Sending…" : "Send Link"}
+              </Button>
+            </div>
+            <div className="p-4 rounded-lg bg-muted/30 border border-border/50 hover:border-primary/30 cursor-pointer transition-colors text-center space-y-3">
+              <div className="mx-auto w-12 h-12 rounded-full bg-success/10 flex items-center justify-center">
+                <Brain className="h-6 w-6 text-success" />
+              </div>
+              <h4 className="text-sm font-medium text-foreground">Start In-Branch</h4>
+              <p className="text-xs text-muted-foreground">Field officer guides borrower</p>
+              <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs border-border" onClick={handleStartInBranch}>
+                <ArrowRight className="h-3 w-3" /> Begin Now
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {psychometricStatus === "link_sent" && (
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border" onClick={handleSendPsychometricLink} disabled={sendingLink}>
+            {sendingLink ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+            Resend Link
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border" onClick={handleStartInBranch}>
+            <Brain className="h-3 w-3" /> Switch to In-Branch
+          </Button>
+        </div>
+      )}
+
+      <p className="text-xs text-muted-foreground">
+        You can proceed without the psychometric score — the model will use available data.
+      </p>
+    </div>
+  );
+
+  // ── Review Step ──
+  const renderReviewStep = () => {
+    if (!config) return null;
+    return (
+      <div className="space-y-5">
+        <div className="space-y-3">
+          {[
+            { label: "Category", value: category === "retail" ? "Individual" : category === "micro" ? "Micro-enterprise" : "SME" },
+            { label: "Country", value: config.label },
+            { label: "Product", value: productTypes.find(p => p.value === formData.product)?.label || "—" },
+            { label: "Borrower", value: formData.name || "—" },
+            { label: "ID", value: `${config.idTypes.find(i => i.value === formData.id_type)?.label || "—"}: ${formData.id_number || "—"}` },
+            { label: "Phone", value: formData.phone || "—" },
+            ...(category !== "retail" ? [{ label: "Business", value: formData.business_name || "—" }] : []),
+            { label: "Amount", value: formData.amount ? `${config.currencySymbol} ${Number(formData.amount).toLocaleString()}` : "—" },
+            { label: "Tenor", value: formData.tenor ? `${formData.tenor} months` : "—" },
+            ...(category === "sme" ? [
+              { label: "Annual Turnover", value: formData.annual_turnover_zwl ? `${config.currencySymbol} ${Number(formData.annual_turnover_zwl).toLocaleString()}` : "—" },
+              { label: "Revenue Volatility", value: formData.revenue_volatility ? `${formData.revenue_volatility}%` : "—" },
+            ] : []),
+            ...(category !== "sme" ? [{ label: "Psychometric", value: PSYCHOMETRIC_STATUS_CONFIG[psychometricStatus].label }] : []),
+          ].map(row => (
+            <div key={row.label} className="flex justify-between items-center py-2 border-b border-border/30 last:border-0">
+              <span className="text-xs text-muted-foreground">{row.label}</span>
+              <span className="text-sm font-medium text-foreground">{row.value}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="space-y-2">
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Data Sources Consented</h4>
+          <div className="flex flex-wrap gap-1.5">
+            {Object.entries(altDataConsents).filter(([, v]) => v).map(([k]) => (
+              <Badge key={k} variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">{k}</Badge>
+            ))}
+            {Object.values(altDataConsents).filter(Boolean).length === 0 && (
+              <span className="text-xs text-muted-foreground">No alt-data sources selected</span>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Documents</h4>
+          <div className="flex flex-wrap gap-1.5">
+            {Object.keys(documents).length > 0 ? Object.keys(documents).map(k => (
+              <Badge key={k} variant="outline" className="text-xs bg-success/10 text-success border-success/20">{k.replace(/_/g, " ")}</Badge>
+            )) : <span className="text-xs text-muted-foreground">No documents uploaded</span>}
+          </div>
+        </div>
+
+        <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+          <p className="text-xs text-muted-foreground">
+            On submit, AfricaOne will initiate: <span className="text-foreground font-medium">
+              {category === "retail" && "Bureau checks → Alt-data pull → Document OCR → Psychometric score → Individual Scorecard"}
+              {category === "micro" && "Bureau checks → EcoCash/InnBucks pull → Cash flow analysis → Mukando verification → Micro Scorecard"}
+              {category === "sme" && "Bureau checks → Financial analysis → Cash flow volatility → Social media audit → Concentration risk → SME Scorecard"}
+            </span>
+          </p>
+        </div>
+      </div>
+    );
+  };
+
+  // ── Step Router ──
+  const renderCurrentStep = () => {
+    switch (currentStepId) {
+      case "borrower": return renderBorrowerStep();
+      case "business": return renderMicroBusinessStep();
+      case "corporate": return renderSMECorporateStep();
+      case "financials": return renderSMEFinancialsStep();
+      case "cashflow": return category === "micro" ? renderMicroCashFlowStep() : renderSMECashFlowStep();
+      case "social": return renderSocialMediaStep();
+      case "financial": return renderFinancialStep();
+      case "altdata": return renderAltDataStep();
+      case "documents": return renderDocumentsStep();
+      case "psychometric": return renderPsychometricStep();
+      case "review": return renderReviewStep();
+      default: return null;
     }
   };
 
@@ -410,632 +1379,28 @@ const NewApplicationWizard = () => {
           </DialogHeader>
 
           {/* Product Category Tabs */}
-          <Tabs value={category} onValueChange={(v) => setCategory(v as ProductCategory)} className="mt-2">
+          <Tabs value={category} onValueChange={handleCategoryChange} className="mt-2">
             <TabsList className="grid w-full grid-cols-3 bg-muted">
-              <TabsTrigger value="retail" className="gap-1.5 text-xs"><User className="h-3.5 w-3.5" /> Retail Individual</TabsTrigger>
-              <TabsTrigger value="micro" className="gap-1.5 text-xs"><Building2 className="h-3.5 w-3.5" /> Micro-enterprise</TabsTrigger>
-              <TabsTrigger value="sme" className="gap-1.5 text-xs"><Globe className="h-3.5 w-3.5" /> SME</TabsTrigger>
+              <TabsTrigger value="retail" className="gap-1.5 text-xs"><User className="h-3.5 w-3.5" /> Individual</TabsTrigger>
+              <TabsTrigger value="micro" className="gap-1.5 text-xs"><Store className="h-3.5 w-3.5" /> Micro</TabsTrigger>
+              <TabsTrigger value="sme" className="gap-1.5 text-xs"><Landmark className="h-3.5 w-3.5" /> SME</TabsTrigger>
             </TabsList>
           </Tabs>
 
-          {/* Step Indicator */}
-          <StepIndicator currentStep={step} steps={STEPS} />
+          {/* Category description banner */}
+          <div className={`p-2.5 rounded-lg text-xs ${
+            category === "retail" ? "bg-primary/5 border border-primary/15 text-primary" :
+            category === "micro" ? "bg-accent/5 border border-accent/15 text-accent" :
+            "bg-success/5 border border-success/15 text-success"
+          }`}>
+            {category === "retail" && "Individual — Salaried employees, civil servants, personal loans. Focus: income stability, DTI, employment."}
+            {category === "micro" && "Micro — Informal traders, market vendors, cross-border traders. Focus: daily sales, cash flow, Mukando savings."}
+            {category === "sme" && "SME — Registered businesses with formal financials. Focus: turnover, margins, cash flow volatility, social media presence."}
+          </div>
 
-          {/* Step 1: Borrower Info */}
-          {step === 0 && (
-            <div className="space-y-5">
-              <FieldGroup label="Country & Product">
-                <Field label="Country">
-                  <Select value={country} onValueChange={setCountry}>
-                    <SelectTrigger className="bg-muted/50 border-border">
-                      <SelectValue placeholder="Select country" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(countryConfigs).map(([key, c]) => (
-                        <SelectItem key={key} value={key}>{c.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field label="Product Type">
-                  <Select value={formData.product || ""} onValueChange={v => updateField("product", v)}>
-                    <SelectTrigger className="bg-muted/50 border-border">
-                      <SelectValue placeholder="Select product" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {productTypes.map(p => (
-                        <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-              </FieldGroup>
+          <StepIndicator currentStep={step} steps={steps} />
 
-              <FieldGroup label="Personal Details">
-                <Field label={category === "retail" ? "Full Name" : "Contact Person"}>
-                  <Input placeholder="Enter full name" className="bg-muted/50 border-border" value={formData.name || ""} onChange={e => updateField("name", e.target.value)} />
-                </Field>
-                <Field label="Date of Birth">
-                  <Input type="date" className="bg-muted/50 border-border" value={formData.dob || ""} onChange={e => updateField("dob", e.target.value)} />
-                </Field>
-                <Field label="Gender">
-                  <Select value={formData.gender || ""} onValueChange={v => updateField("gender", v)}>
-                    <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="male">Male</SelectItem>
-                      <SelectItem value="female">Female</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field label="Marital Status">
-                  <Select value={formData.marital || ""} onValueChange={v => updateField("marital", v)}>
-                    <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="single">Single</SelectItem>
-                      <SelectItem value="married">Married</SelectItem>
-                      <SelectItem value="divorced">Divorced</SelectItem>
-                      <SelectItem value="widowed">Widowed</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </Field>
-              </FieldGroup>
-
-              {config && (
-                <>
-                  <FieldGroup label="Identification">
-                    <Field label="ID Type">
-                      <Select value={formData.id_type || ""} onValueChange={v => updateField("id_type", v)}>
-                        <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select ID type" /></SelectTrigger>
-                        <SelectContent>
-                          {config.idTypes.map(id => (
-                            <SelectItem key={id.value} value={id.value}>{id.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                    <Field label="ID Number">
-                      <Input
-                        placeholder={config.idTypes.find(i => i.value === formData.id_type)?.placeholder || "Enter ID number"}
-                        className="bg-muted/50 border-border"
-                        value={formData.id_number || ""}
-                        onChange={e => updateField("id_number", e.target.value)}
-                      />
-                    </Field>
-                    {config.taxId && (
-                      <Field label={config.taxId.label}>
-                        <Input placeholder={config.taxId.placeholder} className="bg-muted/50 border-border" value={formData.tax_id || ""} onChange={e => updateField("tax_id", e.target.value)} />
-                      </Field>
-                    )}
-                    {config.socialId && (
-                      <Field label={config.socialId.label}>
-                        <Input placeholder={config.socialId.placeholder} className="bg-muted/50 border-border" value={formData.social_id || ""} onChange={e => updateField("social_id", e.target.value)} />
-                      </Field>
-                    )}
-                  </FieldGroup>
-
-                  <FieldGroup label="Contact">
-                    <Field label="Mobile Number">
-                      <Input placeholder={config.phonePlaceholder} className="bg-muted/50 border-border" value={formData.phone || ""} onChange={e => updateField("phone", e.target.value)} />
-                    </Field>
-                    <Field label="Email (optional)">
-                      <Input type="email" placeholder="borrower@email.com" className="bg-muted/50 border-border" value={formData.email || ""} onChange={e => updateField("email", e.target.value)} />
-                    </Field>
-                    <Field label="Physical Address" span2>
-                      <Input placeholder="Street, area, city" className="bg-muted/50 border-border" value={formData.address || ""} onChange={e => updateField("address", e.target.value)} />
-                    </Field>
-                  </FieldGroup>
-
-                  {config.additionalRetailFields.filter(f => ["county","state","region","province","district"].includes(f.key)).map(f => (
-                    <FieldGroup key={f.key} label="Location Details">
-                      <Field label={f.label}>
-                        <Input placeholder={f.placeholder} className="bg-muted/50 border-border" value={formData[f.key] || ""} onChange={e => updateField(f.key, e.target.value)} />
-                      </Field>
-                    </FieldGroup>
-                  ))}
-                </>
-              )}
-
-              {config && category !== "retail" && (
-                <FieldGroup label="Business Details">
-                  <Field label="Business Name">
-                    <Input placeholder="Registered business name" className="bg-muted/50 border-border" value={formData.business_name || ""} onChange={e => updateField("business_name", e.target.value)} />
-                  </Field>
-                  <Field label={config.businessRegistration.label}>
-                    <Input placeholder={config.businessRegistration.placeholder} className="bg-muted/50 border-border" value={formData.business_reg || ""} onChange={e => updateField("business_reg", e.target.value)} />
-                  </Field>
-                  <Field label="Years in Operation">
-                    <Input type="number" placeholder="2" className="bg-muted/50 border-border" value={formData.years_operation || ""} onChange={e => updateField("years_operation", e.target.value)} />
-                  </Field>
-                  <Field label="Business Type">
-                    <Select value={formData.business_type || ""} onValueChange={v => updateField("business_type", v)}>
-                      <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="sole_proprietor">Sole Proprietor</SelectItem>
-                        <SelectItem value="partnership">Partnership</SelectItem>
-                        <SelectItem value="limited">Limited Company</SelectItem>
-                        <SelectItem value="cooperative">Cooperative / SACCO</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  {config.additionalBusinessFields.map(f => (
-                    <Field key={f.key} label={f.label}>
-                      <Input type={f.type} placeholder={f.placeholder} className="bg-muted/50 border-border" value={formData[f.key] || ""} onChange={e => updateField(f.key, e.target.value)} />
-                    </Field>
-                  ))}
-                </FieldGroup>
-              )}
-            </div>
-          )}
-
-          {/* Step 2: Financial Profile */}
-          {step === 1 && config && (
-            <div className="space-y-5">
-              <FieldGroup label="Loan Request">
-                <Field label={`Requested Amount (${config.currency})`}>
-                  <Input type="number" placeholder="50000" className="bg-muted/50 border-border" value={formData.amount || ""} onChange={e => updateField("amount", e.target.value)} />
-                </Field>
-                <Field label="Tenor (months)">
-                  <Input type="number" placeholder="12" className="bg-muted/50 border-border" value={formData.tenor || ""} onChange={e => updateField("tenor", e.target.value)} />
-                </Field>
-                <Field label="Purpose of Loan">
-                  <Select value={formData.purpose || ""} onValueChange={v => updateField("purpose", v)}>
-                    <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select purpose" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="working_capital">Working Capital</SelectItem>
-                      <SelectItem value="asset_purchase">Asset Purchase</SelectItem>
-                      <SelectItem value="education">Education</SelectItem>
-                      <SelectItem value="medical">Medical</SelectItem>
-                      <SelectItem value="agriculture">Agriculture</SelectItem>
-                      <SelectItem value="housing">Housing / Rent</SelectItem>
-                      <SelectItem value="personal">Personal / Consumption</SelectItem>
-                      <SelectItem value="debt_consolidation">Debt Consolidation</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field label="Collateral (if any)">
-                  <Select value={formData.collateral || ""} onValueChange={v => updateField("collateral", v)}>
-                    <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None (Unsecured)</SelectItem>
-                      <SelectItem value="salary">Salary Assignment</SelectItem>
-                      <SelectItem value="property">Property / Land</SelectItem>
-                      <SelectItem value="vehicle">Vehicle</SelectItem>
-                      <SelectItem value="group_guarantee">Group Guarantee</SelectItem>
-                      <SelectItem value="inventory">Inventory / Stock</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </Field>
-              </FieldGroup>
-
-              <FieldGroup label="Income & Expenses">
-                {config.additionalRetailFields.filter(f => ["monthly_income","employer"].includes(f.key)).map(f => (
-                  <Field key={f.key} label={f.label}>
-                    <Input type={f.type} placeholder={f.placeholder} className="bg-muted/50 border-border" value={formData[f.key] || ""} onChange={e => updateField(f.key, e.target.value)} />
-                  </Field>
-                ))}
-                <Field label={`Monthly Expenses (${config.currency})`}>
-                  <Input type="number" placeholder="20000" className="bg-muted/50 border-border" value={formData.monthly_expenses || ""} onChange={e => updateField("monthly_expenses", e.target.value)} />
-                </Field>
-                <Field label="Number of Dependents">
-                  <Input type="number" placeholder="3" className="bg-muted/50 border-border" value={formData.dependents || ""} onChange={e => updateField("dependents", e.target.value)} />
-                </Field>
-                <Field label={`Monthly Rent / Housing (${config.currency})`}>
-                  <Input type="number" placeholder="5000" className="bg-muted/50 border-border" value={formData.rent || ""} onChange={e => updateField("rent", e.target.value)} />
-                </Field>
-                <Field label="Existing Loan Obligations">
-                  <Select value={formData.existing_loans || ""} onValueChange={v => updateField("existing_loans", v)}>
-                    <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No existing loans</SelectItem>
-                      <SelectItem value="1">1 active loan</SelectItem>
-                      <SelectItem value="2">2 active loans</SelectItem>
-                      <SelectItem value="3_plus">3+ active loans</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </Field>
-                {formData.existing_loans && formData.existing_loans !== "none" && (
-                  <Field label={`Total Monthly Repayments (${config.currency})`}>
-                    <Input type="number" placeholder="5000" className="bg-muted/50 border-border" value={formData.existing_repayments || ""} onChange={e => updateField("existing_repayments", e.target.value)} />
-                  </Field>
-                )}
-              </FieldGroup>
-
-              {country === "zimbabwe" && (
-                <FieldGroup label="Multi-Currency Details (Zimbabwe)">
-                  <Field label="Primary Transaction Currency">
-                    <Select value={formData.primary_currency || ""} onValueChange={v => updateField("primary_currency", v)}>
-                      <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="zwl">ZWL (Zimbabwe Dollar)</SelectItem>
-                        <SelectItem value="usd">USD</SelectItem>
-                        <SelectItem value="zar">ZAR (South African Rand)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  <Field label="USD Income (monthly, if any)">
-                    <Input type="number" placeholder="200" className="bg-muted/50 border-border" value={formData.usd_income || ""} onChange={e => updateField("usd_income", e.target.value)} />
-                  </Field>
-                </FieldGroup>
-              )}
-
-              <FieldGroup label="Credit Bureau Score (if available)">
-                <Field label="Bureau Score (300-900)" span2>
-                  <Input type="number" placeholder="e.g. 720 — leave blank if not available" className="bg-muted/50 border-border" min={300} max={900} value={formData.bureau_score || ""} onChange={e => updateField("bureau_score", e.target.value)} />
-                </Field>
-                <p className="col-span-2 text-xs text-muted-foreground -mt-1">
-                  If a Credit Bureau score is available, it receives <span className="font-semibold text-primary">primary weight (30%)</span> in the scoring model. Leave blank if the borrower has no bureau record.
-                </p>
-              </FieldGroup>
-
-              <FieldGroup label="Banking Details">
-                <Field label="Primary Bank">
-                  <Input placeholder="Bank name" className="bg-muted/50 border-border" value={formData.bank || ""} onChange={e => updateField("bank", e.target.value)} />
-                </Field>
-                <Field label="Account Number">
-                  <Input placeholder="Account number" className="bg-muted/50 border-border" value={formData.account_number || ""} onChange={e => updateField("account_number", e.target.value)} />
-                </Field>
-                <Field label="Years with Bank">
-                  <Input type="number" placeholder="3" className="bg-muted/50 border-border" value={formData.bank_years || ""} onChange={e => updateField("bank_years", e.target.value)} />
-                </Field>
-                <Field label={`Average Monthly Balance (${config.currency})`}>
-                  <Input type="number" placeholder="10000" className="bg-muted/50 border-border" value={formData.avg_balance || ""} onChange={e => updateField("avg_balance", e.target.value)} />
-                </Field>
-              </FieldGroup>
-            </div>
-          )}
-
-          {/* Step 3: Alt-Data Consent */}
-          {step === 2 && config && (
-            <div className="space-y-5">
-              <p className="text-sm text-muted-foreground">
-                Select which alternative data sources the borrower consents to share. Each source improves scoring accuracy.
-              </p>
-
-              <FieldGroup label={`Credit Bureaus (${config.label})`}>
-                <div className="col-span-2 space-y-2">
-                  {config.bureaus.map(bureau => (
-                    <label key={bureau} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border/50 hover:bg-muted/50 cursor-pointer transition-colors">
-                      <Checkbox checked={altDataConsents[bureau] || false} onCheckedChange={() => toggleConsent(bureau)} />
-                      <div className="flex-1">
-                        <span className="text-sm font-medium text-foreground">{bureau}</span>
-                        <p className="text-xs text-muted-foreground">Credit history, obligations, defaults</p>
-                      </div>
-                      <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">Bureau</Badge>
-                    </label>
-                  ))}
-                </div>
-              </FieldGroup>
-
-              <FieldGroup label="Mobile Wallet Data">
-                <div className="col-span-2 space-y-2">
-                  {config.wallets.map(wallet => (
-                    <label key={wallet} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border/50 hover:bg-muted/50 cursor-pointer transition-colors">
-                      <Checkbox checked={altDataConsents[wallet] || false} onCheckedChange={() => toggleConsent(wallet)} />
-                      <div className="flex-1">
-                        <span className="text-sm font-medium text-foreground">{wallet}</span>
-                        <p className="text-xs text-muted-foreground">Transaction history, inflows/outflows, balance trends</p>
-                      </div>
-                      <Badge variant="outline" className="text-xs bg-success/10 text-success border-success/20">Wallet</Badge>
-                    </label>
-                  ))}
-                </div>
-              </FieldGroup>
-
-              <FieldGroup label="Telco Data">
-                <div className="col-span-2 space-y-2">
-                  {config.telcos.map(telco => (
-                    <label key={telco} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border/50 hover:bg-muted/50 cursor-pointer transition-colors">
-                      <Checkbox checked={altDataConsents[telco] || false} onCheckedChange={() => toggleConsent(telco)} />
-                      <div className="flex-1">
-                        <span className="text-sm font-medium text-foreground">{telco}</span>
-                        <p className="text-xs text-muted-foreground">Airtime/data usage, SIM stability, recharge patterns</p>
-                      </div>
-                      <Badge variant="outline" className="text-xs bg-accent/10 text-accent border-accent/20">Telco</Badge>
-                    </label>
-                  ))}
-                </div>
-              </FieldGroup>
-
-              <FieldGroup label="Utility Bills">
-                <div className="col-span-2 space-y-2">
-                  {config.utilities.map(util => (
-                    <label key={util} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border/50 hover:bg-muted/50 cursor-pointer transition-colors">
-                      <Checkbox checked={altDataConsents[util] || false} onCheckedChange={() => toggleConsent(util)} />
-                      <div className="flex-1">
-                        <span className="text-sm font-medium text-foreground">{util}</span>
-                        <p className="text-xs text-muted-foreground">Payment regularity, consumption patterns</p>
-                      </div>
-                      <Badge variant="outline" className="text-xs bg-warning/10 text-warning border-warning/20">Utility</Badge>
-                    </label>
-                  ))}
-                </div>
-              </FieldGroup>
-
-              <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <Checkbox checked={altDataConsents["device_telemetry"] || false} onCheckedChange={() => toggleConsent("device_telemetry")} className="mt-0.5" />
-                  <div>
-                    <span className="text-sm font-medium text-foreground">Device Telemetry (optional)</span>
-                    <p className="text-xs text-muted-foreground mt-0.5">Device type, SIM swap history, app usage patterns. Helps verify identity stability.</p>
-                  </div>
-                </label>
-              </div>
-            </div>
-          )}
-
-           {/* Step 4: Documents */}
-          {step === 3 && config && (
-            <div className="space-y-5">
-              <p className="text-sm text-muted-foreground">
-                Upload supporting documents for OCR extraction. Extracted data feeds directly into the scoring model.
-              </p>
-
-              {[
-                { key: "bank_statement", icon: CreditCard, title: "Bank Statements (min. 3 months)", desc: "Must cover at least 3 consecutive months. Extracts: income flows, variability, recurring obligations. Documents covering less than 3 months will be rejected.", formats: "PDF, JPEG, PNG", accept: ".pdf,.jpg,.jpeg,.png" },
-                { key: "utility_bill", icon: Banknote, title: "Utility Bills (min. 3 months)", desc: "Must cover at least 3 consecutive months. Electricity, water, or internet. Extracts: payment regularity, address verification. Single-month bills will be rejected.", formats: "PDF, JPEG", accept: ".pdf,.jpg,.jpeg" },
-                ...(category !== "retail" ? [
-                  { key: "trade_license", icon: Building2, title: config.businessRegistration.label, desc: "Business registration document. Extracts: registration date, activity codes, address.", formats: "PDF, JPEG", accept: ".pdf,.jpg,.jpeg" },
-                  { key: "financial_statement", icon: FileText, title: "Financial Statements / Receipts", desc: "P&L, balance sheet, or sales receipts. Extracts: revenue, margins, cash position.", formats: "PDF, XLSX", accept: ".pdf,.xlsx,.xls" },
-                ] : []),
-                { key: "id_copy", icon: Shield, title: "ID Document Copy", desc: "Clear photo of the selected ID. Used for KYC verification and identity matching.", formats: "JPEG, PNG", accept: ".jpg,.jpeg,.png" },
-              ].map(doc => (
-                <div key={doc.key} className="p-4 rounded-lg bg-muted/30 border border-border/50 border-dashed hover:border-primary/30 transition-colors">
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 rounded-lg bg-muted/50">
-                      <doc.icon className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="text-sm font-medium text-foreground">{doc.title}</h4>
-                      <p className="text-xs text-muted-foreground mt-0.5">{doc.desc}</p>
-                      <p className="text-xs text-muted-foreground/60 mt-1">Accepted: {doc.formats}</p>
-                    </div>
-                    <div className="flex flex-col items-end gap-2">
-                      {documents[doc.key] ? (
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="bg-success/10 text-success border-success/20 text-xs">
-                            <CheckCircle2 className="h-3 w-3 mr-1" /> Uploaded
-                          </Badge>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-                            onClick={() => setDocuments(prev => {
-                              const next = { ...prev };
-                              delete next[doc.key];
-                              return next;
-                            })}
-                          >
-                            ×
-                          </Button>
-                        </div>
-                      ) : (
-                        <>
-                          <input
-                            type="file"
-                            id={`file-${doc.key}`}
-                            className="hidden"
-                            accept={doc.accept}
-                            onChange={async (e) => {
-                              const file = e.target.files?.[0];
-                              if (!file || !institutionId) return;
-                              setUploadingDoc(doc.key);
-                              try {
-                                const filePath = `${institutionId}/pending/${doc.key}_${Date.now()}_${file.name}`;
-                                const { error: uploadErr } = await supabase.storage
-                                  .from("application-documents")
-                                  .upload(filePath, file);
-                                if (uploadErr) throw uploadErr;
-                                setDocuments(prev => ({ ...prev, [doc.key]: filePath }));
-                                toast({ title: "Document uploaded", description: `${doc.title} uploaded successfully. OCR extraction will run after submission.` });
-                              } catch (err: any) {
-                                console.error("Upload error:", err);
-                                toast({ title: "Upload failed", description: err.message, variant: "destructive" });
-                              } finally {
-                                setUploadingDoc(null);
-                                e.target.value = "";
-                              }
-                            }}
-                          />
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-1.5 text-xs border-border"
-                            disabled={uploadingDoc === doc.key}
-                            onClick={() => document.getElementById(`file-${doc.key}`)?.click()}
-                          >
-                            {uploadingDoc === doc.key ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <Upload className="h-3 w-3" />
-                            )}
-                            {uploadingDoc === doc.key ? "Uploading…" : "Upload"}
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Step 5: Psychometric Assessment */}
-          {step === 4 && (
-            <div className="space-y-5">
-              <p className="text-sm text-muted-foreground">
-                A 5–10 minute behavioural micro-survey captures traits like conscientiousness, risk attitude, and financial planning horizon — feeding the scoring model as a separate feature block.
-              </p>
-
-              {/* Current Status */}
-              {(() => {
-                const statusConfig = PSYCHOMETRIC_STATUS_CONFIG[psychometricStatus];
-                const StatusIcon = statusConfig.icon;
-                return (
-                  <div className={`p-4 rounded-lg border ${statusConfig.color}`}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <StatusIcon className={`h-4 w-4 ${psychometricStatus === "in_progress" ? "animate-spin" : ""}`} />
-                        <span className="text-sm font-medium">Assessment Status: {statusConfig.label}</span>
-                      </div>
-                      {psychometricMethod && (
-                        <Badge variant="outline" className="text-xs border-border">
-                          {psychometricMethod === "sms" ? "SMS / WhatsApp" : "In-Branch"}
-                        </Badge>
-                      )}
-                    </div>
-                    {psychometricStatus === "link_sent" && (
-                      <p className="text-xs mt-2 opacity-80">
-                        Link sent to {formData.psychometric_phone || formData.phone}. The borrower has 48 hours to complete the survey.
-                      </p>
-                    )}
-                    {psychometricStatus === "in_progress" && (
-                      <div className="mt-3 space-y-2">
-                        <div className="flex items-center justify-between text-xs">
-                          <span>Assessment in progress…</span>
-                          <span>Estimating completion</span>
-                        </div>
-                        <Progress value={60} className="h-1.5" />
-                      </div>
-                    )}
-                    {psychometricStatus === "completed" && (
-                      <p className="text-xs mt-2 opacity-80">
-                        ✓ All psychometric traits captured. Scores will be included in the composite model.
-                      </p>
-                    )}
-                  </div>
-                );
-              })()}
-
-              {/* Delivery options — only show if not started or expired */}
-              {(psychometricStatus === "not_started" || psychometricStatus === "expired") && (
-                <>
-                  <FieldGroup label="Send Assessment">
-                    <Field label="Phone for Assessment" span2>
-                      <Input
-                        placeholder={config?.phonePlaceholder || "+XXX XXX XXX XXXX"}
-                        className="bg-muted/50 border-border"
-                        value={formData.psychometric_phone || formData.phone || ""}
-                        onChange={e => updateField("psychometric_phone", e.target.value)}
-                      />
-                    </Field>
-                  </FieldGroup>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="p-4 rounded-lg bg-muted/30 border border-border/50 hover:border-primary/30 cursor-pointer transition-colors text-center space-y-3">
-                      <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Smartphone className="h-6 w-6 text-primary" />
-                      </div>
-                      <h4 className="text-sm font-medium text-foreground">Send via SMS / WhatsApp</h4>
-                      <p className="text-xs text-muted-foreground">Borrower completes remotely on their device</p>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full gap-1.5 text-xs border-border"
-                        onClick={handleSendPsychometricLink}
-                        disabled={sendingLink}
-                      >
-                        {sendingLink ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                        {sendingLink ? "Sending…" : "Send Link"}
-                      </Button>
-                    </div>
-                    <div className="p-4 rounded-lg bg-muted/30 border border-border/50 hover:border-primary/30 cursor-pointer transition-colors text-center space-y-3">
-                      <div className="mx-auto w-12 h-12 rounded-full bg-success/10 flex items-center justify-center">
-                        <Brain className="h-6 w-6 text-success" />
-                      </div>
-                      <h4 className="text-sm font-medium text-foreground">Start In-Branch</h4>
-                      <p className="text-xs text-muted-foreground">Field officer guides borrower through assessment</p>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full gap-1.5 text-xs border-border"
-                        onClick={handleStartInBranch}
-                      >
-                        <ArrowRight className="h-3 w-3" /> Begin Now
-                      </Button>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {/* Resend option for link_sent */}
-              {psychometricStatus === "link_sent" && (
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border" onClick={handleSendPsychometricLink} disabled={sendingLink}>
-                    {sendingLink ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                    Resend Link
-                  </Button>
-                  <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border" onClick={handleStartInBranch}>
-                    <Brain className="h-3 w-3" /> Switch to In-Branch
-                  </Button>
-                </div>
-              )}
-
-              <p className="text-xs text-muted-foreground">
-                You can proceed without the psychometric score — the model will use available data. The assessment can be completed later and the score will update automatically.
-              </p>
-
-              <div className="space-y-2 p-3 rounded-lg bg-muted/20 border border-border/30">
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Traits Measured</h4>
-                <div className="flex flex-wrap gap-2">
-                  {["Conscientiousness", "Risk Attitude", "Impulse Control", "Financial Planning", "Honesty / Integrity", "Time Preference"].map(trait => (
-                    <Badge key={trait} variant="outline" className="text-xs bg-muted/50 border-border text-muted-foreground">{trait}</Badge>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Step 6: Review & Submit */}
-          {step === 5 && config && (
-            <div className="space-y-5">
-              <div className="space-y-3">
-                {[
-                  { label: "Category", value: category === "retail" ? "Retail Individual" : category === "micro" ? "Micro-enterprise" : "SME" },
-                  { label: "Country", value: config.label },
-                  { label: "Product", value: productTypes.find(p => p.value === formData.product)?.label || "—" },
-                  { label: "Borrower", value: formData.name || "—" },
-                  { label: "ID", value: `${config.idTypes.find(i => i.value === formData.id_type)?.label || "—"}: ${formData.id_number || "—"}` },
-                  { label: "Phone", value: formData.phone || "—" },
-                  { label: "Amount", value: formData.amount ? `${config.currencySymbol} ${Number(formData.amount).toLocaleString()}` : "—" },
-                  { label: "Tenor", value: formData.tenor ? `${formData.tenor} months` : "—" },
-                  { label: "Psychometric", value: PSYCHOMETRIC_STATUS_CONFIG[psychometricStatus].label },
-                ].map(row => (
-                  <div key={row.label} className="flex justify-between items-center py-2 border-b border-border/30 last:border-0">
-                    <span className="text-xs text-muted-foreground">{row.label}</span>
-                    <span className="text-sm font-medium text-foreground">{row.value}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="space-y-2">
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Data Sources Consented</h4>
-                <div className="flex flex-wrap gap-1.5">
-                  {Object.entries(altDataConsents).filter(([, v]) => v).map(([k]) => (
-                    <Badge key={k} variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">{k}</Badge>
-                  ))}
-                  {Object.values(altDataConsents).filter(Boolean).length === 0 && (
-                    <span className="text-xs text-muted-foreground">No alt-data sources selected</span>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Documents</h4>
-                <div className="flex flex-wrap gap-1.5">
-                  {Object.keys(documents).length > 0 ? Object.keys(documents).map(k => (
-                    <Badge key={k} variant="outline" className="text-xs bg-success/10 text-success border-success/20">{k.replace(/_/g, " ")}</Badge>
-                  )) : <span className="text-xs text-muted-foreground">No documents uploaded</span>}
-                </div>
-              </div>
-
-              <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
-                <p className="text-xs text-muted-foreground">
-                  On submit, AfricaOne will initiate: <span className="text-foreground font-medium">Bureau checks → Alt-data pull → Document OCR → Psychometric score → Composite Score</span>
-                </p>
-              </div>
-            </div>
-          )}
+          {renderCurrentStep()}
 
           {/* No country selected message */}
           {step > 0 && !config && (
@@ -1051,7 +1416,7 @@ const NewApplicationWizard = () => {
             <Button variant="outline" onClick={prev} disabled={step === 0} className="gap-1.5 border-border">
               <ChevronLeft className="h-4 w-4" /> Back
             </Button>
-            {step < STEPS.length - 1 ? (
+            {step < steps.length - 1 ? (
               <Button onClick={next} className="gap-1.5">
                 Next <ChevronRight className="h-4 w-4" />
               </Button>

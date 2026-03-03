@@ -17,6 +17,14 @@ export interface CountryConfig {
   businessRegistration: { label: string; placeholder: string };
   additionalRetailFields: { key: string; label: string; placeholder: string; type: string }[];
   additionalBusinessFields: { key: string; label: string; placeholder: string; type: string }[];
+  // Category-specific fields for deeper data capture
+  microFields?: { key: string; label: string; placeholder: string; type: string; section?: string }[];
+  smeFields?: { key: string; label: string; placeholder: string; type: string; section?: string }[];
+  socialMediaFields?: { key: string; label: string; placeholder: string; type: string }[];
+  cashFlowFields?: { key: string; label: string; placeholder: string; type: string }[];
+  businessStabilityFields?: { key: string; label: string; placeholder: string; type: string; options?: { value: string; label: string }[] }[];
+  collateralOptions?: { value: string; label: string }[];
+  loanPurposes?: { value: string; label: string }[];
 }
 
 export const countryConfigs: Record<string, CountryConfig> = {
@@ -158,11 +166,43 @@ export const countryConfigs: Record<string, CountryConfig> = {
     telcos: ["Econet Wireless", "NetOne", "Telecel"],
     utilities: ["ZESA (Zimbabwe Electricity)", "Harare Water", "ZINWA"],
     businessRegistration: { label: "Companies Registry (DEEDS)", placeholder: "CR XX/XXXX" },
+    collateralOptions: [
+      { value: "none", label: "None (Unsecured)" },
+      { value: "salary", label: "Salary Assignment / Stop Order" },
+      { value: "property", label: "Property / Stand (Title Deed)" },
+      { value: "vehicle", label: "Vehicle (Book Value)" },
+      { value: "movable_assets", label: "Movable Assets / Equipment" },
+      { value: "group_guarantee", label: "Group Guarantee / Club Lending" },
+      { value: "inventory", label: "Inventory / Stock-in-Trade" },
+      { value: "livestock", label: "Livestock (Cattle, Goats)" },
+      { value: "agri_produce", label: "Agricultural Produce / Contracts" },
+      { value: "cession", label: "Cession of Book Debts" },
+    ],
+    loanPurposes: [
+      { value: "working_capital", label: "Working Capital" },
+      { value: "asset_purchase", label: "Asset / Equipment Purchase" },
+      { value: "stock_purchase", label: "Stock / Inventory Purchase" },
+      { value: "agriculture", label: "Agriculture (Inputs, Season Finance)" },
+      { value: "education", label: "Education / School Fees" },
+      { value: "medical", label: "Medical Expenses" },
+      { value: "housing", label: "Housing / Rent / Construction" },
+      { value: "vehicle_purchase", label: "Vehicle Purchase" },
+      { value: "debt_consolidation", label: "Debt Consolidation" },
+      { value: "export_pre_finance", label: "Export Pre-Finance" },
+      { value: "solar_energy", label: "Solar / Energy Systems" },
+      { value: "personal", label: "Personal / Consumption" },
+    ],
     additionalRetailFields: [
       { key: "province", label: "Province", placeholder: "e.g. Harare, Bulawayo, Manicaland", type: "text" },
-      { key: "employer", label: "Employer / Income Source", placeholder: "Company or self-employed", type: "text" },
+      { key: "suburb", label: "Suburb / Ward", placeholder: "e.g. Borrowdale, Nkulumane", type: "text" },
+      { key: "employer", label: "Employer", placeholder: "Company name", type: "text" },
+      { key: "employment_type", label: "Employment Type", placeholder: "Permanent / Contract / Casual", type: "text" },
+      { key: "employment_years", label: "Years with Current Employer", placeholder: "3", type: "number" },
       { key: "monthly_income", label: "Monthly Income (ZWL)", placeholder: "500000", type: "number" },
       { key: "usd_income", label: "Monthly Income (USD, if any)", placeholder: "200", type: "number" },
+      { key: "payslip_net", label: "Net Payslip Amount (ZWL)", placeholder: "450000", type: "number" },
+      { key: "other_income", label: "Other Income Sources (ZWL)", placeholder: "Rental, diaspora remittances", type: "text" },
+      { key: "other_income_amount", label: "Other Income Amount (ZWL)", placeholder: "100000", type: "number" },
     ],
     additionalBusinessFields: [
       { key: "sector", label: "Business Sector", placeholder: "Mining, Agriculture, Trade…", type: "text" },
@@ -170,6 +210,89 @@ export const countryConfigs: Record<string, CountryConfig> = {
       { key: "monthly_revenue", label: "Monthly Revenue (ZWL)", placeholder: "2000000", type: "number" },
       { key: "usd_revenue", label: "Monthly Revenue (USD, if any)", placeholder: "1000", type: "number" },
       { key: "export_income", label: "Export Income (%)", placeholder: "0", type: "number" },
+    ],
+    // Micro-enterprise specific: informal business owners, market traders, cross-border traders
+    microFields: [
+      { key: "trading_location", label: "Trading Location / Market", placeholder: "e.g. Mbare Musika, Siyaso, Kombi Rank", type: "text", section: "Business Profile" },
+      { key: "business_description", label: "Business Description", placeholder: "Describe what you sell or services offered", type: "text", section: "Business Profile" },
+      { key: "years_trading", label: "Years Trading", placeholder: "3", type: "number", section: "Business Profile" },
+      { key: "daily_sales_zwl", label: "Average Daily Sales (ZWL)", placeholder: "50000", type: "number", section: "Cash Flow" },
+      { key: "daily_sales_usd", label: "Average Daily Sales (USD)", placeholder: "20", type: "number", section: "Cash Flow" },
+      { key: "peak_season", label: "Peak Season Months", placeholder: "e.g. Nov-Dec, Easter", type: "text", section: "Cash Flow" },
+      { key: "low_season_revenue_pct", label: "Low Season Revenue (% of peak)", placeholder: "40", type: "number", section: "Cash Flow" },
+      { key: "stock_source", label: "Stock Source / Suppliers", placeholder: "e.g. SA imports, local wholesaler", type: "text", section: "Business Profile" },
+      { key: "cross_border", label: "Cross-Border Trader?", placeholder: "Yes / No", type: "text", section: "Business Profile" },
+      { key: "cross_border_routes", label: "Cross-Border Routes", placeholder: "e.g. Beitbridge-Musina, Chirundu", type: "text", section: "Business Profile" },
+      { key: "ecocash_daily_vol", label: "EcoCash Daily Transaction Volume (ZWL)", placeholder: "100000", type: "number", section: "Mobile Money" },
+      { key: "innbucks_balance", label: "InnBucks Average Balance (USD)", placeholder: "50", type: "number", section: "Mobile Money" },
+      { key: "savings_club", label: "Savings Club / Round (Mukando)", placeholder: "Name and monthly contribution", type: "text", section: "Savings" },
+      { key: "mukando_amount", label: "Mukando Monthly Contribution (ZWL)", placeholder: "20000", type: "number", section: "Savings" },
+      { key: "group_lending", label: "Part of Group Lending Scheme?", placeholder: "Yes / No", type: "text", section: "Savings" },
+      { key: "repayment_history_informal", label: "Previous Loan Repayment (MFI / Club)", placeholder: "Describe any past loans", type: "text", section: "Repayment History" },
+      { key: "supplier_credit_days", label: "Supplier Credit Terms (days)", placeholder: "14", type: "number", section: "Repayment History" },
+    ],
+    // SME specific: formal businesses, cash flow analysis, social media, governance
+    smeFields: [
+      { key: "legal_structure", label: "Legal Structure", placeholder: "Pvt Ltd / Partnership / Co-op", type: "text", section: "Corporate Profile" },
+      { key: "cr_number", label: "CR Number (Companies Registry)", placeholder: "CR XX/XXXX", type: "text", section: "Corporate Profile" },
+      { key: "vat_registered", label: "VAT Registered?", placeholder: "Yes / No", type: "text", section: "Corporate Profile" },
+      { key: "vat_number", label: "VAT Number", placeholder: "XXXXXXXXXX", type: "text", section: "Corporate Profile" },
+      { key: "annual_turnover_zwl", label: "Annual Turnover (ZWL)", placeholder: "24000000", type: "number", section: "Financial Profile" },
+      { key: "annual_turnover_usd", label: "Annual Turnover (USD)", placeholder: "50000", type: "number", section: "Financial Profile" },
+      { key: "gross_margin_pct", label: "Gross Margin (%)", placeholder: "35", type: "number", section: "Financial Profile" },
+      { key: "net_profit_margin_pct", label: "Net Profit Margin (%)", placeholder: "12", type: "number", section: "Financial Profile" },
+      { key: "monthly_fixed_costs", label: "Monthly Fixed Costs (ZWL)", placeholder: "500000", type: "number", section: "Financial Profile" },
+      { key: "avg_monthly_revenue_6m", label: "Avg Monthly Revenue (last 6 months, ZWL)", placeholder: "2000000", type: "number", section: "Cash Flow Analysis" },
+      { key: "revenue_volatility", label: "Revenue Std Dev / Mean (%)", placeholder: "25", type: "number", section: "Cash Flow Analysis" },
+      { key: "highest_month_revenue", label: "Highest Monthly Revenue (ZWL)", placeholder: "3500000", type: "number", section: "Cash Flow Analysis" },
+      { key: "lowest_month_revenue", label: "Lowest Monthly Revenue (ZWL)", placeholder: "800000", type: "number", section: "Cash Flow Analysis" },
+      { key: "receivables_days", label: "Average Receivable Days", placeholder: "30", type: "number", section: "Cash Flow Analysis" },
+      { key: "payables_days", label: "Average Payable Days", placeholder: "45", type: "number", section: "Cash Flow Analysis" },
+      { key: "forex_exposure_pct", label: "Foreign Currency Revenue (%)", placeholder: "40", type: "number", section: "Cash Flow Analysis" },
+      { key: "top_3_customers_pct", label: "Revenue from Top 3 Customers (%)", placeholder: "60", type: "number", section: "Concentration Risk" },
+      { key: "top_supplier_dependency", label: "Single Supplier Dependency (%)", placeholder: "40", type: "number", section: "Concentration Risk" },
+      { key: "export_contracts", label: "Active Export Contracts", placeholder: "Describe key contracts", type: "text", section: "Concentration Risk" },
+      { key: "years_audited_financials", label: "Years of Audited Financials", placeholder: "2", type: "number", section: "Governance" },
+      { key: "directors_count", label: "Number of Directors", placeholder: "3", type: "number", section: "Governance" },
+      { key: "key_person_risk", label: "Key Person Risk (1=Low, 5=High)", placeholder: "3", type: "number", section: "Governance" },
+      { key: "bank_accounts_count", label: "Number of Bank Accounts", placeholder: "2", type: "number", section: "Banking" },
+      { key: "primary_bank", label: "Primary Bank", placeholder: "CBZ, Stanbic, FBC, NMB…", type: "text", section: "Banking" },
+      { key: "bank_avg_balance_6m", label: "Avg Bank Balance (6 months, ZWL)", placeholder: "500000", type: "number", section: "Banking" },
+      { key: "bounced_cheques_12m", label: "Bounced Cheques (last 12 months)", placeholder: "0", type: "number", section: "Banking" },
+    ],
+    socialMediaFields: [
+      { key: "facebook_page", label: "Facebook Business Page URL", placeholder: "https://facebook.com/yourbusiness", type: "text" },
+      { key: "facebook_followers", label: "Facebook Followers / Likes", placeholder: "500", type: "number" },
+      { key: "facebook_reviews_avg", label: "Facebook Reviews Average (1-5)", placeholder: "4.2", type: "number" },
+      { key: "whatsapp_business", label: "WhatsApp Business Number", placeholder: "+263 7X XXX XXXX", type: "text" },
+      { key: "instagram_handle", label: "Instagram Handle", placeholder: "@yourbusiness", type: "text" },
+      { key: "instagram_followers", label: "Instagram Followers", placeholder: "200", type: "number" },
+      { key: "google_maps_listing", label: "Google Maps / Business Listing?", placeholder: "Yes / No", type: "text" },
+      { key: "google_reviews_count", label: "Google Reviews Count", placeholder: "15", type: "number" },
+      { key: "google_reviews_avg", label: "Google Reviews Average (1-5)", placeholder: "4.0", type: "number" },
+      { key: "online_marketplace", label: "Online Marketplace Presence", placeholder: "e.g. Classifieds.co.zw, ZimBazaar", type: "text" },
+    ],
+    cashFlowFields: [
+      { key: "cash_cycle_days", label: "Cash Conversion Cycle (days)", placeholder: "45", type: "number" },
+      { key: "seasonal_business", label: "Seasonal Business?", placeholder: "Yes / No", type: "text" },
+      { key: "worst_month_cover", label: "Worst Month Cash Cover (months of expenses)", placeholder: "1.5", type: "number" },
+      { key: "dscr", label: "Debt Service Coverage Ratio", placeholder: "1.5", type: "number" },
+      { key: "current_ratio", label: "Current Ratio (Current Assets / Current Liabilities)", placeholder: "1.8", type: "number" },
+    ],
+    businessStabilityFields: [
+      { key: "premises_type", label: "Business Premises", placeholder: "", type: "select", options: [
+        { value: "owned", label: "Owned / Freehold" },
+        { value: "rented_formal", label: "Rented — Formal Lease" },
+        { value: "rented_informal", label: "Rented — Informal / Month-to-Month" },
+        { value: "market_stall", label: "Market Stall / Council Allocation" },
+        { value: "mobile", label: "Mobile / No Fixed Premises" },
+        { value: "home_based", label: "Home-Based" },
+      ]},
+      { key: "premises_years", label: "Years at Current Premises", placeholder: "3", type: "number" },
+      { key: "staff_turnover_pct", label: "Staff Turnover Rate (%/year)", placeholder: "15", type: "number" },
+      { key: "licenses_current", label: "All Licenses / Permits Current?", placeholder: "Yes / No", type: "text" },
+      { key: "insurance_coverage", label: "Business Insurance Coverage", placeholder: "Fire, Theft, None…", type: "text" },
+      { key: "succession_plan", label: "Succession Plan in Place?", placeholder: "Yes / No", type: "text" },
     ],
   },
 
