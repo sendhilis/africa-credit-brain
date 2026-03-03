@@ -44,6 +44,7 @@ const MODEL_COEFFICIENTS = {
   concentration_risk: 0.42,        // customer/supplier concentration
   dscr: -0.55,                     // debt service coverage ratio
   forex_exposure: 0.28,            // multi-currency risk (Zim-specific)
+  psychometric_score: -0.45,       // behavioural assessment (financial discipline, risk, conscientiousness, locus of control)
 };
 
 // WoE bins for each feature
@@ -173,30 +174,40 @@ const WOE_BINS: Record<string, WoEBin[]> = {
     { label: "High (>50%)", min: 0.5, max: 1.01, woe: 0.42, event_rate: 0.17 },
     { label: "No Data", min: -1, max: 0, woe: 0.05, event_rate: 0.10 },
   ],
+  psychometric_score: [
+    { label: "Excellent (80-100%)", min: 0.8, max: 1.01, woe: -0.88, event_rate: 0.03 },
+    { label: "Good (60-80%)", min: 0.6, max: 0.8, woe: -0.35, event_rate: 0.06 },
+    { label: "Average (40-60%)", min: 0.4, max: 0.6, woe: 0.12, event_rate: 0.11 },
+    { label: "Below Average (20-40%)", min: 0.2, max: 0.4, woe: 0.58, event_rate: 0.20 },
+    { label: "Poor (<20%)", min: 0, max: 0.2, woe: 1.05, event_rate: 0.30 },
+    { label: "No Assessment", min: -1, max: 0, woe: 0.08, event_rate: 0.10 },
+  ],
 };
 
 // ── CATEGORY-SPECIFIC FEATURE WEIGHT SCHEMES ──
 
 // INDIVIDUAL (retail) — focus on personal income, employment, DTI
 const WEIGHTS_RETAIL_BUREAU: Record<string, { name: string; weight: number }> = {
-  bureau_score:           { name: "Credit Bureau Score", weight: 30 },
-  payment_history_score:  { name: "Payment History", weight: 18 },
-  debt_to_income:         { name: "Debt-to-Income Ratio", weight: 15 },
-  income_stability_cv:    { name: "Income Stability", weight: 12 },
-  loan_to_income:         { name: "Loan-to-Income Ratio", weight: 8 },
+  bureau_score:           { name: "Credit Bureau Score", weight: 26 },
+  payment_history_score:  { name: "Payment History", weight: 16 },
+  debt_to_income:         { name: "Debt-to-Income Ratio", weight: 13 },
+  income_stability_cv:    { name: "Income Stability", weight: 10 },
+  psychometric_score:     { name: "Psychometric Assessment", weight: 10 },
+  loan_to_income:         { name: "Loan-to-Income Ratio", weight: 7 },
   savings_ratio:          { name: "Savings Capacity", weight: 6 },
   age:                    { name: "Borrower Age", weight: 4 },
   existing_loan_count:    { name: "Existing Obligations", weight: 3 },
   dependents:             { name: "Dependents", weight: 2 },
-  collateral_flag:        { name: "Collateral", weight: 2 },
+  collateral_flag:        { name: "Collateral", weight: 3 },
 };
 
 const WEIGHTS_RETAIL_NO_BUREAU: Record<string, { name: string; weight: number }> = {
-  payment_history_score:  { name: "Payment History", weight: 25 },
-  debt_to_income:         { name: "Debt-to-Income Ratio", weight: 20 },
-  income_stability_cv:    { name: "Income Stability", weight: 18 },
-  loan_to_income:         { name: "Loan-to-Income Ratio", weight: 12 },
-  savings_ratio:          { name: "Savings Capacity", weight: 10 },
+  payment_history_score:  { name: "Payment History", weight: 22 },
+  debt_to_income:         { name: "Debt-to-Income Ratio", weight: 17 },
+  income_stability_cv:    { name: "Income Stability", weight: 15 },
+  psychometric_score:     { name: "Psychometric Assessment", weight: 12 },
+  loan_to_income:         { name: "Loan-to-Income Ratio", weight: 10 },
+  savings_ratio:          { name: "Savings Capacity", weight: 9 },
   age:                    { name: "Borrower Age", weight: 5 },
   existing_loan_count:    { name: "Existing Obligations", weight: 4 },
   dependents:             { name: "Dependents", weight: 3 },
@@ -205,58 +216,62 @@ const WEIGHTS_RETAIL_NO_BUREAU: Record<string, { name: string; weight: number }>
 
 // MICRO — focus on business stability, cash flow, informal savings, repayment
 const WEIGHTS_MICRO_BUREAU: Record<string, { name: string; weight: number }> = {
-  bureau_score:                { name: "Credit Bureau Score", weight: 20 },
-  payment_history_score:       { name: "Repayment History", weight: 18 },
-  business_stability_score:    { name: "Business Stability", weight: 15 },
-  cashflow_volatility:         { name: "Cash Flow Volatility", weight: 12 },
-  income_stability_cv:         { name: "Income Stability", weight: 8 },
-  debt_to_income:              { name: "Debt-to-Income Ratio", weight: 7 },
-  business_years:              { name: "Years Trading", weight: 6 },
+  bureau_score:                { name: "Credit Bureau Score", weight: 17 },
+  payment_history_score:       { name: "Repayment History", weight: 15 },
+  business_stability_score:    { name: "Business Stability", weight: 13 },
+  psychometric_score:          { name: "Psychometric Assessment", weight: 12 },
+  cashflow_volatility:         { name: "Cash Flow Volatility", weight: 10 },
+  income_stability_cv:         { name: "Income Stability", weight: 7 },
+  debt_to_income:              { name: "Debt-to-Income Ratio", weight: 6 },
+  business_years:              { name: "Years Trading", weight: 5 },
   savings_ratio:               { name: "Savings (incl. Mukando)", weight: 5 },
   loan_to_income:              { name: "Loan-to-Income Ratio", weight: 4 },
   collateral_flag:             { name: "Collateral", weight: 3 },
-  existing_loan_count:         { name: "Existing Obligations", weight: 2 },
+  existing_loan_count:         { name: "Existing Obligations", weight: 3 },
 };
 
 const WEIGHTS_MICRO_NO_BUREAU: Record<string, { name: string; weight: number }> = {
-  payment_history_score:       { name: "Repayment History", weight: 22 },
-  business_stability_score:    { name: "Business Stability", weight: 18 },
-  cashflow_volatility:         { name: "Cash Flow Volatility", weight: 15 },
-  income_stability_cv:         { name: "Income Stability", weight: 10 },
-  debt_to_income:              { name: "Debt-to-Income Ratio", weight: 8 },
-  business_years:              { name: "Years Trading", weight: 8 },
-  savings_ratio:               { name: "Savings (incl. Mukando)", weight: 7 },
-  loan_to_income:              { name: "Loan-to-Income Ratio", weight: 5 },
+  payment_history_score:       { name: "Repayment History", weight: 18 },
+  business_stability_score:    { name: "Business Stability", weight: 15 },
+  psychometric_score:          { name: "Psychometric Assessment", weight: 15 },
+  cashflow_volatility:         { name: "Cash Flow Volatility", weight: 12 },
+  income_stability_cv:         { name: "Income Stability", weight: 9 },
+  debt_to_income:              { name: "Debt-to-Income Ratio", weight: 7 },
+  business_years:              { name: "Years Trading", weight: 7 },
+  savings_ratio:               { name: "Savings (incl. Mukando)", weight: 6 },
+  loan_to_income:              { name: "Loan-to-Income Ratio", weight: 4 },
   collateral_flag:             { name: "Collateral", weight: 4 },
   existing_loan_count:         { name: "Existing Obligations", weight: 3 },
 };
 
 // SME — focus on financial analysis, cash flow volatility, concentration, social media
 const WEIGHTS_SME_BUREAU: Record<string, { name: string; weight: number }> = {
-  bureau_score:                { name: "Credit Bureau Score", weight: 15 },
-  cashflow_volatility:         { name: "Cash Flow Volatility", weight: 15 },
-  payment_history_score:       { name: "Repayment History", weight: 12 },
+  bureau_score:                { name: "Credit Bureau Score", weight: 13 },
+  cashflow_volatility:         { name: "Cash Flow Volatility", weight: 14 },
+  payment_history_score:       { name: "Repayment History", weight: 11 },
   dscr:                        { name: "Debt Service Coverage", weight: 10 },
-  business_stability_score:    { name: "Business Stability", weight: 10 },
-  concentration_risk:          { name: "Concentration Risk", weight: 8 },
-  income_stability_cv:         { name: "Revenue Stability", weight: 7 },
+  business_stability_score:    { name: "Business Stability", weight: 9 },
+  psychometric_score:          { name: "Psychometric Assessment", weight: 8 },
+  concentration_risk:          { name: "Concentration Risk", weight: 7 },
+  income_stability_cv:         { name: "Revenue Stability", weight: 6 },
   social_media_score:          { name: "Digital Footprint", weight: 5 },
   business_years:              { name: "Business Tenure", weight: 5 },
   forex_exposure:              { name: "Forex Exposure", weight: 4 },
   debt_to_income:              { name: "Leverage Ratio", weight: 4 },
-  collateral_flag:             { name: "Collateral", weight: 3 },
+  collateral_flag:             { name: "Collateral", weight: 2 },
   savings_ratio:               { name: "Liquidity Buffer", weight: 2 },
 };
 
 const WEIGHTS_SME_NO_BUREAU: Record<string, { name: string; weight: number }> = {
-  cashflow_volatility:         { name: "Cash Flow Volatility", weight: 18 },
-  payment_history_score:       { name: "Repayment History", weight: 15 },
-  dscr:                        { name: "Debt Service Coverage", weight: 12 },
-  business_stability_score:    { name: "Business Stability", weight: 12 },
-  concentration_risk:          { name: "Concentration Risk", weight: 9 },
-  income_stability_cv:         { name: "Revenue Stability", weight: 8 },
-  social_media_score:          { name: "Digital Footprint", weight: 6 },
-  business_years:              { name: "Business Tenure", weight: 6 },
+  cashflow_volatility:         { name: "Cash Flow Volatility", weight: 16 },
+  payment_history_score:       { name: "Repayment History", weight: 13 },
+  dscr:                        { name: "Debt Service Coverage", weight: 11 },
+  business_stability_score:    { name: "Business Stability", weight: 11 },
+  psychometric_score:          { name: "Psychometric Assessment", weight: 10 },
+  concentration_risk:          { name: "Concentration Risk", weight: 8 },
+  income_stability_cv:         { name: "Revenue Stability", weight: 7 },
+  social_media_score:          { name: "Digital Footprint", weight: 5 },
+  business_years:              { name: "Business Tenure", weight: 5 },
   forex_exposure:              { name: "Forex Exposure", weight: 5 },
   debt_to_income:              { name: "Leverage Ratio", weight: 4 },
   collateral_flag:             { name: "Collateral", weight: 3 },
@@ -647,7 +662,10 @@ function runScorecard(input: ScorecardInput) {
     binAndStore("forex_exposure", forexExp);
   }
 
-  // 6. Compute log-odds (linear predictor)
+  // Psychometric score (all categories)
+  const psychScore = parseFloat(extraData?.psychometric_score);
+  binAndStore("psychometric_score", !isNaN(psychScore) && psychScore > 0 ? psychScore / 100 : -0.5);
+
   let logOdds = -MODEL_COEFFICIENTS.intercept;
   const contributions: Record<string, number> = {};
 
