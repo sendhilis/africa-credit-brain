@@ -8,9 +8,10 @@ const corsHeaders = {
 };
 
 // ──────────────────────────────────────────────────────────────
-// SCORECARD MODEL v1.1 — WoE/IV Logistic Regression + Bureau Score
-// Calibrated for African lending markets (Kenya, Nigeria, Ghana, Uganda, Rwanda)
-// Bureau score receives PRIMARY weight when available
+// SCORECARD MODEL v2.0 — Category-Aware WoE/IV Logistic Regression
+// Three distinct weight schemes: Individual (retail), Micro, SME
+// Enhanced features: business_stability, cashflow_volatility, social_media_score
+// Calibrated for African markets with deep Zimbabwe context
 // ──────────────────────────────────────────────────────────────
 
 // Scaling parameters (standard scorecard alignment)
@@ -21,10 +22,10 @@ const FACTOR = PDO / Math.LN2;
 const OFFSET = BASE_SCORE - FACTOR * Math.log(BASE_ODDS);
 
 // Model coefficients (β weights from logistic regression)
-// v1.1: bureau_score added with highest magnitude coefficient
+// v2.0: category-specific coefficients + new features
 const MODEL_COEFFICIENTS = {
   intercept: -1.8,
-  bureau_score: -1.50, // PRIMARY: strongest protective factor when available
+  bureau_score: -1.50,
   debt_to_income: 0.85,
   age: -0.42,
   loan_to_income: 0.65,
@@ -36,6 +37,13 @@ const MODEL_COEFFICIENTS = {
   collateral_flag: -0.35,
   business_years: -0.28,
   savings_ratio: -0.48,
+  // New v2.0 features
+  business_stability_score: -0.65, // premises, licenses, staff retention
+  cashflow_volatility: 0.58,       // revenue high/low ratio, seasonality
+  social_media_score: -0.32,       // digital footprint strength
+  concentration_risk: 0.42,        // customer/supplier concentration
+  dscr: -0.55,                     // debt service coverage ratio
+  forex_exposure: 0.28,            // multi-currency risk (Zim-specific)
 };
 
 // WoE bins for each feature
@@ -119,37 +127,152 @@ const WOE_BINS: Record<string, WoEBin[]> = {
     { label: "25-50%", min: 0.25, max: 0.5, woe: -0.62, event_rate: 0.05 },
     { label: "> 50%", min: 0.5, max: 999, woe: -0.95, event_rate: 0.03 },
   ],
+  // New v2.0 WoE bins
+  business_stability_score: [
+    { label: "Very Stable (80-100%)", min: 0.8, max: 1.01, woe: -0.92, event_rate: 0.03 },
+    { label: "Stable (60-80%)", min: 0.6, max: 0.8, woe: -0.35, event_rate: 0.06 },
+    { label: "Moderate (40-60%)", min: 0.4, max: 0.6, woe: 0.15, event_rate: 0.11 },
+    { label: "Unstable (20-40%)", min: 0.2, max: 0.4, woe: 0.62, event_rate: 0.20 },
+    { label: "Very Unstable (<20%)", min: 0, max: 0.2, woe: 1.18, event_rate: 0.34 },
+    { label: "No Data", min: -1, max: 0, woe: 0.20, event_rate: 0.12 },
+  ],
+  cashflow_volatility: [
+    { label: "Very Low (<15%)", min: 0, max: 0.15, woe: -0.78, event_rate: 0.04 },
+    { label: "Low (15-30%)", min: 0.15, max: 0.3, woe: -0.25, event_rate: 0.07 },
+    { label: "Moderate (30-50%)", min: 0.3, max: 0.5, woe: 0.22, event_rate: 0.13 },
+    { label: "High (50-75%)", min: 0.5, max: 0.75, woe: 0.68, event_rate: 0.22 },
+    { label: "Very High (>75%)", min: 0.75, max: 999, woe: 1.25, event_rate: 0.35 },
+    { label: "No Data", min: -1, max: 0, woe: 0.15, event_rate: 0.11 },
+  ],
+  social_media_score: [
+    { label: "Strong Presence", min: 0.7, max: 1.01, woe: -0.65, event_rate: 0.04 },
+    { label: "Moderate Presence", min: 0.4, max: 0.7, woe: -0.22, event_rate: 0.07 },
+    { label: "Minimal Presence", min: 0.1, max: 0.4, woe: 0.10, event_rate: 0.10 },
+    { label: "No Presence", min: 0, max: 0.1, woe: 0.05, event_rate: 0.10 },
+    { label: "No Data", min: -1, max: 0, woe: 0.0, event_rate: 0.10 },
+  ],
+  concentration_risk: [
+    { label: "Well Diversified (<30%)", min: 0, max: 0.3, woe: -0.55, event_rate: 0.05 },
+    { label: "Moderate (30-50%)", min: 0.3, max: 0.5, woe: -0.10, event_rate: 0.08 },
+    { label: "Concentrated (50-70%)", min: 0.5, max: 0.7, woe: 0.35, event_rate: 0.15 },
+    { label: "Highly Concentrated (>70%)", min: 0.7, max: 1.01, woe: 0.82, event_rate: 0.25 },
+    { label: "No Data", min: -1, max: 0, woe: 0.10, event_rate: 0.10 },
+  ],
+  dscr: [
+    { label: "Strong (>2.0x)", min: 2.0, max: 999, woe: -0.85, event_rate: 0.03 },
+    { label: "Adequate (1.5-2.0x)", min: 1.5, max: 2.0, woe: -0.42, event_rate: 0.06 },
+    { label: "Marginal (1.2-1.5x)", min: 1.2, max: 1.5, woe: 0.15, event_rate: 0.12 },
+    { label: "Weak (1.0-1.2x)", min: 1.0, max: 1.2, woe: 0.55, event_rate: 0.20 },
+    { label: "Insufficient (<1.0x)", min: 0, max: 1.0, woe: 1.15, event_rate: 0.35 },
+    { label: "No Data", min: -1, max: 0, woe: 0.20, event_rate: 0.12 },
+  ],
+  forex_exposure: [
+    { label: "No Exposure", min: 0, max: 0.05, woe: -0.15, event_rate: 0.08 },
+    { label: "Low (<20%)", min: 0.05, max: 0.2, woe: -0.05, event_rate: 0.09 },
+    { label: "Moderate (20-50%)", min: 0.2, max: 0.5, woe: 0.18, event_rate: 0.12 },
+    { label: "High (>50%)", min: 0.5, max: 1.01, woe: 0.42, event_rate: 0.17 },
+    { label: "No Data", min: -1, max: 0, woe: 0.05, event_rate: 0.10 },
+  ],
 };
 
-// Feature weight percentages — DYNAMIC based on bureau availability
-// When bureau score IS available: it gets 30%, others scale down proportionally
-// When bureau score is NOT available: original weights apply
-const FEATURE_WEIGHTS_WITH_BUREAU: Record<string, { name: string; weight: number }> = {
+// ── CATEGORY-SPECIFIC FEATURE WEIGHT SCHEMES ──
+
+// INDIVIDUAL (retail) — focus on personal income, employment, DTI
+const WEIGHTS_RETAIL_BUREAU: Record<string, { name: string; weight: number }> = {
   bureau_score:           { name: "Credit Bureau Score", weight: 30 },
-  payment_history_score:  { name: "Payment History", weight: 17 },
-  debt_to_income:         { name: "Debt-to-Income Ratio", weight: 13 },
-  income_stability_cv:    { name: "Income Stability", weight: 10 },
+  payment_history_score:  { name: "Payment History", weight: 18 },
+  debt_to_income:         { name: "Debt-to-Income Ratio", weight: 15 },
+  income_stability_cv:    { name: "Income Stability", weight: 12 },
   loan_to_income:         { name: "Loan-to-Income Ratio", weight: 8 },
-  savings_ratio:          { name: "Savings Capacity", weight: 7 },
+  savings_ratio:          { name: "Savings Capacity", weight: 6 },
   age:                    { name: "Borrower Age", weight: 4 },
-  existing_loan_count:    { name: "Existing Obligations", weight: 4 },
-  business_years:         { name: "Business Tenure", weight: 3 },
+  existing_loan_count:    { name: "Existing Obligations", weight: 3 },
   dependents:             { name: "Dependents", weight: 2 },
   collateral_flag:        { name: "Collateral", weight: 2 },
 };
 
-const FEATURE_WEIGHTS_WITHOUT_BUREAU: Record<string, { name: string; weight: number }> = {
+const WEIGHTS_RETAIL_NO_BUREAU: Record<string, { name: string; weight: number }> = {
   payment_history_score:  { name: "Payment History", weight: 25 },
-  debt_to_income:         { name: "Debt-to-Income Ratio", weight: 18 },
-  income_stability_cv:    { name: "Income Stability", weight: 15 },
+  debt_to_income:         { name: "Debt-to-Income Ratio", weight: 20 },
+  income_stability_cv:    { name: "Income Stability", weight: 18 },
   loan_to_income:         { name: "Loan-to-Income Ratio", weight: 12 },
   savings_ratio:          { name: "Savings Capacity", weight: 10 },
-  age:                    { name: "Borrower Age", weight: 6 },
-  existing_loan_count:    { name: "Existing Obligations", weight: 5 },
-  business_years:         { name: "Business Tenure", weight: 4 },
+  age:                    { name: "Borrower Age", weight: 5 },
+  existing_loan_count:    { name: "Existing Obligations", weight: 4 },
   dependents:             { name: "Dependents", weight: 3 },
-  collateral_flag:        { name: "Collateral", weight: 2 },
+  collateral_flag:        { name: "Collateral", weight: 3 },
 };
+
+// MICRO — focus on business stability, cash flow, informal savings, repayment
+const WEIGHTS_MICRO_BUREAU: Record<string, { name: string; weight: number }> = {
+  bureau_score:                { name: "Credit Bureau Score", weight: 20 },
+  payment_history_score:       { name: "Repayment History", weight: 18 },
+  business_stability_score:    { name: "Business Stability", weight: 15 },
+  cashflow_volatility:         { name: "Cash Flow Volatility", weight: 12 },
+  income_stability_cv:         { name: "Income Stability", weight: 8 },
+  debt_to_income:              { name: "Debt-to-Income Ratio", weight: 7 },
+  business_years:              { name: "Years Trading", weight: 6 },
+  savings_ratio:               { name: "Savings (incl. Mukando)", weight: 5 },
+  loan_to_income:              { name: "Loan-to-Income Ratio", weight: 4 },
+  collateral_flag:             { name: "Collateral", weight: 3 },
+  existing_loan_count:         { name: "Existing Obligations", weight: 2 },
+};
+
+const WEIGHTS_MICRO_NO_BUREAU: Record<string, { name: string; weight: number }> = {
+  payment_history_score:       { name: "Repayment History", weight: 22 },
+  business_stability_score:    { name: "Business Stability", weight: 18 },
+  cashflow_volatility:         { name: "Cash Flow Volatility", weight: 15 },
+  income_stability_cv:         { name: "Income Stability", weight: 10 },
+  debt_to_income:              { name: "Debt-to-Income Ratio", weight: 8 },
+  business_years:              { name: "Years Trading", weight: 8 },
+  savings_ratio:               { name: "Savings (incl. Mukando)", weight: 7 },
+  loan_to_income:              { name: "Loan-to-Income Ratio", weight: 5 },
+  collateral_flag:             { name: "Collateral", weight: 4 },
+  existing_loan_count:         { name: "Existing Obligations", weight: 3 },
+};
+
+// SME — focus on financial analysis, cash flow volatility, concentration, social media
+const WEIGHTS_SME_BUREAU: Record<string, { name: string; weight: number }> = {
+  bureau_score:                { name: "Credit Bureau Score", weight: 15 },
+  cashflow_volatility:         { name: "Cash Flow Volatility", weight: 15 },
+  payment_history_score:       { name: "Repayment History", weight: 12 },
+  dscr:                        { name: "Debt Service Coverage", weight: 10 },
+  business_stability_score:    { name: "Business Stability", weight: 10 },
+  concentration_risk:          { name: "Concentration Risk", weight: 8 },
+  income_stability_cv:         { name: "Revenue Stability", weight: 7 },
+  social_media_score:          { name: "Digital Footprint", weight: 5 },
+  business_years:              { name: "Business Tenure", weight: 5 },
+  forex_exposure:              { name: "Forex Exposure", weight: 4 },
+  debt_to_income:              { name: "Leverage Ratio", weight: 4 },
+  collateral_flag:             { name: "Collateral", weight: 3 },
+  savings_ratio:               { name: "Liquidity Buffer", weight: 2 },
+};
+
+const WEIGHTS_SME_NO_BUREAU: Record<string, { name: string; weight: number }> = {
+  cashflow_volatility:         { name: "Cash Flow Volatility", weight: 18 },
+  payment_history_score:       { name: "Repayment History", weight: 15 },
+  dscr:                        { name: "Debt Service Coverage", weight: 12 },
+  business_stability_score:    { name: "Business Stability", weight: 12 },
+  concentration_risk:          { name: "Concentration Risk", weight: 9 },
+  income_stability_cv:         { name: "Revenue Stability", weight: 8 },
+  social_media_score:          { name: "Digital Footprint", weight: 6 },
+  business_years:              { name: "Business Tenure", weight: 6 },
+  forex_exposure:              { name: "Forex Exposure", weight: 5 },
+  debt_to_income:              { name: "Leverage Ratio", weight: 4 },
+  collateral_flag:             { name: "Collateral", weight: 3 },
+  savings_ratio:               { name: "Liquidity Buffer", weight: 2 },
+};
+
+function getWeightScheme(category: string, hasBureau: boolean): Record<string, { name: string; weight: number }> {
+  switch (category) {
+    case "micro":
+      return hasBureau ? WEIGHTS_MICRO_BUREAU : WEIGHTS_MICRO_NO_BUREAU;
+    case "sme":
+      return hasBureau ? WEIGHTS_SME_BUREAU : WEIGHTS_SME_NO_BUREAU;
+    default: // retail
+      return hasBureau ? WEIGHTS_RETAIL_BUREAU : WEIGHTS_RETAIL_NO_BUREAU;
+  }
+}
 
 // ──────────────────────────────────────────────────────────────
 // Helper functions
@@ -291,7 +414,150 @@ function computeIncomeStability(incomes: IncomeRecord[]): {
 }
 
 // ──────────────────────────────────────────────────────────────
-// Main scorecard computation
+// New v2.0 feature extractors
+// ──────────────────────────────────────────────────────────────
+
+function computeBusinessStability(borrower: any, extraData: any): number {
+  if (!extraData && !borrower) return -0.5;
+  let score = 0;
+  let factors = 0;
+
+  // Premises stability (owned > formal lease > informal > mobile)
+  const premises = extraData?.premises_type;
+  if (premises) {
+    factors++;
+    if (premises === "owned") score += 1.0;
+    else if (premises === "rented_formal") score += 0.75;
+    else if (premises === "rented_informal" || premises === "market_stall") score += 0.5;
+    else if (premises === "home_based") score += 0.4;
+    else score += 0.2; // mobile
+  }
+
+  // Premises tenure
+  const premisesYears = parseFloat(extraData?.premises_years) || 0;
+  if (premisesYears > 0) {
+    factors++;
+    score += Math.min(1, premisesYears / 5);
+  }
+
+  // Licenses current
+  const licenses = extraData?.licenses_current;
+  if (licenses) {
+    factors++;
+    score += (licenses.toLowerCase() === "yes") ? 1.0 : 0.2;
+  }
+
+  // Staff turnover (lower is better)
+  const staffTurnover = parseFloat(extraData?.staff_turnover_pct) || 0;
+  if (staffTurnover >= 0 && extraData?.staff_turnover_pct) {
+    factors++;
+    score += Math.max(0, 1 - staffTurnover / 50);
+  }
+
+  // Business years
+  const years = borrower?.years_in_operation || 0;
+  if (years > 0) {
+    factors++;
+    score += Math.min(1, years / 10);
+  }
+
+  return factors > 0 ? score / factors : -0.5;
+}
+
+function computeCashflowVolatility(extraData: any): number {
+  if (!extraData) return -0.5;
+  
+  // Try explicit volatility field first
+  const explicitVol = parseFloat(extraData?.revenue_volatility);
+  if (!isNaN(explicitVol) && explicitVol > 0) return explicitVol / 100;
+
+  // Compute from high/low ratio
+  const high = parseFloat(extraData?.highest_month_revenue);
+  const low = parseFloat(extraData?.lowest_month_revenue);
+  if (!isNaN(high) && !isNaN(low) && high > 0 && low > 0) {
+    return (high - low) / high;
+  }
+
+  // Micro: peak vs low season
+  const lowSeasonPct = parseFloat(extraData?.low_season_revenue_pct);
+  if (!isNaN(lowSeasonPct) && lowSeasonPct > 0) {
+    return 1 - (lowSeasonPct / 100);
+  }
+
+  return -0.5;
+}
+
+function computeSocialMediaScore(extraData: any): number {
+  if (!extraData) return -0.5;
+  let score = 0;
+  let signals = 0;
+
+  // Facebook presence
+  const fbFollowers = parseFloat(extraData?.facebook_followers) || 0;
+  if (fbFollowers > 0) {
+    signals++;
+    score += Math.min(1, fbFollowers / 1000);
+  }
+  const fbReviews = parseFloat(extraData?.facebook_reviews_avg) || 0;
+  if (fbReviews > 0) {
+    signals++;
+    score += fbReviews / 5;
+  }
+
+  // Google presence
+  const googleReviews = parseFloat(extraData?.google_reviews_count) || 0;
+  if (googleReviews > 0) {
+    signals++;
+    score += Math.min(1, googleReviews / 20);
+  }
+  const googleAvg = parseFloat(extraData?.google_reviews_avg) || 0;
+  if (googleAvg > 0) {
+    signals++;
+    score += googleAvg / 5;
+  }
+
+  // Google Maps listing
+  if (extraData?.google_maps_listing?.toLowerCase() === "yes") {
+    signals++;
+    score += 0.8;
+  }
+
+  // Instagram
+  const igFollowers = parseFloat(extraData?.instagram_followers) || 0;
+  if (igFollowers > 0) {
+    signals++;
+    score += Math.min(1, igFollowers / 500);
+  }
+
+  // WhatsApp Business
+  if (extraData?.whatsapp_business && extraData.whatsapp_business.trim()) {
+    signals++;
+    score += 0.6;
+  }
+
+  return signals > 0 ? Math.min(1, score / signals) : -0.5;
+}
+
+function computeConcentrationRisk(extraData: any): number {
+  const top3 = parseFloat(extraData?.top_3_customers_pct);
+  if (!isNaN(top3) && top3 > 0) return top3 / 100;
+  return -0.5;
+}
+
+function computeDSCR(extraData: any): number {
+  const dscr = parseFloat(extraData?.dscr);
+  if (!isNaN(dscr) && dscr > 0) return dscr;
+  return -0.5;
+}
+
+function computeForexExposure(extraData: any, app: any): number {
+  const forex = parseFloat(extraData?.forex_exposure_pct) || parseFloat(app?.export_income_pct);
+  if (!isNaN(forex) && forex >= 0) return forex / 100;
+  return -0.5;
+}
+
+// ──────────────────────────────────────────────────────────────
+// Main scorecard computation (v2.0 — category-aware)
 // ──────────────────────────────────────────────────────────────
 
 interface ScorecardInput {
@@ -303,35 +569,50 @@ interface ScorecardInput {
 
 function runScorecard(input: ScorecardInput) {
   const { app, borrower, paymentHistory, incomeHistory } = input;
+  const category = app.product_category || "retail";
+  const extraData = borrower?.extra_data || {};
 
   // Determine if bureau score is available
   const hasBureauScore = app.bureau_score !== null && app.bureau_score !== undefined;
   const bureauScore = hasBureauScore ? app.bureau_score : null;
 
-  // Select appropriate weight scheme
-  const FEATURE_WEIGHTS = hasBureauScore ? FEATURE_WEIGHTS_WITH_BUREAU : FEATURE_WEIGHTS_WITHOUT_BUREAU;
+  // Select category-specific weight scheme
+  const FEATURE_WEIGHTS = getWeightScheme(category, hasBureauScore);
 
   // 1. Extract raw features
-  const monthlyIncome = app.monthly_income || 0;
+  const monthlyIncome = app.monthly_income || app.monthly_revenue || 0;
   const monthlyExpenses = (app.monthly_expenses || 0) + (app.monthly_rent || 0);
   const requestedAmount = app.requested_amount || 0;
   const tenorMonths = app.tenor_months || 12;
   const age = calculateAge(borrower?.date_of_birth);
   const existingLoanCount = countExistingLoans(app.existing_loans);
   const dependents = app.dependents || 0;
-  const businessYears = borrower?.years_in_operation || 0;
+  const businessYears = borrower?.years_in_operation || parseFloat(extraData?.years_trading) || 0;
   const hasCollateral = !!(app.collateral && app.collateral.toLowerCase() !== "none" && app.collateral.trim() !== "");
 
   // 2. Compute derived features
   const dti = monthlyIncome > 0 ? monthlyExpenses / monthlyIncome : 0.9;
   const loanToIncome = monthlyIncome > 0 ? requestedAmount / (monthlyIncome * tenorMonths) : 8;
-  const savingsRatio = monthlyIncome > 0 ? (monthlyIncome - monthlyExpenses) / monthlyIncome : -0.1;
+  
+  // Savings ratio — for micro, include mukando contributions
+  let savingsBase = monthlyIncome - monthlyExpenses;
+  const mukandoAmount = parseFloat(extraData?.mukando_amount) || 0;
+  if (category === "micro" && mukandoAmount > 0) savingsBase += mukandoAmount;
+  const savingsRatio = monthlyIncome > 0 ? savingsBase / monthlyIncome : -0.1;
 
   // 3. Time-series features
   const paymentStats = computePaymentHistoryScore(paymentHistory);
   const incomeStats = computeIncomeStability(incomeHistory);
 
-  // 4. Find WoE bins for each feature
+  // 4. New v2.0 features
+  const businessStability = computeBusinessStability(borrower, extraData);
+  const cashflowVol = computeCashflowVolatility(extraData);
+  const socialScore = computeSocialMediaScore(extraData);
+  const concRisk = computeConcentrationRisk(extraData);
+  const dscrValue = computeDSCR(extraData);
+  const forexExp = computeForexExposure(extraData, app);
+
+  // 5. Find WoE bins for each feature
   const featureValues: Record<string, { value: number; bin: WoEBin; woe: number }> = {};
 
   const binAndStore = (key: string, value: number) => {
@@ -342,10 +623,7 @@ function runScorecard(input: ScorecardInput) {
     }
   };
 
-  // Bureau score — only binned if available
-  if (hasBureauScore) {
-    binAndStore("bureau_score", bureauScore!);
-  }
+  if (hasBureauScore) binAndStore("bureau_score", bureauScore!);
 
   binAndStore("debt_to_income", dti);
   binAndStore("age", age);
@@ -354,10 +632,22 @@ function runScorecard(input: ScorecardInput) {
   binAndStore("dependents", dependents);
   binAndStore("payment_history_score", paymentStats.has_history ? paymentStats.score : -0.5);
   binAndStore("income_stability_cv", incomeStats.has_history ? incomeStats.cv : -0.5);
-  binAndStore("business_years", app.product_category !== "retail" ? businessYears : 5);
+  binAndStore("business_years", category !== "retail" ? businessYears : 5);
   binAndStore("savings_ratio", savingsRatio);
 
-  // 5. Compute log-odds (linear predictor)
+  // Category-specific features
+  if (category === "micro" || category === "sme") {
+    binAndStore("business_stability_score", businessStability);
+    binAndStore("cashflow_volatility", cashflowVol);
+  }
+  if (category === "sme") {
+    binAndStore("social_media_score", socialScore);
+    binAndStore("concentration_risk", concRisk);
+    binAndStore("dscr", dscrValue);
+    binAndStore("forex_exposure", forexExp);
+  }
+
+  // 6. Compute log-odds (linear predictor)
   let logOdds = -MODEL_COEFFICIENTS.intercept;
   const contributions: Record<string, number> = {};
 
@@ -377,7 +667,7 @@ function runScorecard(input: ScorecardInput) {
     contributions["collateral_flag"] = 0;
   }
 
-  // 6. Convert to score
+  // 7. Convert to score
   const finalScore = Math.max(300, Math.min(900, logOddsToScore(logOdds)));
   const pd = sigmoid(MODEL_COEFFICIENTS.intercept +
     Object.entries(featureValues).reduce((s, [key, fv]) => {
@@ -390,7 +680,7 @@ function runScorecard(input: ScorecardInput) {
   const scoreBand = scoreToBand(finalScore);
   const recommendation = scoreToRecommendation(finalScore);
 
-  // 7. Build factor breakdown for UI
+  // 8. Build factor breakdown for UI
   const factors = Object.entries(FEATURE_WEIGHTS).map(([key, fw]) => {
     const fv = featureValues[key];
     const contrib = contributions[key] || 0;
@@ -439,7 +729,7 @@ function runScorecard(input: ScorecardInput) {
   const topNeg = sortedContribs.filter(c => c.contrib < -0.1).slice(0, 2).map(c => c.name);
   const topPos = sortedContribs.filter(c => c.contrib > 0.1).sort((a, b) => b.contrib - a.contrib).slice(0, 2).map(c => c.name);
 
-  let summary = `Statistical scorecard model v1.1 produced a score of ${finalScore} (${scoreBand}), indicating a ${(pd * 100).toFixed(1)}% estimated probability of default. `;
+  let summary = `Category-aware scorecard v2.0 (${category}) produced a score of ${finalScore} (${scoreBand}), indicating a ${(pd * 100).toFixed(1)}% estimated probability of default. `;
   if (hasBureauScore) {
     summary += `Credit Bureau score of ${bureauScore} was factored in as the primary input (30% weight). `;
   } else {
@@ -475,7 +765,7 @@ function runScorecard(input: ScorecardInput) {
     reason_codes: reasonCodes,
     factors,
     summary,
-    model_version: hasBureauScore ? "v1.1-woe-lr-bureau" : "v1.1-woe-lr",
+    model_version: `v2.0-${category}-woe-lr${hasBureauScore ? "-bureau" : ""}`,
     woe_details: woeDetails,
     time_series_features: {
       payment_history: paymentStats,
