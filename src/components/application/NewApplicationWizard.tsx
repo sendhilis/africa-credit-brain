@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { countryConfigs, productTypes, type CountryConfig } from "./countryConfig";
 import { useAuth } from "@/contexts/AuthContext";
+import PsychometricQuestionnaire, { type PsychometricResult } from "./PsychometricQuestionnaire";
 
 type ProductCategory = "retail" | "micro" | "sme";
 type PsychometricStatus = "not_started" | "link_sent" | "in_progress" | "completed" | "expired";
@@ -171,7 +172,7 @@ const NewApplicationWizard = () => {
   const [sendingLink, setSendingLink] = useState(false);
   const [hasDraft, setHasDraft] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
-
+  const [psychometricResult, setPsychometricResult] = useState<PsychometricResult | null>(null);
   const config = useMemo(() => country ? countryConfigs[country] : null, [country]);
   const steps = useMemo(() => getSteps(category), [category]);
 
@@ -203,6 +204,7 @@ const NewApplicationWizard = () => {
     setDocuments({});
     setPsychometricStatus("not_started");
     setPsychometricMethod(null);
+    setPsychometricResult(null);
     clearDraft();
     setHasDraft(false);
   };
@@ -249,16 +251,7 @@ const NewApplicationWizard = () => {
     toast({ title: "Assessment link sent", description: `Psychometric survey link sent to ${phone}. The borrower has 48 hours to complete it.` });
   };
 
-  const handleStartInBranch = () => {
-    setPsychometricStatus("in_progress");
-    setPsychometricMethod("in_branch");
-    updateField("psychometric_method", "in_branch");
-    toast({ title: "In-branch assessment started", description: "Guide the borrower through the psychometric questionnaire now." });
-    setTimeout(() => {
-      setPsychometricStatus("completed");
-      toast({ title: "Assessment completed", description: "Psychometric assessment has been recorded successfully." });
-    }, 5000);
-  };
+
 
   const { user } = useAuth();
   const [institutionId, setInstitutionId] = useState<string | null>(null);
@@ -324,6 +317,13 @@ const NewApplicationWizard = () => {
       specialKeys.forEach(key => {
         if (formData[key]) extraData[key] = formData[key];
       });
+
+      // Include psychometric results in extra_data
+      if (psychometricResult?.completed) {
+        extraData.psychometric_score = psychometricResult.overall_score;
+        extraData.psychometric_dimensions = psychometricResult.dimensions;
+        extraData.psychometric_answers = psychometricResult.answers;
+      }
 
       const borrowerPayload = {
         institution_id: institutionId,
@@ -1183,94 +1183,159 @@ const NewApplicationWizard = () => {
   };
 
   // ── Psychometric Step ──
-  const renderPsychometricStep = () => (
-    <div className="space-y-5">
-      <p className="text-sm text-muted-foreground">
-        A 5–10 minute behavioural micro-survey captures traits like conscientiousness, risk attitude, and financial planning horizon.
-      </p>
+  const renderPsychometricStep = () => {
+    // If assessment is completed, show results summary
+    if (psychometricResult?.completed) {
+      return (
+        <div className="space-y-5">
+          <div className="p-4 rounded-lg bg-success/10 border border-success/20">
+            <div className="flex items-center gap-2 mb-3">
+              <CheckCircle2 className="h-4 w-4 text-success" />
+              <span className="text-sm font-semibold text-success">Assessment Complete</span>
+              <Badge variant="outline" className="ml-auto text-xs border-success/30 text-success">
+                Score: {psychometricResult.overall_score}/100
+              </Badge>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {Object.entries(psychometricResult.dimensions).map(([key, dim]) => (
+                <div key={key} className="p-2.5 rounded-md bg-background/50 border border-border/30">
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                    {key.replace(/_/g, " ")}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Progress value={dim.pct} className="h-1.5 flex-1" />
+                    <span className="text-xs font-medium text-foreground">{dim.pct}%</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border"
+            onClick={() => {
+              setPsychometricResult(null);
+              setPsychometricStatus("not_started");
+            }}>
+            <Brain className="h-3 w-3" /> Retake Assessment
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            The psychometric score will be factored into the credit model with a weight of 8–12% depending on category.
+          </p>
+        </div>
+      );
+    }
 
-      {(() => {
-        const statusConfig = PSYCHOMETRIC_STATUS_CONFIG[psychometricStatus];
-        const StatusIcon = statusConfig.icon;
-        return (
-          <div className={`p-4 rounded-lg border ${statusConfig.color}`}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <StatusIcon className={`h-4 w-4 ${psychometricStatus === "in_progress" ? "animate-spin" : ""}`} />
-                <span className="text-sm font-medium">Status: {statusConfig.label}</span>
+    // If in-branch mode, show the actual questionnaire
+    if (psychometricStatus === "in_progress" || psychometricMethod === "in_branch") {
+      return (
+        <PsychometricQuestionnaire
+          category={category}
+          initialAnswers={psychometricResult?.answers || {}}
+          onComplete={(result) => {
+            setPsychometricResult(result);
+            setPsychometricStatus("completed");
+            setPsychometricMethod("in_branch");
+            updateField("psychometric_method", "in_branch");
+            toast({
+              title: "Assessment completed",
+              description: `Psychometric score: ${result.overall_score}/100. Results will be factored into credit scoring.`
+            });
+          }}
+        />
+      );
+    }
+
+    // Default: choose delivery method
+    return (
+      <div className="space-y-5">
+        <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+          <p className="text-xs text-muted-foreground">
+            <span className="font-semibold text-primary">Behavioural Assessment</span> — 15 questions, ~5 minutes. Measures financial discipline, risk attitude, conscientiousness, and locus of control. Zimbabwe-contextualized with Mukando, multi-currency, and local scenarios.
+          </p>
+        </div>
+
+        {(() => {
+          const statusConfig = PSYCHOMETRIC_STATUS_CONFIG[psychometricStatus];
+          const StatusIcon = statusConfig.icon;
+          return (
+            <div className={`p-4 rounded-lg border ${statusConfig.color}`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <StatusIcon className="h-4 w-4" />
+                  <span className="text-sm font-medium">Status: {statusConfig.label}</span>
+                </div>
+                {psychometricMethod && (
+                  <Badge variant="outline" className="text-xs border-border">
+                    {psychometricMethod === "sms" ? "SMS / WhatsApp" : "In-Branch"}
+                  </Badge>
+                )}
               </div>
-              {psychometricMethod && (
-                <Badge variant="outline" className="text-xs border-border">
-                  {psychometricMethod === "sms" ? "SMS / WhatsApp" : "In-Branch"}
-                </Badge>
+              {psychometricStatus === "link_sent" && (
+                <p className="text-xs mt-2 opacity-80">Link sent to {formData.psychometric_phone || formData.phone}. 48 hours to complete.</p>
               )}
             </div>
-            {psychometricStatus === "link_sent" && (
-              <p className="text-xs mt-2 opacity-80">Link sent to {formData.psychometric_phone || formData.phone}. 48 hours to complete.</p>
-            )}
-            {psychometricStatus === "in_progress" && (
-              <div className="mt-3 space-y-2">
-                <Progress value={60} className="h-1.5" />
-              </div>
-            )}
-            {psychometricStatus === "completed" && (
-              <p className="text-xs mt-2 opacity-80">✓ All psychometric traits captured.</p>
-            )}
-          </div>
-        );
-      })()}
+          );
+        })()}
 
-      {(psychometricStatus === "not_started" || psychometricStatus === "expired") && (
-        <>
-          <FieldGroup label="Send Assessment">
-            <Field label="Phone for Assessment" span2>
-              <Input placeholder={config?.phonePlaceholder || "+XXX XXX XXX XXXX"} className="bg-muted/50 border-border"
-                value={formData.psychometric_phone || formData.phone || ""} onChange={e => updateField("psychometric_phone", e.target.value)} />
-            </Field>
-          </FieldGroup>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="p-4 rounded-lg bg-muted/30 border border-border/50 hover:border-primary/30 cursor-pointer transition-colors text-center space-y-3">
-              <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                <Smartphone className="h-6 w-6 text-primary" />
+        {(psychometricStatus === "not_started" || psychometricStatus === "expired") && (
+          <>
+            <FieldGroup label="Send Assessment">
+              <Field label="Phone for Assessment" span2>
+                <Input placeholder={config?.phonePlaceholder || "+XXX XXX XXX XXXX"} className="bg-muted/50 border-border"
+                  value={formData.psychometric_phone || formData.phone || ""} onChange={e => updateField("psychometric_phone", e.target.value)} />
+              </Field>
+            </FieldGroup>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-4 rounded-lg bg-muted/30 border border-border/50 hover:border-primary/30 cursor-pointer transition-colors text-center space-y-3">
+                <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Smartphone className="h-6 w-6 text-primary" />
+                </div>
+                <h4 className="text-sm font-medium text-foreground">Send via SMS / WhatsApp</h4>
+                <p className="text-xs text-muted-foreground">Borrower completes remotely on their phone</p>
+                <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs border-border" onClick={handleSendPsychometricLink} disabled={sendingLink}>
+                  {sendingLink ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                  {sendingLink ? "Sending…" : "Send Link"}
+                </Button>
               </div>
-              <h4 className="text-sm font-medium text-foreground">Send via SMS / WhatsApp</h4>
-              <p className="text-xs text-muted-foreground">Borrower completes remotely</p>
-              <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs border-border" onClick={handleSendPsychometricLink} disabled={sendingLink}>
-                {sendingLink ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                {sendingLink ? "Sending…" : "Send Link"}
-              </Button>
+              <div className="p-4 rounded-lg bg-muted/30 border border-border/50 hover:border-success/30 cursor-pointer transition-colors text-center space-y-3">
+                <div className="mx-auto w-12 h-12 rounded-full bg-success/10 flex items-center justify-center">
+                  <Brain className="h-6 w-6 text-success" />
+                </div>
+                <h4 className="text-sm font-medium text-foreground">Start In-Branch</h4>
+                <p className="text-xs text-muted-foreground">Field officer guides borrower through 15 questions now</p>
+                <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs border-border" onClick={() => {
+                  setPsychometricStatus("in_progress");
+                  setPsychometricMethod("in_branch");
+                  updateField("psychometric_method", "in_branch");
+                }}>
+                  <ArrowRight className="h-3 w-3" /> Begin Now
+                </Button>
+              </div>
             </div>
-            <div className="p-4 rounded-lg bg-muted/30 border border-border/50 hover:border-primary/30 cursor-pointer transition-colors text-center space-y-3">
-              <div className="mx-auto w-12 h-12 rounded-full bg-success/10 flex items-center justify-center">
-                <Brain className="h-6 w-6 text-success" />
-              </div>
-              <h4 className="text-sm font-medium text-foreground">Start In-Branch</h4>
-              <p className="text-xs text-muted-foreground">Field officer guides borrower</p>
-              <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs border-border" onClick={handleStartInBranch}>
-                <ArrowRight className="h-3 w-3" /> Begin Now
-              </Button>
-            </div>
+          </>
+        )}
+
+        {psychometricStatus === "link_sent" && (
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border" onClick={handleSendPsychometricLink} disabled={sendingLink}>
+              {sendingLink ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+              Resend Link
+            </Button>
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border" onClick={() => {
+              setPsychometricStatus("in_progress");
+              setPsychometricMethod("in_branch");
+              updateField("psychometric_method", "in_branch");
+            }}>
+              <Brain className="h-3 w-3" /> Switch to In-Branch
+            </Button>
           </div>
-        </>
-      )}
+        )}
 
-      {psychometricStatus === "link_sent" && (
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border" onClick={handleSendPsychometricLink} disabled={sendingLink}>
-            {sendingLink ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-            Resend Link
-          </Button>
-          <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border" onClick={handleStartInBranch}>
-            <Brain className="h-3 w-3" /> Switch to In-Branch
-          </Button>
-        </div>
-      )}
-
-      <p className="text-xs text-muted-foreground">
-        You can proceed without the psychometric score — the model will use available data.
-      </p>
-    </div>
-  );
+        <p className="text-xs text-muted-foreground">
+          You can proceed without the psychometric score — the model will use available data, but accuracy improves by 8–15% with it.
+        </p>
+      </div>
+    );
+  };
 
   // ── Review Step ──
   const renderReviewStep = () => {
@@ -1292,7 +1357,7 @@ const NewApplicationWizard = () => {
               { label: "Annual Turnover", value: formData.annual_turnover_zwl ? `${config.currencySymbol} ${Number(formData.annual_turnover_zwl).toLocaleString()}` : "—" },
               { label: "Revenue Volatility", value: formData.revenue_volatility ? `${formData.revenue_volatility}%` : "—" },
             ] : []),
-            ...(category !== "sme" ? [{ label: "Psychometric", value: PSYCHOMETRIC_STATUS_CONFIG[psychometricStatus].label }] : []),
+            ...(category !== "sme" ? [{ label: "Psychometric", value: psychometricResult?.completed ? `${psychometricResult.overall_score}/100` : PSYCHOMETRIC_STATUS_CONFIG[psychometricStatus].label }] : []),
           ].map(row => (
             <div key={row.label} className="flex justify-between items-center py-2 border-b border-border/30 last:border-0">
               <span className="text-xs text-muted-foreground">{row.label}</span>
