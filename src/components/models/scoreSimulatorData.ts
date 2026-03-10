@@ -45,7 +45,7 @@ export const SIM_FEATURES: SimFeature[] = [
   {
     key: "debt_to_income",
     label: "Debt-to-Income Ratio",
-    beta: 0.85,
+    beta: -0.85,
     bins: [
       { label: "≤ 20%", woe: -0.85 },
       { label: "20-40%", woe: -0.32 },
