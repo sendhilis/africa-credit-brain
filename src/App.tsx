@@ -16,6 +16,7 @@ import Developers from "./pages/Developers";
 import Admin from "./pages/Admin";
 import ApplicationDetail from "./pages/ApplicationDetail";
 import Showcase from "./pages/Showcase";
+import GroundTruthTemplates from "./pages/GroundTruthTemplates";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
