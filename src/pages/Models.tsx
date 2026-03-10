@@ -12,9 +12,9 @@ import ScoreSimulator from "@/components/models/ScoreSimulator";
 // ─── Actual model data from score-application edge function ───
 
 const MODEL_META = {
-  name: "WoE/IV Logistic Regression Scorecard + Bureau",
-  version: "v1.1",
-  calibration: "African lending markets (Kenya, Nigeria, Ghana, Uganda, Rwanda)",
+  name: "WoE/IV Logistic Regression Scorecard + Bureau + Alt-Data",
+  version: "v2.0",
+  calibration: "African lending markets (Zimbabwe, Kenya, Nigeria, Ghana, Uganda, Rwanda)",
   baseScore: 600,
   baseOdds: "50:1 good-to-bad",
   pdo: 20,
