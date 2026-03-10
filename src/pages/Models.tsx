@@ -281,7 +281,8 @@ const Models = () => {
             <div className="flex justify-between"><span>Base Score</span><span className="font-medium text-foreground">{MODEL_META.baseScore}</span></div>
             <div className="flex justify-between"><span>Base Odds</span><span className="font-medium text-foreground">{MODEL_META.baseOdds}</span></div>
             <div className="flex justify-between"><span>Points to Double Odds</span><span className="font-medium text-foreground">{MODEL_META.pdo}</span></div>
-            <div className="flex justify-between"><span>Features</span><span className="font-medium text-foreground">{coefficients.length}</span></div>
+            <div className="flex justify-between"><span>Traditional Features</span><span className="font-medium text-foreground">{coefficients.filter(([,c]) => c.category === "traditional").length}</span></div>
+            <div className="flex justify-between"><span>Alt-Data Features</span><span className="font-medium text-foreground">{coefficients.filter(([,c]) => c.category === "alt-data").length}</span></div>
           </div>
         </GlassCard>
 
