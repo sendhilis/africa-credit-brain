@@ -4,7 +4,7 @@ export const SCORING_PARAMS = {
   baseScore: 600,
   baseOdds: 50,
   pdo: 20,
-  intercept: 5.30,
+  intercept: 4.80,
 };
 
 export interface SimFeature {
