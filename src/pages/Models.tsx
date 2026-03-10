@@ -5,8 +5,9 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Brain, GitBranch, BarChart3, TableProperties, Weight, Target, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Brain, GitBranch, BarChart3, TableProperties, Weight, Target, TrendingUp, TrendingDown, Minus, Calculator } from "lucide-react";
 import { useState } from "react";
+import ScoreSimulator from "@/components/models/ScoreSimulator";
 
 // ─── Actual model data from score-application edge function ───
 
@@ -239,12 +240,18 @@ const Models = () => {
       </div>
 
       {/* Tabs: Coefficients, WoE Bins, Policies */}
-      <Tabs defaultValue="coefficients" className="mb-6">
+      <Tabs defaultValue="simulator" className="mb-6">
         <TabsList className="bg-muted">
+          <TabsTrigger value="simulator" className="gap-1.5 text-xs"><Calculator className="h-3.5 w-3.5" /> Simulator</TabsTrigger>
           <TabsTrigger value="coefficients" className="gap-1.5 text-xs"><Weight className="h-3.5 w-3.5" /> Coefficients</TabsTrigger>
           <TabsTrigger value="woe" className="gap-1.5 text-xs"><BarChart3 className="h-3.5 w-3.5" /> WoE Bins</TabsTrigger>
           <TabsTrigger value="policies" className="gap-1.5 text-xs"><TableProperties className="h-3.5 w-3.5" /> Product Policies</TabsTrigger>
         </TabsList>
+
+        {/* Simulator Tab */}
+        <TabsContent value="simulator">
+          <ScoreSimulator />
+        </TabsContent>
 
         {/* Coefficients Tab */}
         <TabsContent value="coefficients">
