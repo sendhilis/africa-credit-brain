@@ -137,7 +137,7 @@ export const SIM_FEATURES: SimFeature[] = [
   {
     key: "dependents",
     label: "Dependents",
-    beta: 0.15,
+    beta: -0.15,
     bins: [
       { label: "0", woe: -0.22 },
       { label: "1-2", woe: -0.08 },
