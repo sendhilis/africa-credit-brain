@@ -49,7 +49,8 @@ const ScoreSimulator = () => {
     const contributions: { key: string; label: string; beta: number; woe: number; term: number; points: number }[] = [];
 
     SIM_FEATURES.forEach((f) => {
-      const bin = f.bins[selections[f.key]];
+      const binIdx = selections[f.key] ?? 0;
+      const bin = f.bins[binIdx] ?? f.bins[0];
       const term = f.beta * bin.woe;
       logOdds += term;
       const points = -factor * term;
