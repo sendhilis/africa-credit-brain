@@ -105,7 +105,7 @@ export const SIM_FEATURES: SimFeature[] = [
   {
     key: "existing_loan_count",
     label: "Existing Obligations",
-    beta: 0.38,
+    beta: -0.38,
     bins: [
       { label: "None", woe: -0.45 },
       { label: "1 loan", woe: -0.12 },
