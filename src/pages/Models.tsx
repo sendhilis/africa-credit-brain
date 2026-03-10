@@ -248,6 +248,11 @@ const Models = () => {
           <TabsTrigger value="policies" className="gap-1.5 text-xs"><TableProperties className="h-3.5 w-3.5" /> Product Policies</TabsTrigger>
         </TabsList>
 
+        {/* Simulator Tab */}
+        <TabsContent value="simulator">
+          <ScoreSimulator />
+        </TabsContent>
+
         {/* Coefficients Tab */}
         <TabsContent value="coefficients">
           <GlassCard hover={false}>
