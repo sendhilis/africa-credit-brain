@@ -12,6 +12,7 @@ import {
   ChevronRight,
   LogOut,
   Presentation,
+  FileSpreadsheet,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -26,6 +27,7 @@ const navItems = [
   { to: "/fairness", icon: Shield, label: "Fairness & Performance" },
   { to: "/developers", icon: Code2, label: "Developers" },
   { to: "/showcase", icon: Presentation, label: "Showcase" },
+  { to: "/ground-truth", icon: FileSpreadsheet, label: "Ground Truth" },
   { to: "/admin", icon: Settings, label: "Admin" },
 ];
 
