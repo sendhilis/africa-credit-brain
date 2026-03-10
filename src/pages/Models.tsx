@@ -325,13 +325,13 @@ const Models = () => {
         {/* Coefficients Tab */}
         <TabsContent value="coefficients">
           <GlassCard hover={false}>
-            <h2 className="mb-1 font-display text-lg font-semibold text-foreground">Model Coefficients (β) — v1.1</h2>
-            <p className="mb-4 text-xs text-muted-foreground">Logistic regression coefficients — positive β increases risk (higher PD), negative β decreases risk. Bureau Score receives primary weight when available.</p>
+            <h2 className="mb-1 font-display text-lg font-semibold text-foreground">Model Coefficients (β) — v2.0</h2>
+            <p className="mb-4 text-xs text-muted-foreground">Logistic regression coefficients — negative β is protective (lowers PD). Alt-data features enable thin-file scoring when bureau data is unavailable.</p>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border">
-                    {["Feature", "β Coefficient", "Weight %", "Direction"].map((h) => (
+                    {["Feature", "β Coefficient", "Weight %", "Direction", "Note"].map((h) => (
                       <th key={h} className="pb-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">{h}</th>
                     ))}
                   </tr>
@@ -342,8 +342,12 @@ const Models = () => {
                     <td className="py-3 font-mono text-foreground">{MODEL_COEFFICIENTS.intercept.beta.toFixed(2)}</td>
                     <td className="py-3 text-muted-foreground">—</td>
                     <td className="py-3 text-muted-foreground">—</td>
+                    <td className="py-3 text-muted-foreground">—</td>
                   </tr>
+                  {/* Traditional Features */}
+                  <tr><td colSpan={5} className="pt-4 pb-2 text-xs font-semibold uppercase tracking-wider text-primary">Traditional Features</td></tr>
                   {coefficients
+                    .filter(([, c]) => c.category === "traditional")
                     .sort(([, a], [, b]) => b.weight - a.weight)
                     .map(([key, c]) => {
                       const isProtective = c.beta < 0;
@@ -356,16 +360,12 @@ const Models = () => {
                             </span>
                           </td>
                           <td className="py-3">
-                            {c.weight > 0 ? (
-                              <div className="flex items-center gap-2">
-                                <div className="w-16 h-1.5 bg-muted/50 rounded-full overflow-hidden">
-                                  <div className="h-full bg-primary rounded-full" style={{ width: `${c.weight * 4}%` }} />
-                                </div>
-                                <span className="text-xs text-muted-foreground">{c.weight}%</span>
+                            <div className="flex items-center gap-2">
+                              <div className="w-16 h-1.5 bg-muted/50 rounded-full overflow-hidden">
+                                <div className="h-full bg-primary rounded-full" style={{ width: `${c.weight * 4}%` }} />
                               </div>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">—</span>
-                            )}
+                              <span className="text-xs text-muted-foreground">{c.weight}%</span>
+                            </div>
                           </td>
                           <td className="py-3">
                             <div className="flex items-center gap-1">
@@ -376,6 +376,39 @@ const Models = () => {
                               )}
                             </div>
                           </td>
+                          <td className="py-3 text-xs text-muted-foreground">{c.note || "—"}</td>
+                        </tr>
+                      );
+                    })}
+                  {/* Alt-Data Features */}
+                  <tr><td colSpan={5} className="pt-6 pb-2 text-xs font-semibold uppercase tracking-wider text-accent-foreground"><Badge variant="outline" className="bg-accent/10 text-accent-foreground border-accent/30 mr-2">Alt-Data</Badge>Alternative Data Features (Thin-File)</td></tr>
+                  {coefficients
+                    .filter(([, c]) => c.category === "alt-data")
+                    .sort(([, a], [, b]) => b.weight - a.weight)
+                    .map(([key, c]) => {
+                      const isProtective = c.beta < 0;
+                      return (
+                        <tr key={key} className="border-b border-border/50 last:border-0 bg-accent/5">
+                          <td className="py-3 font-medium text-foreground">{c.label}</td>
+                          <td className="py-3 font-mono">
+                            <span className={isProtective ? "text-success" : "text-destructive"}>
+                              {c.beta > 0 ? "+" : ""}{c.beta.toFixed(2)}
+                            </span>
+                          </td>
+                          <td className="py-3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-16 h-1.5 bg-muted/50 rounded-full overflow-hidden">
+                                <div className="h-full bg-accent rounded-full" style={{ width: `${c.weight * 4}%` }} />
+                              </div>
+                              <span className="text-xs text-muted-foreground">{c.weight}%</span>
+                            </div>
+                          </td>
+                          <td className="py-3">
+                            <div className="flex items-center gap-1">
+                              <TrendingDown className="h-3.5 w-3.5 text-success" /><span className="text-xs text-success">Protective</span>
+                            </div>
+                          </td>
+                          <td className="py-3 text-xs text-muted-foreground italic">{c.note || "—"}</td>
                         </tr>
                       );
                     })}
