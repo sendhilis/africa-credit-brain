@@ -57,7 +57,7 @@ export const SIM_FEATURES: SimFeature[] = [
   {
     key: "income_stability_cv",
     label: "Income Stability (CV)",
-    beta: 0.72,
+    beta: -0.72,
     bins: [
       { label: "Very Stable (CV<10%)", woe: -0.82 },
       { label: "Stable (10-25%)", woe: -0.28 },
