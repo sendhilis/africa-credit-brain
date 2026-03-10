@@ -242,6 +242,7 @@ const Models = () => {
       {/* Tabs: Coefficients, WoE Bins, Policies */}
       <Tabs defaultValue="coefficients" className="mb-6">
         <TabsList className="bg-muted">
+          <TabsTrigger value="simulator" className="gap-1.5 text-xs"><Calculator className="h-3.5 w-3.5" /> Simulator</TabsTrigger>
           <TabsTrigger value="coefficients" className="gap-1.5 text-xs"><Weight className="h-3.5 w-3.5" /> Coefficients</TabsTrigger>
           <TabsTrigger value="woe" className="gap-1.5 text-xs"><BarChart3 className="h-3.5 w-3.5" /> WoE Bins</TabsTrigger>
           <TabsTrigger value="policies" className="gap-1.5 text-xs"><TableProperties className="h-3.5 w-3.5" /> Product Policies</TabsTrigger>
