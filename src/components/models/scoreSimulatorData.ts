@@ -26,7 +26,7 @@ export const SIM_FEATURES: SimFeature[] = [
       { label: "Below Average (600-649)", woe: 0.35 },
       { label: "Poor (500-599)", woe: 0.82 },
       { label: "Very Poor (<500)", woe: 1.55 },
-      { label: "No Bureau Data", woe: 0.10 },
+      { label: "No Bureau Data", woe: 0.05 },
     ],
   },
   {
