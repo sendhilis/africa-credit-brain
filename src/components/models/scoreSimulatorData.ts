@@ -4,7 +4,7 @@ export const SCORING_PARAMS = {
   baseScore: 600,
   baseOdds: 50,
   pdo: 20,
-  intercept: 5.30,
+  intercept: 4.80,
 };
 
 export interface SimFeature {
@@ -26,7 +26,7 @@ export const SIM_FEATURES: SimFeature[] = [
       { label: "Below Average (600-649)", woe: 0.35 },
       { label: "Poor (500-599)", woe: 0.82 },
       { label: "Very Poor (<500)", woe: 1.55 },
-      { label: "No Bureau Data", woe: 0.10 },
+      { label: "No Bureau Data", woe: 0.05 },
     ],
   },
   {
@@ -143,6 +143,78 @@ export const SIM_FEATURES: SimFeature[] = [
       { label: "1-2", woe: -0.08 },
       { label: "3-5", woe: 0.18 },
       { label: "6+", woe: 0.55 },
+    ],
+  },
+  // ── Alt-Data Features (Thin-File / Zimbabwe-Specific) ──
+  {
+    key: "mobile_money_activity",
+    label: "Mobile Money Activity",
+    beta: -0.85,
+    bins: [
+      { label: "High (daily txns, consistent inflows)", woe: -1.25 },
+      { label: "Moderate (weekly txns, regular use)", woe: -0.55 },
+      { label: "Low (sporadic, small amounts)", woe: 0.25 },
+      { label: "Inactive / No account", woe: 0.65 },
+      { label: "No Data Available", woe: 0.05 },
+    ],
+  },
+  {
+    key: "airtime_regularity",
+    label: "Airtime Top-up Regularity",
+    beta: -0.45,
+    bins: [
+      { label: "Daily / near-daily recharges", woe: -0.92 },
+      { label: "Weekly consistent", woe: -0.42 },
+      { label: "Irregular / bulk purchases", woe: 0.15 },
+      { label: "Rare / prepaid bundles only", woe: 0.52 },
+      { label: "No Telco Data", woe: 0.05 },
+    ],
+  },
+  {
+    key: "mukando_savings",
+    label: "Mukando / Savings Club",
+    beta: -0.55,
+    bins: [
+      { label: "Active member, ≥12 months", woe: -1.05 },
+      { label: "Active member, 6-12 months", woe: -0.58 },
+      { label: "Active member, <6 months", woe: -0.18 },
+      { label: "Lapsed / irregular contributions", woe: 0.35 },
+      { label: "No membership", woe: 0.15 },
+    ],
+  },
+  {
+    key: "social_digital_footprint",
+    label: "Social & Digital Footprint",
+    beta: -0.35,
+    bins: [
+      { label: "Active biz page + Google listing + reviews", woe: -0.88 },
+      { label: "Active social presence, few reviews", woe: -0.42 },
+      { label: "Personal social only, no biz page", woe: 0.05 },
+      { label: "No digital presence", woe: 0.20 },
+    ],
+  },
+  {
+    key: "supplier_credit",
+    label: "Supplier Credit Performance",
+    beta: -0.50,
+    bins: [
+      { label: "Always pays on/before terms", woe: -0.95 },
+      { label: "Usually on time (>80%)", woe: -0.45 },
+      { label: "Sometimes late, eventually pays", woe: 0.22 },
+      { label: "Frequently late / disputes", woe: 0.72 },
+      { label: "No supplier credit history", woe: 0.08 },
+    ],
+  },
+  {
+    key: "psychometric_score",
+    label: "Psychometric Assessment",
+    beta: -0.65,
+    bins: [
+      { label: "Strong (>80% across dimensions)", woe: -1.10 },
+      { label: "Good (60-80%)", woe: -0.52 },
+      { label: "Average (40-60%)", woe: 0.10 },
+      { label: "Weak (<40%)", woe: 0.65 },
+      { label: "Not Administered", woe: 0.05 },
     ],
   },
 ];
