@@ -69,7 +69,7 @@ export const SIM_FEATURES: SimFeature[] = [
   {
     key: "loan_to_income",
     label: "Loan-to-Income Ratio",
-    beta: 0.65,
+    beta: -0.65,
     bins: [
       { label: "≤ 1x", woe: -0.72 },
       { label: "1-3x", woe: -0.18 },
