@@ -423,24 +423,43 @@ const Models = () => {
           <GlassCard hover={false}>
             <h2 className="mb-1 font-display text-lg font-semibold text-foreground">Weight of Evidence Bins</h2>
             <p className="mb-4 text-xs text-muted-foreground">
-              Negative WoE → lower default risk (good). Positive WoE → higher default risk (bad).
+              Negative WoE → lower default risk (good). Positive WoE → higher default risk (bad). Alt-data features enable scoring for thin-file borrowers.
             </p>
 
-            {/* Feature selector */}
-            <div className="flex flex-wrap gap-1.5 mb-5">
-              {Object.entries(WOE_BINS).map(([key, feat]) => (
-                <button
-                  key={key}
-                  onClick={() => setSelectedFeature(key)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                    selectedFeature === key
-                      ? "bg-primary/20 text-primary border border-primary/30"
-                      : "bg-muted/50 text-muted-foreground hover:bg-muted border border-transparent"
-                  }`}
-                >
-                  {feat.label}
-                </button>
-              ))}
+            {/* Feature selector with category grouping */}
+            <div className="mb-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Traditional</p>
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {Object.entries(WOE_BINS).filter(([, f]) => f.category === "traditional").map(([key, feat]) => (
+                  <button
+                    key={key}
+                    onClick={() => setSelectedFeature(key)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      selectedFeature === key
+                        ? "bg-primary/20 text-primary border border-primary/30"
+                        : "bg-muted/50 text-muted-foreground hover:bg-muted border border-transparent"
+                    }`}
+                  >
+                    {feat.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Alt-Data <Badge variant="outline" className="text-[9px] bg-accent/10 text-accent-foreground border-accent/30 ml-1 py-0">Thin-File</Badge></p>
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {Object.entries(WOE_BINS).filter(([, f]) => f.category === "alt-data").map(([key, feat]) => (
+                  <button
+                    key={key}
+                    onClick={() => setSelectedFeature(key)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      selectedFeature === key
+                        ? "bg-accent/20 text-accent-foreground border border-accent/30"
+                        : "bg-muted/50 text-muted-foreground hover:bg-muted border border-transparent"
+                    }`}
+                  >
+                    {feat.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Selected feature bins */}
