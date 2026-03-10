@@ -21,20 +21,27 @@ const MODEL_META = {
   scoreRange: "300 – 900",
 };
 
-const MODEL_COEFFICIENTS: Record<string, { label: string; beta: number; weight: number; note?: string }> = {
-  intercept:              { label: "Intercept",              beta: -1.80, weight: 0 },
-  bureau_score:           { label: "Credit Bureau Score",    beta: -1.50, weight: 30, note: "PRIMARY — only when available" },
-  payment_history_score:  { label: "Payment History",        beta: -1.20, weight: 17 },
-  debt_to_income:         { label: "Debt-to-Income Ratio",   beta:  0.85, weight: 13 },
-  income_stability_cv:    { label: "Income Stability (CV)",  beta:  0.72, weight: 10 },
-  loan_to_income:         { label: "Loan-to-Income Ratio",   beta:  0.65, weight: 8 },
-  savings_ratio:          { label: "Savings Capacity",       beta: -0.48, weight: 7 },
-  employment_stability:   { label: "Employment Stability",   beta: -0.55, weight: 0 },
-  age:                    { label: "Borrower Age",           beta: -0.42, weight: 4 },
-  existing_loan_count:    { label: "Existing Obligations",   beta:  0.38, weight: 4 },
-  collateral_flag:        { label: "Collateral",             beta: -0.35, weight: 2 },
-  business_years:         { label: "Business Tenure",        beta: -0.28, weight: 3 },
-  dependents:             { label: "Dependents",             beta:  0.15, weight: 2 },
+const MODEL_COEFFICIENTS: Record<string, { label: string; beta: number; weight: number; note?: string; category?: string }> = {
+  intercept:              { label: "Intercept",              beta: 4.80,  weight: 0, category: "core" },
+  // ── Traditional Features ──
+  bureau_score:           { label: "Credit Bureau Score",    beta: -1.50, weight: 22, note: "PRIMARY — only when available", category: "traditional" },
+  payment_history_score:  { label: "Payment History",        beta: -1.20, weight: 14, category: "traditional" },
+  debt_to_income:         { label: "Debt-to-Income Ratio",   beta: -0.85, weight: 10, category: "traditional" },
+  income_stability_cv:    { label: "Income Stability (CV)",  beta: -0.72, weight: 8, category: "traditional" },
+  loan_to_income:         { label: "Loan-to-Income Ratio",   beta: -0.65, weight: 7, category: "traditional" },
+  savings_ratio:          { label: "Savings Capacity",       beta: -0.48, weight: 5, category: "traditional" },
+  age:                    { label: "Borrower Age",           beta: -0.42, weight: 3, category: "traditional" },
+  existing_loan_count:    { label: "Existing Obligations",   beta: -0.38, weight: 3, category: "traditional" },
+  collateral_flag:        { label: "Collateral",             beta: -0.35, weight: 2, category: "traditional" },
+  business_years:         { label: "Business Tenure",        beta: -0.28, weight: 2, category: "traditional" },
+  dependents:             { label: "Dependents",             beta: -0.15, weight: 1, category: "traditional" },
+  // ── Alt-Data Features (Thin-File / Zimbabwe-Specific) ──
+  mobile_money_activity:  { label: "Mobile Money Activity",       beta: -0.85, weight: 8, note: "EcoCash / InnBucks / OneMoney", category: "alt-data" },
+  psychometric_score:     { label: "Psychometric Assessment",     beta: -0.65, weight: 5, note: "15-question behavioural score", category: "alt-data" },
+  mukando_savings:        { label: "Mukando / Savings Club",      beta: -0.55, weight: 4, note: "Informal savings discipline", category: "alt-data" },
+  supplier_credit:        { label: "Supplier Credit Performance", beta: -0.50, weight: 4, note: "Informal trade credit history", category: "alt-data" },
+  airtime_regularity:     { label: "Airtime Top-up Regularity",   beta: -0.45, weight: 3, note: "Econet / NetOne / Telecel", category: "alt-data" },
+  social_digital_footprint: { label: "Social & Digital Footprint", beta: -0.35, weight: 2, note: "Biz page, Google listing, reviews", category: "alt-data" },
 };
 
 interface WoEBin {
