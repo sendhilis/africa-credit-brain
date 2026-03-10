@@ -381,7 +381,7 @@ const Models = () => {
                       );
                     })}
                   {/* Alt-Data Features */}
-                  <tr><td colSpan={5} className="pt-6 pb-2 text-xs font-semibold uppercase tracking-wider text-accent-foreground"><Badge variant="outline" className="bg-accent/10 text-accent-foreground border-accent/30 mr-2">Alt-Data</Badge>Alternative Data Features (Thin-File)</td></tr>
+                  <tr><td colSpan={5} className="pt-6 pb-2 text-xs font-semibold uppercase tracking-wider text-foreground"><Badge variant="outline" className="bg-accent/10 text-foreground border-accent/30 mr-2">Alt-Data</Badge>Alternative Data Features (Thin-File)</td></tr>
                   {coefficients
                     .filter(([, c]) => c.category === "alt-data")
                     .sort(([, a], [, b]) => b.weight - a.weight)
