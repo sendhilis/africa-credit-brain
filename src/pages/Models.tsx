@@ -5,8 +5,9 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Brain, GitBranch, BarChart3, TableProperties, Weight, Target, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Brain, GitBranch, BarChart3, TableProperties, Weight, Target, TrendingUp, TrendingDown, Minus, Calculator } from "lucide-react";
 import { useState } from "react";
+import ScoreSimulator from "@/components/models/ScoreSimulator";
 
 // ─── Actual model data from score-application edge function ───
 
