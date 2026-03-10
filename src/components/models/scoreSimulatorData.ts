@@ -4,7 +4,7 @@ export const SCORING_PARAMS = {
   baseScore: 600,
   baseOdds: 50,
   pdo: 20,
-  intercept: -1.80,
+  intercept: 5.30,
 };
 
 export interface SimFeature {
@@ -45,7 +45,7 @@ export const SIM_FEATURES: SimFeature[] = [
   {
     key: "debt_to_income",
     label: "Debt-to-Income Ratio",
-    beta: 0.85,
+    beta: -0.85,
     bins: [
       { label: "≤ 20%", woe: -0.85 },
       { label: "20-40%", woe: -0.32 },
@@ -57,7 +57,7 @@ export const SIM_FEATURES: SimFeature[] = [
   {
     key: "income_stability_cv",
     label: "Income Stability (CV)",
-    beta: 0.72,
+    beta: -0.72,
     bins: [
       { label: "Very Stable (CV<10%)", woe: -0.82 },
       { label: "Stable (10-25%)", woe: -0.28 },
@@ -69,7 +69,7 @@ export const SIM_FEATURES: SimFeature[] = [
   {
     key: "loan_to_income",
     label: "Loan-to-Income Ratio",
-    beta: 0.65,
+    beta: -0.65,
     bins: [
       { label: "≤ 1x", woe: -0.72 },
       { label: "1-3x", woe: -0.18 },
@@ -105,7 +105,7 @@ export const SIM_FEATURES: SimFeature[] = [
   {
     key: "existing_loan_count",
     label: "Existing Obligations",
-    beta: 0.38,
+    beta: -0.38,
     bins: [
       { label: "None", woe: -0.45 },
       { label: "1 loan", woe: -0.12 },
@@ -137,7 +137,7 @@ export const SIM_FEATURES: SimFeature[] = [
   {
     key: "dependents",
     label: "Dependents",
-    beta: 0.15,
+    beta: -0.15,
     bins: [
       { label: "0", woe: -0.22 },
       { label: "1-2", woe: -0.08 },
