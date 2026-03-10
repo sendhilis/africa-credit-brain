@@ -52,9 +52,10 @@ interface WoEBin {
   event_rate: number;
 }
 
-const WOE_BINS: Record<string, { label: string; bins: WoEBin[] }> = {
+const WOE_BINS: Record<string, { label: string; category: string; bins: WoEBin[] }> = {
+  // ── Traditional Features ──
   bureau_score: {
-    label: "Credit Bureau Score",
+    label: "Credit Bureau Score", category: "traditional",
     bins: [
       { label: "Excellent (750+)",       min: 750, max: 900, woe: -1.45, event_rate: 0.02 },
       { label: "Good (700-749)",         min: 700, max: 749, woe: -0.85, event_rate: 0.04 },
@@ -62,11 +63,11 @@ const WOE_BINS: Record<string, { label: string; bins: WoEBin[] }> = {
       { label: "Below Average (600-649)",min: 600, max: 649, woe:  0.35, event_rate: 0.14 },
       { label: "Poor (500-599)",         min: 500, max: 599, woe:  0.82, event_rate: 0.24 },
       { label: "Very Poor (<500)",       min: 0,   max: 499, woe:  1.55, event_rate: 0.42 },
-      { label: "No Bureau Data",         min: -1,  max: -1,  woe:  0.10, event_rate: 0.11 },
+      { label: "No Bureau Data",         min: -1,  max: -1,  woe:  0.05, event_rate: 0.11 },
     ],
   },
   debt_to_income: {
-    label: "Debt-to-Income Ratio",
+    label: "Debt-to-Income Ratio", category: "traditional",
     bins: [
       { label: "≤ 20%",  min: 0,   max: 0.2, woe: -0.85, event_rate: 0.03 },
       { label: "20-40%", min: 0.2, max: 0.4, woe: -0.32, event_rate: 0.06 },
@@ -76,7 +77,7 @@ const WOE_BINS: Record<string, { label: string; bins: WoEBin[] }> = {
     ],
   },
   age: {
-    label: "Borrower Age",
+    label: "Borrower Age", category: "traditional",
     bins: [
       { label: "18-25", min: 18, max: 25,  woe:  0.62, event_rate: 0.18 },
       { label: "26-35", min: 26, max: 35,  woe: -0.15, event_rate: 0.08 },
@@ -86,7 +87,7 @@ const WOE_BINS: Record<string, { label: string; bins: WoEBin[] }> = {
     ],
   },
   loan_to_income: {
-    label: "Loan-to-Income Ratio",
+    label: "Loan-to-Income Ratio", category: "traditional",
     bins: [
       { label: "≤ 1x",   min: 0,  max: 1,    woe: -0.72, event_rate: 0.04 },
       { label: "1-3x",   min: 1,  max: 3,    woe: -0.18, event_rate: 0.07 },
@@ -96,7 +97,7 @@ const WOE_BINS: Record<string, { label: string; bins: WoEBin[] }> = {
     ],
   },
   existing_loan_count: {
-    label: "Existing Obligations",
+    label: "Existing Obligations", category: "traditional",
     bins: [
       { label: "None",    min: 0, max: 0,   woe: -0.45, event_rate: 0.05 },
       { label: "1 loan",  min: 1, max: 1,   woe: -0.12, event_rate: 0.08 },
@@ -105,7 +106,7 @@ const WOE_BINS: Record<string, { label: string; bins: WoEBin[] }> = {
     ],
   },
   dependents: {
-    label: "Dependents",
+    label: "Dependents", category: "traditional",
     bins: [
       { label: "0",   min: 0, max: 0,   woe: -0.22, event_rate: 0.07 },
       { label: "1-2", min: 1, max: 2,   woe: -0.08, event_rate: 0.09 },
@@ -114,7 +115,7 @@ const WOE_BINS: Record<string, { label: string; bins: WoEBin[] }> = {
     ],
   },
   payment_history_score: {
-    label: "Payment History Score",
+    label: "Payment History Score", category: "traditional",
     bins: [
       { label: "Excellent (>95%)", min: 0.95, max: 1.01, woe: -1.35, event_rate: 0.02 },
       { label: "Good (80-95%)",    min: 0.8,  max: 0.95, woe: -0.62, event_rate: 0.06 },
@@ -125,7 +126,7 @@ const WOE_BINS: Record<string, { label: string; bins: WoEBin[] }> = {
     ],
   },
   income_stability_cv: {
-    label: "Income Stability (CV)",
+    label: "Income Stability (CV)", category: "traditional",
     bins: [
       { label: "Very Stable (CV<10%)", min: 0,    max: 0.1,  woe: -0.82, event_rate: 0.04 },
       { label: "Stable (10-25%)",      min: 0.1,  max: 0.25, woe: -0.28, event_rate: 0.07 },
@@ -135,7 +136,7 @@ const WOE_BINS: Record<string, { label: string; bins: WoEBin[] }> = {
     ],
   },
   business_years: {
-    label: "Business Tenure",
+    label: "Business Tenure", category: "traditional",
     bins: [
       { label: "< 1 year",   min: 0,  max: 1,   woe:  0.72, event_rate: 0.22 },
       { label: "1-3 years",  min: 1,  max: 3,   woe:  0.15, event_rate: 0.11 },
@@ -145,13 +146,73 @@ const WOE_BINS: Record<string, { label: string; bins: WoEBin[] }> = {
     ],
   },
   savings_ratio: {
-    label: "Savings Capacity",
+    label: "Savings Capacity", category: "traditional",
     bins: [
       { label: "Negative",  min: -999, max: 0,    woe:  1.15, event_rate: 0.32 },
       { label: "0-10%",     min: 0,    max: 0.1,  woe:  0.42, event_rate: 0.16 },
       { label: "10-25%",    min: 0.1,  max: 0.25, woe: -0.18, event_rate: 0.08 },
       { label: "25-50%",    min: 0.25, max: 0.5,  woe: -0.62, event_rate: 0.05 },
       { label: "> 50%",     min: 0.5,  max: 999,  woe: -0.95, event_rate: 0.03 },
+    ],
+  },
+  // ── Alt-Data Features ──
+  mobile_money_activity: {
+    label: "Mobile Money Activity", category: "alt-data",
+    bins: [
+      { label: "High (daily txns, consistent inflows)",  min: 4, max: 5, woe: -1.25, event_rate: 0.03 },
+      { label: "Moderate (weekly txns, regular use)",     min: 3, max: 4, woe: -0.55, event_rate: 0.07 },
+      { label: "Low (sporadic, small amounts)",           min: 2, max: 3, woe:  0.25, event_rate: 0.14 },
+      { label: "Inactive / No account",                   min: 1, max: 2, woe:  0.65, event_rate: 0.22 },
+      { label: "No Data Available",                        min: 0, max: 1, woe:  0.05, event_rate: 0.10 },
+    ],
+  },
+  airtime_regularity: {
+    label: "Airtime Top-up Regularity", category: "alt-data",
+    bins: [
+      { label: "Daily / near-daily recharges",  min: 4, max: 5, woe: -0.92, event_rate: 0.04 },
+      { label: "Weekly consistent",              min: 3, max: 4, woe: -0.42, event_rate: 0.07 },
+      { label: "Irregular / bulk purchases",     min: 2, max: 3, woe:  0.15, event_rate: 0.11 },
+      { label: "Rare / prepaid bundles only",    min: 1, max: 2, woe:  0.52, event_rate: 0.18 },
+      { label: "No Telco Data",                  min: 0, max: 1, woe:  0.05, event_rate: 0.10 },
+    ],
+  },
+  mukando_savings: {
+    label: "Mukando / Savings Club", category: "alt-data",
+    bins: [
+      { label: "Active member, ≥12 months",         min: 4, max: 5, woe: -1.05, event_rate: 0.03 },
+      { label: "Active member, 6-12 months",         min: 3, max: 4, woe: -0.58, event_rate: 0.06 },
+      { label: "Active member, <6 months",            min: 2, max: 3, woe: -0.18, event_rate: 0.09 },
+      { label: "Lapsed / irregular contributions",    min: 1, max: 2, woe:  0.35, event_rate: 0.15 },
+      { label: "No membership",                       min: 0, max: 1, woe:  0.15, event_rate: 0.11 },
+    ],
+  },
+  social_digital_footprint: {
+    label: "Social & Digital Footprint", category: "alt-data",
+    bins: [
+      { label: "Active biz page + Google listing + reviews", min: 3, max: 4, woe: -0.88, event_rate: 0.04 },
+      { label: "Active social presence, few reviews",         min: 2, max: 3, woe: -0.42, event_rate: 0.07 },
+      { label: "Personal social only, no biz page",           min: 1, max: 2, woe:  0.05, event_rate: 0.10 },
+      { label: "No digital presence",                         min: 0, max: 1, woe:  0.20, event_rate: 0.13 },
+    ],
+  },
+  supplier_credit: {
+    label: "Supplier Credit Performance", category: "alt-data",
+    bins: [
+      { label: "Always pays on/before terms",       min: 4, max: 5, woe: -0.95, event_rate: 0.03 },
+      { label: "Usually on time (>80%)",             min: 3, max: 4, woe: -0.45, event_rate: 0.06 },
+      { label: "Sometimes late, eventually pays",    min: 2, max: 3, woe:  0.22, event_rate: 0.13 },
+      { label: "Frequently late / disputes",          min: 1, max: 2, woe:  0.72, event_rate: 0.24 },
+      { label: "No supplier credit history",          min: 0, max: 1, woe:  0.08, event_rate: 0.10 },
+    ],
+  },
+  psychometric_score: {
+    label: "Psychometric Assessment", category: "alt-data",
+    bins: [
+      { label: "Strong (>80% across dimensions)",   min: 4, max: 5, woe: -1.10, event_rate: 0.03 },
+      { label: "Good (60-80%)",                      min: 3, max: 4, woe: -0.52, event_rate: 0.06 },
+      { label: "Average (40-60%)",                   min: 2, max: 3, woe:  0.10, event_rate: 0.11 },
+      { label: "Weak (<40%)",                        min: 1, max: 2, woe:  0.65, event_rate: 0.21 },
+      { label: "Not Administered",                   min: 0, max: 1, woe:  0.05, event_rate: 0.10 },
     ],
   },
 };
