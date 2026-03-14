@@ -203,6 +203,12 @@ export const countryConfigs: Record<string, CountryConfig> = {
       { key: "payslip_net", label: "Net Payslip Amount (ZWL)", placeholder: "450000", type: "number" },
       { key: "other_income", label: "Other Income Sources (ZWL)", placeholder: "Rental, diaspora remittances", type: "text" },
       { key: "other_income_amount", label: "Other Income Amount (ZWL)", placeholder: "100000", type: "number" },
+      // Bread Basket fields for retail
+      { key: "household_size", label: "Household Size (people fed)", placeholder: "5", type: "number" },
+      { key: "monthly_food_basket", label: "Monthly Food / Grocery Spend (ZWL)", placeholder: "80000", type: "number" },
+      { key: "monthly_transport", label: "Monthly Transport Cost (ZWL)", placeholder: "25000", type: "number" },
+      { key: "monthly_school_fees", label: "Monthly School Fees (ZWL)", placeholder: "30000", type: "number" },
+      { key: "monthly_health", label: "Monthly Medical / Health (ZWL)", placeholder: "10000", type: "number" },
     ],
     additionalBusinessFields: [
       { key: "sector", label: "Business Sector", placeholder: "Mining, Agriculture, Trade…", type: "text" },
