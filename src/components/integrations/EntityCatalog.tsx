@@ -177,51 +177,93 @@ const EntityCatalog = ({ country, integrations, onRefresh, onEntitySelect }: Ent
                   const isLoading = loadingEntity === entity.name;
 
                   return (
-                    <div
-                      key={entity.name}
-                      className="flex items-center gap-3 px-4 py-3 hover:bg-muted/20 transition-colors group"
-                    >
-                      <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0 cursor-grab" />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-foreground truncate">{entity.name}</span>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Info className="h-3 w-3 text-muted-foreground/60 shrink-0 cursor-help" />
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-xs">
-                              <p className="text-xs">{entity.description}</p>
-                              <p className="text-[10px] mt-1 text-muted-foreground">
-                                API: {entity.apiType} · {entity.endpoints.length} endpoints · Credentials: {entity.requiredCredentials.join(", ")}
-                              </p>
-                            </TooltipContent>
-                          </Tooltip>
+                    <div key={entity.name}>
+                      <div
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-muted/20 transition-colors group cursor-pointer"
+                        onClick={() => {
+                          if (testResults[entity.name]?.length) {
+                            setExpandedTests(expandedTests === entity.name ? null : entity.name);
+                          }
+                        }}
+                      >
+                        <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0 cursor-grab" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-foreground truncate">{entity.name}</span>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Info className="h-3 w-3 text-muted-foreground/60 shrink-0 cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-xs">
+                                <p className="text-xs">{entity.description}</p>
+                                <p className="text-[10px] mt-1 text-muted-foreground">
+                                  API: {entity.apiType} · {entity.endpoints.length} endpoints · Credentials: {entity.requiredCredentials.join(", ")}
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground truncate">{entity.category}</p>
                         </div>
-                        <p className="text-[11px] text-muted-foreground truncate">{entity.category}</p>
+
+                        <Badge variant="outline" className={`text-[10px] ${statusStyles[status]}`}>
+                          {status === "connected" && <Check className="h-2.5 w-2.5 mr-1" />}
+                          {status.replace("_", " ")}
+                        </Badge>
+
+                        {testResults[entity.name]?.length > 0 && (
+                          <Badge variant="outline" className="text-[10px] bg-success/10 text-success border-success/30">
+                            {testResults[entity.name].length} tests ✓
+                          </Badge>
+                        )}
+
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                          {status === "disconnected" && (
+                            <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1" onClick={() => handleConnect(entity)} disabled={isLoading}>
+                              {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : "Connect"}
+                            </Button>
+                          )}
+                          {(status === "connecting" || status === "sandbox_testing") && (
+                            <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1" onClick={() => handleTest(entity)} disabled={isLoading}>
+                              {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <><TestTube className="h-3 w-3" /> Test</>}
+                            </Button>
+                          )}
+                          {status === "connected" && (
+                            <>
+                              <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1" onClick={() => handleTest(entity)} disabled={isLoading}>
+                                {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <><TestTube className="h-3 w-3" /> Re-test</>}
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-7 text-[10px] gap-1 text-muted-foreground" onClick={() => handleDisconnect(entity)} disabled={isLoading}>
+                                <Unplug className="h-3 w-3" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
                       </div>
 
-                      <Badge variant="outline" className={`text-[10px] ${statusStyles[status]}`}>
-                        {status === "connected" && <Check className="h-2.5 w-2.5 mr-1" />}
-                        {status.replace("_", " ")}
-                      </Badge>
-
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {status === "disconnected" && (
-                          <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1" onClick={() => handleConnect(entity)} disabled={isLoading}>
-                            {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : "Connect"}
-                          </Button>
-                        )}
-                        {(status === "connecting" || status === "sandbox_testing") && (
-                          <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1" onClick={() => handleTest(entity)} disabled={isLoading}>
-                            {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <><TestTube className="h-3 w-3" /> Test</>}
-                          </Button>
-                        )}
-                        {status === "connected" && (
-                          <Button size="sm" variant="ghost" className="h-7 text-[10px] gap-1 text-muted-foreground" onClick={() => handleDisconnect(entity)} disabled={isLoading}>
-                            <Unplug className="h-3 w-3" />
-                          </Button>
-                        )}
-                      </div>
+                      {/* Expanded test results panel */}
+                      {expandedTests === entity.name && testResults[entity.name]?.length > 0 && (
+                        <div className="px-4 pb-3 bg-muted/10">
+                          <div className="rounded-lg border border-border/50 overflow-hidden">
+                            <div className="px-3 py-2 bg-muted/30 border-b border-border/50">
+                              <span className="text-[11px] font-semibold text-foreground">
+                                Sandbox Test Results — {entity.name}
+                              </span>
+                            </div>
+                            <div className="divide-y divide-border/30">
+                              {testResults[entity.name].map((t: any, idx: number) => (
+                                <div key={idx} className="flex items-start gap-2 px-3 py-1.5">
+                                  <Check className="h-3 w-3 text-success mt-0.5 shrink-0" />
+                                  <div className="flex-1 min-w-0">
+                                    <span className="text-[11px] font-medium text-foreground">{t.test}</span>
+                                    <p className="text-[10px] text-muted-foreground">{t.detail}</p>
+                                  </div>
+                                  <span className="text-[10px] text-muted-foreground shrink-0">{t.latency_ms}ms</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
