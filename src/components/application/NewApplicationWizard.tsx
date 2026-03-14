@@ -312,6 +312,16 @@ const NewApplicationWizard = () => {
         "facebook_page", "facebook_followers", "facebook_reviews_avg",
         "whatsapp_business", "instagram_handle", "instagram_followers",
         "google_maps_listing", "google_reviews_count", "google_reviews_avg", "online_marketplace",
+        // Bread basket & balance sheet fields
+        "household_size", "monthly_food_basket", "monthly_transport", "monthly_school_fees",
+        "monthly_health", "bread_basket_currency",
+        "stock_value_estimate", "equipment_tools_value", "total_savings",
+        "receivables_amount", "payables_amount",
+        "premises_type", "premises_years", "staff_turnover_pct", "licenses_current",
+        "insurance_coverage", "succession_plan",
+        "facebook_page", "facebook_followers", "facebook_reviews_avg",
+        "whatsapp_business", "instagram_handle", "instagram_followers",
+        "google_maps_listing", "google_reviews_count", "google_reviews_avg", "online_marketplace",
       ];
 
       specialKeys.forEach(key => {
@@ -682,18 +692,60 @@ const NewApplicationWizard = () => {
         </FieldGroup>
 
         {country === "zimbabwe" && (
-          <FieldGroup label="Multi-Currency (Zimbabwe)">
-            <Field label="Primary Transaction Currency">
-              <Select value={formData.primary_currency || ""} onValueChange={v => updateField("primary_currency", v)}>
-                <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="zwl">ZWL (Zimbabwe Dollar)</SelectItem>
-                  <SelectItem value="usd">USD</SelectItem>
-                  <SelectItem value="zar">ZAR (South African Rand)</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
-          </FieldGroup>
+          <>
+            <FieldGroup label="Bread Basket & Living Costs (Zimbabwe)">
+              <div className="col-span-2 p-3 rounded-lg bg-warning/5 border border-warning/20 mb-2">
+                <p className="text-xs text-muted-foreground">
+                  <span className="font-semibold text-warning">Bread Basket Assessment</span> — How much does the household spend on essentials? This determines if there's enough margin for loan repayment after inflation-impacted living costs.
+                </p>
+              </div>
+              {renderConfigFields(microFields, "Bread Basket")}
+            </FieldGroup>
+
+            {/* Live bread basket computation */}
+            {(formData.monthly_income || formData.monthly_revenue) && formData.monthly_food_basket && (
+              <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Bread Basket Analysis</h4>
+                {(() => {
+                  const income = parseFloat(formData.monthly_income || formData.monthly_revenue || "0");
+                  const food = parseFloat(formData.monthly_food_basket || "0");
+                  const transport = parseFloat(formData.monthly_transport || "0");
+                  const school = parseFloat(formData.monthly_school_fees || "0");
+                  const health = parseFloat(formData.monthly_health || "0");
+                  const expenses = parseFloat(formData.monthly_expenses || "0");
+                  const breadBasket = food + transport + school + health;
+                  const totalOutflows = breadBasket + expenses;
+                  const surplus = income - totalOutflows;
+                  const marginPct = income > 0 ? Math.round((surplus / income) * 100) : 0;
+                  return (
+                    <div className="space-y-1.5 text-xs">
+                      <div className="flex justify-between"><span className="text-muted-foreground">Income</span><span className="font-medium">{config.currencySymbol} {income.toLocaleString()}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Bread Basket (essentials)</span><span className="font-medium text-warning">−{config.currencySymbol} {breadBasket.toLocaleString()}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Business Expenses</span><span className="font-medium">−{config.currencySymbol} {expenses.toLocaleString()}</span></div>
+                      <div className="flex justify-between border-t border-border/30 pt-1"><span className="text-muted-foreground">Disposable Surplus</span><span className={`font-semibold ${surplus >= 0 ? "text-success" : "text-destructive"}`}>{config.currencySymbol} {surplus.toLocaleString()} ({marginPct}%)</span></div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            <FieldGroup label="Balance Sheet Inputs">
+              {renderConfigFields(microFields, "Balance Sheet")}
+            </FieldGroup>
+
+            <FieldGroup label="Multi-Currency (Zimbabwe)">
+              <Field label="Primary Transaction Currency">
+                <Select value={formData.primary_currency || ""} onValueChange={v => updateField("primary_currency", v)}>
+                  <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="zwl">ZWL (Zimbabwe Dollar)</SelectItem>
+                    <SelectItem value="usd">USD</SelectItem>
+                    <SelectItem value="zar">ZAR (South African Rand)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+            </FieldGroup>
+          </>
         )}
 
         <FieldGroup label="Credit Bureau Score (if available)">
@@ -937,18 +989,63 @@ const NewApplicationWizard = () => {
             </FieldGroup>
 
             {country === "zimbabwe" && (
-              <FieldGroup label="Multi-Currency Details (Zimbabwe)">
-                <Field label="Primary Transaction Currency">
-                  <Select value={formData.primary_currency || ""} onValueChange={v => updateField("primary_currency", v)}>
-                    <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="zwl">ZWL (Zimbabwe Dollar)</SelectItem>
-                      <SelectItem value="usd">USD</SelectItem>
-                      <SelectItem value="zar">ZAR (South African Rand)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </Field>
-              </FieldGroup>
+              <>
+                <FieldGroup label="Bread Basket Margin (Zimbabwe)">
+                  <div className="col-span-2 p-3 rounded-lg bg-warning/5 border border-warning/20 mb-2">
+                    <p className="text-xs text-muted-foreground">
+                      <span className="font-semibold text-warning">Affordability Check</span> — Zimbabwe uses the bread basket approach to assess whether income covers essential living costs plus proposed loan repayment. This factors inflation impact on basic goods.
+                    </p>
+                  </div>
+                  {config.additionalRetailFields.filter(f => ["household_size","monthly_food_basket","monthly_transport","monthly_school_fees","monthly_health"].includes(f.key)).map(f => (
+                    <Field key={f.key} label={f.label}>
+                      <Input type={f.type} placeholder={f.placeholder} className="bg-muted/50 border-border" value={formData[f.key] || ""} onChange={e => updateField(f.key, e.target.value)} />
+                    </Field>
+                  ))}
+                </FieldGroup>
+
+                {/* Auto-computed bread basket margin */}
+                {(formData.monthly_income || formData.payslip_net) && formData.monthly_food_basket && (
+                  <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Bread Basket Analysis</h4>
+                    {(() => {
+                      const income = parseFloat(formData.payslip_net || formData.monthly_income || "0");
+                      const food = parseFloat(formData.monthly_food_basket || "0");
+                      const transport = parseFloat(formData.monthly_transport || "0");
+                      const school = parseFloat(formData.monthly_school_fees || "0");
+                      const health = parseFloat(formData.monthly_health || "0");
+                      const rent = parseFloat(formData.rent || "0");
+                      const breadBasket = food + transport + school + health + rent;
+                      const surplus = income - breadBasket;
+                      const marginPct = income > 0 ? Math.round((surplus / income) * 100) : 0;
+                      const proposedRepayment = formData.amount && formData.tenor ? parseFloat(formData.amount) / parseInt(formData.tenor) : 0;
+                      const afterLoan = surplus - proposedRepayment;
+                      return (
+                        <div className="space-y-1.5 text-xs">
+                          <div className="flex justify-between"><span className="text-muted-foreground">Net Income</span><span className="font-medium">{config.currencySymbol} {income.toLocaleString()}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">Bread Basket (essentials)</span><span className="font-medium text-warning">−{config.currencySymbol} {breadBasket.toLocaleString()}</span></div>
+                          <div className="flex justify-between border-t border-border/30 pt-1"><span className="text-muted-foreground">Disposable Surplus</span><span className={`font-semibold ${surplus >= 0 ? "text-success" : "text-destructive"}`}>{config.currencySymbol} {surplus.toLocaleString()} ({marginPct}%)</span></div>
+                          {proposedRepayment > 0 && (
+                            <div className="flex justify-between"><span className="text-muted-foreground">After Proposed Repayment</span><span className={`font-semibold ${afterLoan >= 0 ? "text-success" : "text-destructive"}`}>{config.currencySymbol} {Math.round(afterLoan).toLocaleString()}</span></div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                <FieldGroup label="Multi-Currency Details (Zimbabwe)">
+                  <Field label="Primary Transaction Currency">
+                    <Select value={formData.primary_currency || ""} onValueChange={v => updateField("primary_currency", v)}>
+                      <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="zwl">ZWL (Zimbabwe Dollar)</SelectItem>
+                        <SelectItem value="usd">USD</SelectItem>
+                        <SelectItem value="zar">ZAR (South African Rand)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                </FieldGroup>
+              </>
             )}
 
             <FieldGroup label="Credit Bureau Score (if available)">
@@ -1112,6 +1209,9 @@ const NewApplicationWizard = () => {
     if (!config) return null;
     const docTypes = [
       { key: "bank_statement", icon: CreditCard, title: "Bank Statements (min. 3 months)", desc: "Must cover at least 3 consecutive months. Extracts: income flows, variability.", formats: "PDF, JPEG, PNG", accept: ".pdf,.jpg,.jpeg,.png" },
+      ...(category !== "retail" ? [
+        { key: "pos_statement", icon: Store, title: "POS / Till Statements", desc: "Point-of-sale transaction records for cash-based businesses without bank traces.", formats: "PDF, JPEG, PNG", accept: ".pdf,.jpg,.jpeg,.png" },
+      ] : []),
       { key: "utility_bill", icon: Banknote, title: "Utility Bills (min. 3 months)", desc: "Electricity, water. Extracts: payment regularity.", formats: "PDF, JPEG", accept: ".pdf,.jpg,.jpeg" },
       ...(category !== "retail" ? [
         { key: "trade_license", icon: Building2, title: config.businessRegistration.label, desc: "Business registration document.", formats: "PDF, JPEG", accept: ".pdf,.jpg,.jpeg" },
@@ -1127,7 +1227,7 @@ const NewApplicationWizard = () => {
     return (
       <div className="space-y-5">
         <p className="text-sm text-muted-foreground">
-          Upload supporting documents for OCR extraction. Extracted data feeds directly into the scoring model.
+          Upload supporting documents for OCR extraction. {category !== "retail" ? "No bank statement? Upload POS / Till statements instead — they work just as well for cash-based businesses." : "Extracted data feeds directly into the scoring model."}
         </p>
         {docTypes.map(doc => (
           <div key={doc.key} className="p-4 rounded-lg bg-muted/30 border border-border/50 border-dashed hover:border-primary/30 transition-colors">
@@ -1365,6 +1465,82 @@ const NewApplicationWizard = () => {
             </div>
           ))}
         </div>
+
+        {/* Auto-generated Balance Sheet */}
+        {(() => {
+          const savings = parseFloat(formData.total_savings || formData.avg_balance || "0");
+          const stock = parseFloat(formData.stock_value_estimate || "0");
+          const equipment = parseFloat(formData.equipment_tools_value || "0");
+          const receivables = parseFloat(formData.receivables_amount || "0");
+          const dailySales = parseFloat(formData.daily_sales_zwl || "0");
+          const estimatedMonthlyRev = dailySales > 0 ? dailySales * 26 : parseFloat(formData.monthly_revenue || "0");
+          const cashOnHand = estimatedMonthlyRev > 0 ? Math.round(estimatedMonthlyRev * 0.1) : 0;
+          
+          const totalAssets = savings + stock + equipment + receivables + cashOnHand;
+          
+          const payables = parseFloat(formData.payables_amount || "0");
+          const existingDebt = formData.existing_loans === "none" ? 0 : formData.existing_loans === "1" ? parseFloat(formData.existing_repayments || "0") * 6 : parseFloat(formData.existing_repayments || "0") * 12;
+          const totalLiabilities = payables + existingDebt;
+          
+          const netWorth = totalAssets - totalLiabilities;
+          
+          if (totalAssets > 0 || totalLiabilities > 0) {
+            return (
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Estimated Balance Sheet</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 rounded-lg bg-success/5 border border-success/20">
+                    <h5 className="text-[10px] uppercase tracking-wider text-success font-semibold mb-2">Assets</h5>
+                    <div className="space-y-1 text-xs">
+                      {cashOnHand > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Cash on Hand (est.)</span><span>{config.currencySymbol} {cashOnHand.toLocaleString()}</span></div>}
+                      {savings > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Savings / Bank</span><span>{config.currencySymbol} {savings.toLocaleString()}</span></div>}
+                      {receivables > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Receivables</span><span>{config.currencySymbol} {receivables.toLocaleString()}</span></div>}
+                      {stock > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Stock / Inventory</span><span>{config.currencySymbol} {stock.toLocaleString()}</span></div>}
+                      {equipment > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Equipment / Tools</span><span>{config.currencySymbol} {equipment.toLocaleString()}</span></div>}
+                      <div className="flex justify-between border-t border-success/20 pt-1 font-semibold"><span>Total Assets</span><span>{config.currencySymbol} {totalAssets.toLocaleString()}</span></div>
+                    </div>
+                  </div>
+                  <div className="p-3 rounded-lg bg-destructive/5 border border-destructive/20">
+                    <h5 className="text-[10px] uppercase tracking-wider text-destructive font-semibold mb-2">Liabilities</h5>
+                    <div className="space-y-1 text-xs">
+                      {payables > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Supplier Payables</span><span>{config.currencySymbol} {payables.toLocaleString()}</span></div>}
+                      {existingDebt > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Existing Debt (est.)</span><span>{config.currencySymbol} {existingDebt.toLocaleString()}</span></div>}
+                      <div className="flex justify-between border-t border-destructive/20 pt-1 font-semibold"><span>Total Liabilities</span><span>{config.currencySymbol} {totalLiabilities.toLocaleString()}</span></div>
+                    </div>
+                  </div>
+                </div>
+                <div className={`p-2 rounded-lg text-center text-sm font-semibold ${netWorth >= 0 ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>
+                  Net Worth: {config.currencySymbol} {netWorth.toLocaleString()}
+                </div>
+              </div>
+            );
+          }
+          return null;
+        })()}
+
+        {/* Bread Basket Summary */}
+        {country === "zimbabwe" && formData.monthly_food_basket && (
+          <div className="space-y-2">
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Bread Basket Margin</h4>
+            {(() => {
+              const income = parseFloat(formData.payslip_net || formData.monthly_income || formData.monthly_revenue || "0");
+              const breadBasket = parseFloat(formData.monthly_food_basket || "0") + parseFloat(formData.monthly_transport || "0") + parseFloat(formData.monthly_school_fees || "0") + parseFloat(formData.monthly_health || "0") + parseFloat(formData.rent || "0");
+              const surplus = income - breadBasket;
+              const marginPct = income > 0 ? Math.round((surplus / income) * 100) : 0;
+              return (
+                <div className={`p-3 rounded-lg border ${marginPct >= 30 ? "bg-success/10 border-success/20" : marginPct >= 15 ? "bg-warning/10 border-warning/20" : "bg-destructive/10 border-destructive/20"}`}>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Bread basket margin</span>
+                    <span className="font-semibold">{marginPct}% ({config.currencySymbol} {surplus.toLocaleString()} surplus)</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    {marginPct >= 30 ? "✅ Comfortable — sufficient margin after essentials" : marginPct >= 15 ? "⚠️ Tight — limited cushion for loan repayment" : "🔴 Stretched — essentials consume most income"}
+                  </p>
+                </div>
+              );
+            })()}
+          </div>
+        )}
 
         <div className="space-y-2">
           <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Data Sources Consented</h4>
