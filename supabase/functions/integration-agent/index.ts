@@ -33,9 +33,11 @@ Deno.serve(async (req) => {
     const { data: profile } = await adminClient
       .from("profiles")
       .select("institution_id")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .single();
-    if (!profile?.institution_id) throw new Error("No institution found");
+    if (!profile?.institution_id) {
+      return new Response(JSON.stringify({ error: "No institution found" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     const body = await req.json();
     const { action } = body;
