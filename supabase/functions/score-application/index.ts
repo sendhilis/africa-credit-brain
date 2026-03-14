@@ -509,10 +509,25 @@ function computeCashflowVolatility(extraData: any): number {
     return (high - low) / high;
   }
 
-  // Micro: peak vs low season
+  // Micro: peak vs low season — but moderate with POS evidence
   const lowSeasonPct = parseFloat(extraData?.low_season_revenue_pct);
   if (!isNaN(lowSeasonPct) && lowSeasonPct > 0) {
-    return 1 - (lowSeasonPct / 100);
+    let vol = 1 - (lowSeasonPct / 100);
+    
+    // If we have POS data showing real transactions, moderate the seasonality penalty
+    // Rationale: POS evidence proves the business IS transacting, even if seasonal
+    if (extraData?._pos_has_data && extraData._pos_total_credits > 0) {
+      const posModeration = Math.min(0.25, (extraData._pos_confidence || 0.5) * 0.3);
+      vol = Math.max(0.1, vol - posModeration);
+      console.log(`Cash flow volatility moderated by POS data: ${vol.toFixed(2)} (reduced by ${posModeration.toFixed(2)})`);
+    }
+    
+    return vol;
+  }
+
+  // If only POS data available with no seasonality info, assume moderate volatility
+  if (extraData?._pos_has_data && extraData._pos_total_credits > 0) {
+    return 0.35; // Moderate — we know they're trading but lack seasonal data
   }
 
   return -0.5;
