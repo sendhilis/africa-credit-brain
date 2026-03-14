@@ -230,6 +230,23 @@ export const countryConfigs: Record<string, CountryConfig> = {
       { key: "group_lending", label: "Part of Group Lending Scheme?", placeholder: "Yes / No", type: "text", section: "Savings" },
       { key: "repayment_history_informal", label: "Previous Loan Repayment (MFI / Club)", placeholder: "Describe any past loans", type: "text", section: "Repayment History" },
       { key: "supplier_credit_days", label: "Supplier Credit Terms (days)", placeholder: "14", type: "number", section: "Repayment History" },
+      // Bread Basket & Balance Sheet fields
+      { key: "household_size", label: "Household Size (people fed)", placeholder: "5", type: "number", section: "Bread Basket" },
+      { key: "monthly_food_basket", label: "Monthly Food / Grocery Spend (ZWL)", placeholder: "80000", type: "number", section: "Bread Basket" },
+      { key: "monthly_transport", label: "Monthly Transport Cost (ZWL)", placeholder: "25000", type: "number", section: "Bread Basket" },
+      { key: "monthly_school_fees", label: "Monthly School Fees (ZWL)", placeholder: "30000", type: "number", section: "Bread Basket" },
+      { key: "monthly_health", label: "Monthly Medical / Health (ZWL)", placeholder: "10000", type: "number", section: "Bread Basket" },
+      { key: "bread_basket_currency", label: "Do you price groceries in USD or ZWL?", placeholder: "", type: "select", section: "Bread Basket", options: [
+        { value: "zwl", label: "ZWL — I buy in local currency" },
+        { value: "usd", label: "USD — Most groceries priced in USD" },
+        { value: "mixed", label: "Mixed — Some USD, some ZWL" },
+      ]},
+      // Balance Sheet proxy fields
+      { key: "stock_value_estimate", label: "Current Stock / Inventory Value (ZWL)", placeholder: "200000", type: "number", section: "Balance Sheet" },
+      { key: "equipment_tools_value", label: "Equipment / Tools Value (ZWL)", placeholder: "150000", type: "number", section: "Balance Sheet" },
+      { key: "total_savings", label: "Total Savings (Bank + Mukando + InnBucks, ZWL)", placeholder: "50000", type: "number", section: "Balance Sheet" },
+      { key: "receivables_amount", label: "Money Owed to You by Customers (ZWL)", placeholder: "30000", type: "number", section: "Balance Sheet" },
+      { key: "payables_amount", label: "Money You Owe Suppliers (ZWL)", placeholder: "40000", type: "number", section: "Balance Sheet" },
     ],
     // SME specific: formal businesses, cash flow analysis, social media, governance
     smeFields: [
