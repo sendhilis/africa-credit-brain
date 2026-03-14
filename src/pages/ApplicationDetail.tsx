@@ -514,7 +514,18 @@ const ApplicationDetail = () => {
                           {extraction.extracted_data.date_of_birth && <div><span className="text-muted-foreground">DOB:</span> <span className="text-foreground">{extraction.extracted_data.date_of_birth}</span></div>}
                         </div>
                       )}
-                      {doc.type === "utility_bill" && (
+                      {doc.type === "pos_statement" && (
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                          {extraction.extracted_data.account_holder_name && <div><span className="text-muted-foreground">Merchant:</span> <span className="text-foreground">{extraction.extracted_data.account_holder_name}</span></div>}
+                          {extraction.extracted_data.bank_name && <div><span className="text-muted-foreground">Acquirer:</span> <span className="text-foreground">{extraction.extracted_data.bank_name}</span></div>}
+                          {extraction.extracted_data.total_credits != null && <div><span className="text-muted-foreground">Total Credits:</span> <span className="text-success font-medium">{extraction.extracted_data.currency} {extraction.extracted_data.total_credits?.toLocaleString()}</span></div>}
+                          {extraction.extracted_data.total_debits != null && <div><span className="text-muted-foreground">Total Debits:</span> <span className="text-foreground">{extraction.extracted_data.currency} {extraction.extracted_data.total_debits?.toLocaleString()}</span></div>}
+                          {extraction.extracted_data.statement_period && (
+                            <div><span className="text-muted-foreground">Period:</span> <span className="text-foreground">{extraction.extracted_data.statement_period.start_date} to {extraction.extracted_data.statement_period.end_date}</span></div>
+                          )}
+                          {extraction.extracted_data.average_monthly_income != null && <div><span className="text-muted-foreground">Avg. Monthly (raw):</span> <span className="text-foreground">{extraction.extracted_data.currency} {extraction.extracted_data.average_monthly_income?.toLocaleString()}</span></div>}
+                        </div>
+                      )}
                         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                           {extraction.extracted_data.provider_name && <div><span className="text-muted-foreground">Provider:</span> <span className="text-foreground">{extraction.extracted_data.provider_name}</span></div>}
                           {extraction.extracted_data.billing_address && <div><span className="text-muted-foreground">Address:</span> <span className="text-foreground">{extraction.extracted_data.billing_address}</span></div>}
