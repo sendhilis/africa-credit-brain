@@ -844,19 +844,23 @@ serve(async (req) => {
     // Enrich application data with OCR extractions before scoring
     const ocrExtractions = ocrRes.data || [];
     const bankExtraction = ocrExtractions.find((e: any) => e.document_type === "bank_statement");
+    const posExtraction = ocrExtractions.find((e: any) => e.document_type === "pos_statement");
     const financialExtraction = ocrExtractions.find((e: any) => e.document_type === "financial_statement");
+
+    // Track which OCR source provided income data
+    let ocrIncomeSource: string | null = null;
 
     if (bankExtraction?.extracted_data) {
       const bd = bankExtraction.extracted_data;
-      // Use OCR income/expenses if not already set or if OCR confidence is high
       if (bd.average_monthly_income && (!app.monthly_income || bankExtraction.confidence_score > 0.7)) {
         app.monthly_income = bd.average_monthly_income;
+        ocrIncomeSource = "bank_statement";
       }
       if (bd.average_monthly_expenses && (!app.monthly_expenses || bankExtraction.confidence_score > 0.7)) {
         app.monthly_expenses = bd.average_monthly_expenses;
       }
 
-      // Enrich income history from OCR salary deposits if we don't have enough income records
+      // Enrich income history from OCR salary deposits
       const existingIncomeCount = (incomeRes.data || []).length;
       if (bd.salary_deposits?.length > 0 && existingIncomeCount < 3) {
         const ocrIncomeRecords: IncomeRecord[] = bd.salary_deposits.map((dep: any) => ({
@@ -864,7 +868,6 @@ serve(async (req) => {
           period_start: dep.date,
           period_end: dep.date,
         }));
-        // Merge OCR income records with existing ones for time-series analysis
         if (incomeRes.data) {
           incomeRes.data.push(...ocrIncomeRecords);
         } else {
@@ -873,9 +876,55 @@ serve(async (req) => {
         console.log(`Enriched income history with ${ocrIncomeRecords.length} OCR salary deposits`);
       }
 
-      // Extract bank statement time-series features for scoring context
       if (bd.statement_period) {
         console.log(`Bank statement period: ${bd.statement_period.start_date} to ${bd.statement_period.end_date}`);
+      }
+    }
+
+    // ── POS / Till Statement enrichment ──
+    // For cash-based traders without bank statements, POS data is the primary income signal
+    if (posExtraction?.extracted_data && posExtraction.confidence_score >= 0.5) {
+      const pd = posExtraction.extracted_data;
+      console.log(`POS extraction found: total_credits=${pd.total_credits}, avg_monthly_income=${pd.average_monthly_income}`);
+
+      // Use POS total_credits as monthly revenue proxy if no bank data already set
+      const posMonthlyIncome = pd.average_monthly_income || pd.total_credits || 0;
+      if (posMonthlyIncome > 0 && !ocrIncomeSource) {
+        // For micro/SME cash traders, POS turnover IS the business revenue
+        if (!app.monthly_income || app.monthly_income === 0) {
+          app.monthly_income = posMonthlyIncome;
+          ocrIncomeSource = "pos_statement";
+          console.log(`Set monthly_income from POS: ${posMonthlyIncome}`);
+        }
+        if (!app.monthly_revenue || app.monthly_revenue === 0) {
+          app.monthly_revenue = posMonthlyIncome;
+          console.log(`Set monthly_revenue from POS: ${posMonthlyIncome}`);
+        }
+      }
+
+      // POS expenses (fees, refunds, chargebacks)
+      const posExpenses = pd.average_monthly_expenses || pd.total_debits || 0;
+      if (posExpenses > 0 && (!app.monthly_expenses || app.monthly_expenses === 0)) {
+        app.monthly_expenses = posExpenses;
+      }
+
+      // Enrich borrower extra_data with POS-derived business signals
+      const extraData = borrower?.extra_data || {};
+
+      // POS transaction volume is strong evidence of business activity & stability
+      if (pd.total_credits > 0) {
+        extraData._pos_total_credits = pd.total_credits;
+        extraData._pos_confidence = posExtraction.confidence_score;
+        extraData._pos_has_data = true;
+      }
+
+      // If POS shows consistent daily transactions, reduce perceived cash flow volatility
+      if (pd.transaction_count && pd.transaction_count > 5) {
+        extraData._pos_transaction_count = pd.transaction_count;
+      }
+
+      if (borrower) {
+        borrower.extra_data = extraData;
       }
     }
 
@@ -885,6 +934,8 @@ serve(async (req) => {
         app.monthly_revenue = fd.monthly_revenue_estimate;
       }
     }
+
+    console.log(`Pre-scoring: monthly_income=${app.monthly_income}, monthly_revenue=${app.monthly_revenue}, monthly_expenses=${app.monthly_expenses}, source=${ocrIncomeSource}`);
 
     // Run the scorecard
     const result = runScorecard({
