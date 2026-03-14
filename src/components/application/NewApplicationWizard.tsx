@@ -1227,7 +1227,7 @@ const NewApplicationWizard = () => {
     return (
       <div className="space-y-5">
         <p className="text-sm text-muted-foreground">
-          Upload supporting documents for OCR extraction. Extracted data feeds directly into the scoring model.
+          Upload supporting documents for OCR extraction. {category !== "retail" ? "No bank statement? Upload POS / Till statements instead — they work just as well for cash-based businesses." : "Extracted data feeds directly into the scoring model."}
         </p>
         {docTypes.map(doc => (
           <div key={doc.key} className="p-4 rounded-lg bg-muted/30 border border-border/50 border-dashed hover:border-primary/30 transition-colors">
