@@ -492,6 +492,134 @@ export type Database = {
         }
         Relationships: []
       }
+      integration_agent_tasks: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          entity_name: string
+          error_message: string | null
+          id: string
+          institution_id: string
+          integration_config_id: string | null
+          result: Json | null
+          started_at: string | null
+          status: string
+          steps: Json | null
+          task_type: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          entity_name: string
+          error_message?: string | null
+          id?: string
+          institution_id: string
+          integration_config_id?: string | null
+          result?: Json | null
+          started_at?: string | null
+          status?: string
+          steps?: Json | null
+          task_type: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          entity_name?: string
+          error_message?: string | null
+          id?: string
+          institution_id?: string
+          integration_config_id?: string | null
+          result?: Json | null
+          started_at?: string | null
+          status?: string
+          steps?: Json | null
+          task_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_agent_tasks_institution_id_fkey"
+            columns: ["institution_id"]
+            isOneToOne: false
+            referencedRelation: "institutions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "integration_agent_tasks_integration_config_id_fkey"
+            columns: ["integration_config_id"]
+            isOneToOne: false
+            referencedRelation: "integration_configs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integration_configs: {
+        Row: {
+          api_base_url: string | null
+          config: Json | null
+          connected_at: string | null
+          country: string
+          created_at: string
+          created_by: string | null
+          credentials_encrypted: Json | null
+          entity_name: string
+          entity_type: string
+          environment: string
+          error_message: string | null
+          id: string
+          institution_id: string
+          last_tested_at: string | null
+          sandbox_test_results: Json | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          api_base_url?: string | null
+          config?: Json | null
+          connected_at?: string | null
+          country: string
+          created_at?: string
+          created_by?: string | null
+          credentials_encrypted?: Json | null
+          entity_name: string
+          entity_type: string
+          environment?: string
+          error_message?: string | null
+          id?: string
+          institution_id: string
+          last_tested_at?: string | null
+          sandbox_test_results?: Json | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          api_base_url?: string | null
+          config?: Json | null
+          connected_at?: string | null
+          country?: string
+          created_at?: string
+          created_by?: string | null
+          credentials_encrypted?: Json | null
+          entity_name?: string
+          entity_type?: string
+          environment?: string
+          error_message?: string | null
+          id?: string
+          institution_id?: string
+          last_tested_at?: string | null
+          sandbox_test_results?: Json | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_configs_institution_id_fkey"
+            columns: ["institution_id"]
+            isOneToOne: false
+            referencedRelation: "institutions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_history: {
         Row: {
           amount_due: number
