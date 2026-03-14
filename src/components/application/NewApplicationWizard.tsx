@@ -1112,6 +1112,9 @@ const NewApplicationWizard = () => {
     if (!config) return null;
     const docTypes = [
       { key: "bank_statement", icon: CreditCard, title: "Bank Statements (min. 3 months)", desc: "Must cover at least 3 consecutive months. Extracts: income flows, variability.", formats: "PDF, JPEG, PNG", accept: ".pdf,.jpg,.jpeg,.png" },
+      ...(category !== "retail" ? [
+        { key: "pos_statement", icon: Store, title: "POS / Till Statements", desc: "Point-of-sale transaction records for cash-based businesses without bank traces.", formats: "PDF, JPEG, PNG", accept: ".pdf,.jpg,.jpeg,.png" },
+      ] : []),
       { key: "utility_bill", icon: Banknote, title: "Utility Bills (min. 3 months)", desc: "Electricity, water. Extracts: payment regularity.", formats: "PDF, JPEG", accept: ".pdf,.jpg,.jpeg" },
       ...(category !== "retail" ? [
         { key: "trade_license", icon: Building2, title: config.businessRegistration.label, desc: "Business registration document.", formats: "PDF, JPEG", accept: ".pdf,.jpg,.jpeg" },
