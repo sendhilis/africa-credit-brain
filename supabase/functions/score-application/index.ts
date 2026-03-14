@@ -939,38 +939,73 @@ serve(async (req) => {
       const pd = posExtraction.extracted_data;
       console.log(`POS extraction found: total_credits=${pd.total_credits}, avg_monthly_income=${pd.average_monthly_income}`);
 
-      // Use POS total_credits as monthly revenue proxy if no bank data already set
-      const posMonthlyIncome = pd.average_monthly_income || pd.total_credits || 0;
-      if (posMonthlyIncome > 0 && !ocrIncomeSource) {
-        // For micro/SME cash traders, POS turnover IS the business revenue
+      // ── Normalize POS income by statement period length ──
+      // A single-day POS snapshot should NOT be treated as monthly income
+      let posPeriodDays = 30; // default assumption
+      let periodConfidenceDiscount = 1.0;
+      if (pd.statement_period?.start_date && pd.statement_period?.end_date) {
+        const start = new Date(pd.statement_period.start_date);
+        const end = new Date(pd.statement_period.end_date);
+        posPeriodDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+        console.log(`POS statement covers ${posPeriodDays} day(s): ${pd.statement_period.start_date} → ${pd.statement_period.end_date}`);
+      }
+
+      // Apply confidence discount based on data window:
+      //   30+ days → full confidence (1.0)
+      //   7-29 days → proportional (days/30)
+      //   1-6 days → heavy discount (days/30 * 0.5) — single-day extrapolation is unreliable
+      if (posPeriodDays >= 30) {
+        periodConfidenceDiscount = 1.0;
+      } else if (posPeriodDays >= 7) {
+        periodConfidenceDiscount = posPeriodDays / 30;
+      } else {
+        periodConfidenceDiscount = (posPeriodDays / 30) * 0.5;
+      }
+      console.log(`POS period confidence discount: ${periodConfidenceDiscount.toFixed(3)} (${posPeriodDays} days)`);
+
+      // Extrapolate to monthly: (total_credits / days) * 30, then apply discount
+      const rawPosIncome = pd.total_credits || pd.average_monthly_income || 0;
+      let normalizedMonthlyIncome: number;
+      if (posPeriodDays < 30 && pd.total_credits) {
+        // Extrapolate daily rate to monthly, then discount for uncertainty
+        const dailyRate = pd.total_credits / posPeriodDays;
+        normalizedMonthlyIncome = Math.round(dailyRate * 30 * periodConfidenceDiscount);
+        console.log(`POS income normalized: daily=${dailyRate.toFixed(0)} × 30 × ${periodConfidenceDiscount.toFixed(3)} = ${normalizedMonthlyIncome}`);
+      } else {
+        normalizedMonthlyIncome = Math.round(rawPosIncome * periodConfidenceDiscount);
+      }
+
+      if (normalizedMonthlyIncome > 0 && !ocrIncomeSource) {
         if (!app.monthly_income || app.monthly_income === 0) {
-          app.monthly_income = posMonthlyIncome;
+          app.monthly_income = normalizedMonthlyIncome;
           ocrIncomeSource = "pos_statement";
-          console.log(`Set monthly_income from POS: ${posMonthlyIncome}`);
+          console.log(`Set monthly_income from POS (normalized): ${normalizedMonthlyIncome} (raw: ${rawPosIncome})`);
         }
         if (!app.monthly_revenue || app.monthly_revenue === 0) {
-          app.monthly_revenue = posMonthlyIncome;
-          console.log(`Set monthly_revenue from POS: ${posMonthlyIncome}`);
+          app.monthly_revenue = normalizedMonthlyIncome;
         }
       }
 
-      // POS expenses (fees, refunds, chargebacks)
-      const posExpenses = pd.average_monthly_expenses || pd.total_debits || 0;
-      if (posExpenses > 0 && (!app.monthly_expenses || app.monthly_expenses === 0)) {
-        app.monthly_expenses = posExpenses;
+      // POS expenses — also normalize by period
+      const rawPosExpenses = pd.total_debits || pd.average_monthly_expenses || 0;
+      if (rawPosExpenses > 0 && (!app.monthly_expenses || app.monthly_expenses === 0)) {
+        const normalizedExpenses = posPeriodDays < 30
+          ? Math.round((rawPosExpenses / posPeriodDays) * 30 * periodConfidenceDiscount)
+          : Math.round(rawPosExpenses * periodConfidenceDiscount);
+        app.monthly_expenses = normalizedExpenses;
       }
 
       // Enrich borrower extra_data with POS-derived business signals
       const extraData = borrower?.extra_data || {};
 
-      // POS transaction volume is strong evidence of business activity & stability
       if (pd.total_credits > 0) {
         extraData._pos_total_credits = pd.total_credits;
-        extraData._pos_confidence = posExtraction.confidence_score;
+        extraData._pos_confidence = posExtraction.confidence_score * periodConfidenceDiscount;
         extraData._pos_has_data = true;
+        extraData._pos_period_days = posPeriodDays;
+        extraData._pos_period_discount = periodConfidenceDiscount;
       }
 
-      // If POS shows consistent daily transactions, reduce perceived cash flow volatility
       if (pd.transaction_count && pd.transaction_count > 5) {
         extraData._pos_transaction_count = pd.transaction_count;
       }
