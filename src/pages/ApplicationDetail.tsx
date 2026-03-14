@@ -526,6 +526,7 @@ const ApplicationDetail = () => {
                           {extraction.extracted_data.average_monthly_income != null && <div><span className="text-muted-foreground">Avg. Monthly (raw):</span> <span className="text-foreground">{extraction.extracted_data.currency} {extraction.extracted_data.average_monthly_income?.toLocaleString()}</span></div>}
                         </div>
                       )}
+                      {doc.type === "utility_bill" && (
                         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                           {extraction.extracted_data.provider_name && <div><span className="text-muted-foreground">Provider:</span> <span className="text-foreground">{extraction.extracted_data.provider_name}</span></div>}
                           {extraction.extracted_data.billing_address && <div><span className="text-muted-foreground">Address:</span> <span className="text-foreground">{extraction.extracted_data.billing_address}</span></div>}
