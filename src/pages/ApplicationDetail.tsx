@@ -210,6 +210,7 @@ const ApplicationDetail = () => {
     woe_details: scorecardDetail?.woe_details,
     time_series_features: scorecardDetail?.time_series_features,
     ai_insights: scorecardDetail?.ai_insights,
+    data_sanity: scorecardDetail?.data_sanity,
   } : null);
 
   return (
