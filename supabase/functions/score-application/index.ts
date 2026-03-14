@@ -182,6 +182,14 @@ const WOE_BINS: Record<string, WoEBin[]> = {
     { label: "Poor (<20%)", min: 0, max: 0.2, woe: 1.05, event_rate: 0.30 },
     { label: "No Assessment", min: -1, max: 0, woe: 0.08, event_rate: 0.10 },
   ],
+  bread_basket_margin: [
+    { label: "Strong Surplus (>50%)", min: 0.5, max: 999, woe: -0.92, event_rate: 0.03 },
+    { label: "Healthy (30-50%)", min: 0.3, max: 0.5, woe: -0.45, event_rate: 0.05 },
+    { label: "Adequate (15-30%)", min: 0.15, max: 0.3, woe: -0.10, event_rate: 0.09 },
+    { label: "Tight (5-15%)", min: 0.05, max: 0.15, woe: 0.42, event_rate: 0.18 },
+    { label: "Critical (<5%)", min: -999, max: 0.05, woe: 1.05, event_rate: 0.32 },
+    { label: "No Data", min: -1, max: -0.999, woe: 0.10, event_rate: 0.10 },
+  ],
 };
 
 // ── CATEGORY-SPECIFIC FEATURE WEIGHT SCHEMES ──
