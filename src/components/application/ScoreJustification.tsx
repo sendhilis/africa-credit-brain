@@ -92,6 +92,7 @@ interface ScoreJustificationProps {
   woeDetails?: WoEDetail[];
   timeSeriesFeatures?: TimeSeriesFeatures;
   aiInsights?: AIInsights | null;
+  dataSanity?: DataSanity | null;
 }
 
 const impactIcons = {
