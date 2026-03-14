@@ -3,7 +3,8 @@ import { Badge } from "@/components/ui/badge";
 import GlassCard from "@/components/GlassCard";
 import {
   TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle2, XCircle,
-  Activity, BarChart3, Layers, Sparkles, ShieldAlert, ShieldCheck, CircleHelp
+  Activity, BarChart3, Layers, Sparkles, ShieldAlert, ShieldCheck, CircleHelp,
+  SearchCheck, AlertOctagon, Info
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
