@@ -312,6 +312,16 @@ const NewApplicationWizard = () => {
         "facebook_page", "facebook_followers", "facebook_reviews_avg",
         "whatsapp_business", "instagram_handle", "instagram_followers",
         "google_maps_listing", "google_reviews_count", "google_reviews_avg", "online_marketplace",
+        // Bread basket & balance sheet fields
+        "household_size", "monthly_food_basket", "monthly_transport", "monthly_school_fees",
+        "monthly_health", "bread_basket_currency",
+        "stock_value_estimate", "equipment_tools_value", "total_savings",
+        "receivables_amount", "payables_amount",
+        "premises_type", "premises_years", "staff_turnover_pct", "licenses_current",
+        "insurance_coverage", "succession_plan",
+        "facebook_page", "facebook_followers", "facebook_reviews_avg",
+        "whatsapp_business", "instagram_handle", "instagram_followers",
+        "google_maps_listing", "google_reviews_count", "google_reviews_avg", "online_marketplace",
       ];
 
       specialKeys.forEach(key => {
