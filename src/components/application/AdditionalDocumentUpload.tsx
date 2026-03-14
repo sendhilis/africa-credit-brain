@@ -69,17 +69,27 @@ export default function AdditionalDocumentUpload({ applicationId, institutionId,
 
       if (updateError) throw updateError;
 
-      setUploading(false);
-      setExtracting(true);
-
-      // 3. Run OCR extraction
-      const { data: extractResult, error: extractError } = await supabase.functions.invoke("extract-document", {
-        body: {
+      // 3. Create document_extractions row first (the edge function reads from it)
+      const { data: extractionRow, error: insertExtError } = await supabase
+        .from("document_extractions")
+        .insert({
           application_id: applicationId,
           institution_id: institutionId,
           document_type: docType,
           storage_path: filePath,
-        },
+          extraction_status: "pending",
+        })
+        .select("id")
+        .single();
+
+      if (insertExtError) throw insertExtError;
+
+      setUploading(false);
+      setExtracting(true);
+
+      // 4. Run OCR extraction with the extraction_id
+      const { data: extractResult, error: extractError } = await supabase.functions.invoke("extract-document", {
+        body: { extraction_id: extractionRow.id },
       });
 
       if (extractError) {
