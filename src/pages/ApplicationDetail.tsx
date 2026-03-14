@@ -13,6 +13,7 @@ import {
   ArrowLeft, Brain, Loader2, CheckCircle2, XCircle, RotateCcw,
   Send, Banknote, User, Building2, FileText, Shield, Clock
 } from "lucide-react";
+import AdditionalDocumentUpload from "@/components/application/AdditionalDocumentUpload";
 
 type AppStatus = "draft" | "submitted" | "review" | "approved" | "declined" | "disbursed";
 
@@ -549,6 +550,14 @@ const ApplicationDetail = () => {
           ) : (
             <p className="text-sm text-muted-foreground">No documents attached</p>
           )}
+
+          {/* Additional Document Upload */}
+          <AdditionalDocumentUpload
+            applicationId={app.id}
+            institutionId={(app as any).institution_id}
+            existingDocuments={Array.isArray(app.documents) ? app.documents : []}
+            onDocumentAdded={fetchApp}
+          />
         </GlassCard>
 
         {/* Alt-Data & Psychometric */}
