@@ -1586,7 +1586,7 @@ Use the provide_insights tool to return your analysis.`;
     if (updateRes.error) throw updateRes.error;
     if (insertRes.error) console.error("Scorecard result insert error:", insertRes.error);
 
-    return new Response(JSON.stringify({ success: true, ...result, ai_insights: aiInsights }), {
+    return new Response(JSON.stringify({ success: true, ...result, ai_insights: aiInsights, data_sanity: dataSanity }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
