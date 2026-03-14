@@ -64,6 +64,21 @@ interface AIInsights {
   error?: string;
 }
 
+interface SanityFlag {
+  check: string;
+  severity: "info" | "warning" | "critical";
+  finding: string;
+  declared_value: string;
+  evidence_value: string;
+  source: string;
+  deviation_pct?: number;
+}
+
+interface DataSanity {
+  flags: SanityFlag[];
+  consistency_score: number;
+}
+
 interface ScoreJustificationProps {
   score: number;
   scoreBand: string;
