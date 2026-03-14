@@ -734,6 +734,7 @@ function runScorecard(input: ScorecardInput) {
   binAndStore("income_stability_cv", incomeStats.has_history ? incomeStats.cv : -0.5);
   binAndStore("business_years", category !== "retail" ? businessYears : 5);
   binAndStore("savings_ratio", savingsRatio);
+  binAndStore("bread_basket_margin", breadBasket.margin);
 
   // Category-specific features
   if (category === "micro" || category === "sme") {
