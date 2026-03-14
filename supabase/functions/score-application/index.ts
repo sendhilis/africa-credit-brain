@@ -710,6 +710,7 @@ function runScorecard(input: ScorecardInput) {
   const concRisk = computeConcentrationRisk(extraData);
   const dscrValue = computeDSCR(extraData);
   const forexExp = computeForexExposure(extraData, app);
+  const breadBasket = computeBreadBasketMargin(extraData, app);
 
   // 5. Find WoE bins for each feature
   const featureValues: Record<string, { value: number; bin: WoEBin; woe: number }> = {};
