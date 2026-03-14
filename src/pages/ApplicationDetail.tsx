@@ -326,6 +326,7 @@ const ApplicationDetail = () => {
             woeDetails={displayScore.woe_details}
             timeSeriesFeatures={displayScore.time_series_features}
             aiInsights={displayScore.ai_insights}
+            dataSanity={displayScore.data_sanity}
           />
         </div>
       )}
