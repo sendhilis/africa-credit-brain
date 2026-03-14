@@ -1,0 +1,1 @@
+ALTER TABLE public.scorecard_results ADD COLUMN IF NOT EXISTS bread_basket jsonb DEFAULT NULL;
