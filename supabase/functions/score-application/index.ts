@@ -617,6 +617,44 @@ function computeForexExposure(extraData: any, app: any): number {
   return -0.5;
 }
 
+function computeBreadBasketMargin(extraData: any, app: any): { margin: number; breakdown: any } {
+  const monthlyIncome = app.monthly_income || app.monthly_revenue || 0;
+  if (monthlyIncome <= 0) return { margin: -0.5, breakdown: null };
+
+  const foodBasket = parseFloat(extraData?.monthly_food_basket) || 0;
+  const transport = parseFloat(extraData?.monthly_transport) || 0;
+  const schoolFees = parseFloat(extraData?.monthly_school_fees) || 0;
+  const health = parseFloat(extraData?.monthly_health) || 0;
+  const rent = app.monthly_rent || 0;
+
+  const totalEssentials = foodBasket + transport + schoolFees + health + rent;
+
+  // If no household expense data was captured at all, return no-data sentinel
+  if (foodBasket === 0 && transport === 0 && schoolFees === 0 && health === 0 && rent === 0) {
+    return { margin: -0.5, breakdown: null };
+  }
+
+  const disposableSurplus = monthlyIncome - totalEssentials;
+  const margin = disposableSurplus / monthlyIncome;
+
+  console.log(`Bread Basket Margin: income=${monthlyIncome}, essentials=${totalEssentials}, surplus=${disposableSurplus}, margin=${(margin * 100).toFixed(1)}%`);
+
+  return {
+    margin,
+    breakdown: {
+      monthly_income: monthlyIncome,
+      food_basket: foodBasket,
+      transport: transport,
+      school_fees: schoolFees,
+      health: health,
+      rent: rent,
+      total_essentials: totalEssentials,
+      disposable_surplus: disposableSurplus,
+      margin_pct: Math.round(margin * 1000) / 10,
+    },
+  };
+}
+
 // ──────────────────────────────────────────────────────────────
 // Main scorecard computation (v2.0 — category-aware)
 // ──────────────────────────────────────────────────────────────
