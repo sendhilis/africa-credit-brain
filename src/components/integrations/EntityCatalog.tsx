@@ -107,7 +107,13 @@ const EntityCatalog = ({ country, integrations, onRefresh, onEntitySelect }: Ent
         body: { action: "test", integration_id: integrationId },
       });
       if (error) throw error;
-      toast({ title: "Tests Passed ✅", description: `All ${data.tests?.length || 7} sandbox tests passed for ${entity.name}.` });
+      const tests = data?.tests || [];
+      const testNames = tests.map((t: any) => t.test).join("\n");
+      toast({
+        title: `✅ All ${tests.length} Sandbox Tests Passed — ${entity.name}`,
+        description: testNames,
+      });
+      setTestResults((prev) => ({ ...prev, [entity.name]: tests }));
       onRefresh();
     } catch (e: any) {
       toast({ title: "Test Failed", description: e.message, variant: "destructive" });
