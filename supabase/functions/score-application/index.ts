@@ -45,6 +45,7 @@ const MODEL_COEFFICIENTS = {
   dscr: -0.55,                     // debt service coverage ratio
   forex_exposure: 0.28,            // multi-currency risk (Zim-specific)
   psychometric_score: -0.45,       // behavioural assessment (financial discipline, risk, conscientiousness, locus of control)
+  bread_basket_margin: -0.52,     // disposable surplus after essential household expenses
 };
 
 // WoE bins for each feature
