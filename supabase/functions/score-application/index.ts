@@ -476,6 +476,22 @@ function computeBusinessStability(borrower: any, extraData: any): number {
     score += Math.min(1, years / 10);
   }
 
+  // POS / Till statement data — strong signal of active, trading business
+  // A cash trader with verifiable POS transactions has demonstrable business activity
+  if (extraData?._pos_has_data && extraData._pos_total_credits > 0) {
+    factors++;
+    // High-confidence POS extraction with meaningful turnover = strong stability signal
+    const confidence = extraData._pos_confidence || 0.5;
+    score += Math.min(1, confidence * 0.9); // up to 0.9 for high-confidence POS data
+    console.log(`Business stability boosted by POS data: credits=${extraData._pos_total_credits}, conf=${confidence}`);
+  }
+
+  // POS transaction count — frequent transactions = active trading business
+  if (extraData?._pos_transaction_count && extraData._pos_transaction_count > 10) {
+    factors++;
+    score += Math.min(1, extraData._pos_transaction_count / 50);
+  }
+
   return factors > 0 ? score / factors : -0.5;
 }
 
