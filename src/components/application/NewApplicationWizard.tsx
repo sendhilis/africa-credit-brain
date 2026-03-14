@@ -692,18 +692,60 @@ const NewApplicationWizard = () => {
         </FieldGroup>
 
         {country === "zimbabwe" && (
-          <FieldGroup label="Multi-Currency (Zimbabwe)">
-            <Field label="Primary Transaction Currency">
-              <Select value={formData.primary_currency || ""} onValueChange={v => updateField("primary_currency", v)}>
-                <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="zwl">ZWL (Zimbabwe Dollar)</SelectItem>
-                  <SelectItem value="usd">USD</SelectItem>
-                  <SelectItem value="zar">ZAR (South African Rand)</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
-          </FieldGroup>
+          <>
+            <FieldGroup label="Bread Basket & Living Costs (Zimbabwe)">
+              <div className="col-span-2 p-3 rounded-lg bg-warning/5 border border-warning/20 mb-2">
+                <p className="text-xs text-muted-foreground">
+                  <span className="font-semibold text-warning">Bread Basket Assessment</span> — How much does the household spend on essentials? This determines if there's enough margin for loan repayment after inflation-impacted living costs.
+                </p>
+              </div>
+              {renderConfigFields(microFields, "Bread Basket")}
+            </FieldGroup>
+
+            {/* Live bread basket computation */}
+            {(formData.monthly_income || formData.monthly_revenue) && formData.monthly_food_basket && (
+              <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Bread Basket Analysis</h4>
+                {(() => {
+                  const income = parseFloat(formData.monthly_income || formData.monthly_revenue || "0");
+                  const food = parseFloat(formData.monthly_food_basket || "0");
+                  const transport = parseFloat(formData.monthly_transport || "0");
+                  const school = parseFloat(formData.monthly_school_fees || "0");
+                  const health = parseFloat(formData.monthly_health || "0");
+                  const expenses = parseFloat(formData.monthly_expenses || "0");
+                  const breadBasket = food + transport + school + health;
+                  const totalOutflows = breadBasket + expenses;
+                  const surplus = income - totalOutflows;
+                  const marginPct = income > 0 ? Math.round((surplus / income) * 100) : 0;
+                  return (
+                    <div className="space-y-1.5 text-xs">
+                      <div className="flex justify-between"><span className="text-muted-foreground">Income</span><span className="font-medium">{config.currencySymbol} {income.toLocaleString()}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Bread Basket (essentials)</span><span className="font-medium text-warning">−{config.currencySymbol} {breadBasket.toLocaleString()}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Business Expenses</span><span className="font-medium">−{config.currencySymbol} {expenses.toLocaleString()}</span></div>
+                      <div className="flex justify-between border-t border-border/30 pt-1"><span className="text-muted-foreground">Disposable Surplus</span><span className={`font-semibold ${surplus >= 0 ? "text-success" : "text-destructive"}`}>{config.currencySymbol} {surplus.toLocaleString()} ({marginPct}%)</span></div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            <FieldGroup label="Balance Sheet Inputs">
+              {renderConfigFields(microFields, "Balance Sheet")}
+            </FieldGroup>
+
+            <FieldGroup label="Multi-Currency (Zimbabwe)">
+              <Field label="Primary Transaction Currency">
+                <Select value={formData.primary_currency || ""} onValueChange={v => updateField("primary_currency", v)}>
+                  <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="zwl">ZWL (Zimbabwe Dollar)</SelectItem>
+                    <SelectItem value="usd">USD</SelectItem>
+                    <SelectItem value="zar">ZAR (South African Rand)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+            </FieldGroup>
+          </>
         )}
 
         <FieldGroup label="Credit Bureau Score (if available)">
