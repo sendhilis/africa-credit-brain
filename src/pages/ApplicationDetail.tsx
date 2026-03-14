@@ -329,6 +329,21 @@ const ApplicationDetail = () => {
         </div>
       )}
 
+      {/* Balance Sheet */}
+      {app.borrower?.extra_data && (
+        <div className="mb-6">
+          <BalanceSheet
+            extraData={app.borrower.extra_data}
+            currency={app.currency || "ZWL"}
+            requestedAmount={app.requested_amount}
+            posExtraction={
+              documentExtractions.find(e => e.document_type === "pos_statement" && e.extraction_status === "completed")
+                ?.extracted_data || null
+            }
+          />
+        </div>
+      )}
+
       {/* Application Details */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         {/* Borrower Info */}
