@@ -550,6 +550,14 @@ const ApplicationDetail = () => {
           ) : (
             <p className="text-sm text-muted-foreground">No documents attached</p>
           )}
+
+          {/* Additional Document Upload */}
+          <AdditionalDocumentUpload
+            applicationId={app.id}
+            institutionId={(app as any).institution_id}
+            existingDocuments={Array.isArray(app.documents) ? app.documents : []}
+            onDocumentAdded={fetchApp}
+          />
         </GlassCard>
 
         {/* Alt-Data & Psychometric */}
