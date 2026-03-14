@@ -947,18 +947,63 @@ const NewApplicationWizard = () => {
             </FieldGroup>
 
             {country === "zimbabwe" && (
-              <FieldGroup label="Multi-Currency Details (Zimbabwe)">
-                <Field label="Primary Transaction Currency">
-                  <Select value={formData.primary_currency || ""} onValueChange={v => updateField("primary_currency", v)}>
-                    <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="zwl">ZWL (Zimbabwe Dollar)</SelectItem>
-                      <SelectItem value="usd">USD</SelectItem>
-                      <SelectItem value="zar">ZAR (South African Rand)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </Field>
-              </FieldGroup>
+              <>
+                <FieldGroup label="Bread Basket Margin (Zimbabwe)">
+                  <div className="col-span-2 p-3 rounded-lg bg-warning/5 border border-warning/20 mb-2">
+                    <p className="text-xs text-muted-foreground">
+                      <span className="font-semibold text-warning">Affordability Check</span> — Zimbabwe uses the bread basket approach to assess whether income covers essential living costs plus proposed loan repayment. This factors inflation impact on basic goods.
+                    </p>
+                  </div>
+                  {config.additionalRetailFields.filter(f => ["household_size","monthly_food_basket","monthly_transport","monthly_school_fees","monthly_health"].includes(f.key)).map(f => (
+                    <Field key={f.key} label={f.label}>
+                      <Input type={f.type} placeholder={f.placeholder} className="bg-muted/50 border-border" value={formData[f.key] || ""} onChange={e => updateField(f.key, e.target.value)} />
+                    </Field>
+                  ))}
+                </FieldGroup>
+
+                {/* Auto-computed bread basket margin */}
+                {(formData.monthly_income || formData.payslip_net) && formData.monthly_food_basket && (
+                  <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Bread Basket Analysis</h4>
+                    {(() => {
+                      const income = parseFloat(formData.payslip_net || formData.monthly_income || "0");
+                      const food = parseFloat(formData.monthly_food_basket || "0");
+                      const transport = parseFloat(formData.monthly_transport || "0");
+                      const school = parseFloat(formData.monthly_school_fees || "0");
+                      const health = parseFloat(formData.monthly_health || "0");
+                      const rent = parseFloat(formData.rent || "0");
+                      const breadBasket = food + transport + school + health + rent;
+                      const surplus = income - breadBasket;
+                      const marginPct = income > 0 ? Math.round((surplus / income) * 100) : 0;
+                      const proposedRepayment = formData.amount && formData.tenor ? parseFloat(formData.amount) / parseInt(formData.tenor) : 0;
+                      const afterLoan = surplus - proposedRepayment;
+                      return (
+                        <div className="space-y-1.5 text-xs">
+                          <div className="flex justify-between"><span className="text-muted-foreground">Net Income</span><span className="font-medium">{config.currencySymbol} {income.toLocaleString()}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">Bread Basket (essentials)</span><span className="font-medium text-warning">−{config.currencySymbol} {breadBasket.toLocaleString()}</span></div>
+                          <div className="flex justify-between border-t border-border/30 pt-1"><span className="text-muted-foreground">Disposable Surplus</span><span className={`font-semibold ${surplus >= 0 ? "text-success" : "text-destructive"}`}>{config.currencySymbol} {surplus.toLocaleString()} ({marginPct}%)</span></div>
+                          {proposedRepayment > 0 && (
+                            <div className="flex justify-between"><span className="text-muted-foreground">After Proposed Repayment</span><span className={`font-semibold ${afterLoan >= 0 ? "text-success" : "text-destructive"}`}>{config.currencySymbol} {Math.round(afterLoan).toLocaleString()}</span></div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                <FieldGroup label="Multi-Currency Details (Zimbabwe)">
+                  <Field label="Primary Transaction Currency">
+                    <Select value={formData.primary_currency || ""} onValueChange={v => updateField("primary_currency", v)}>
+                      <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="zwl">ZWL (Zimbabwe Dollar)</SelectItem>
+                        <SelectItem value="usd">USD</SelectItem>
+                        <SelectItem value="zar">ZAR (South African Rand)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                </FieldGroup>
+              </>
             )}
 
             <FieldGroup label="Credit Bureau Score (if available)">
