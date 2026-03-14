@@ -5,39 +5,50 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Brain, GitBranch, BarChart3, TableProperties, Weight, Target, TrendingUp, TrendingDown, Minus, Calculator } from "lucide-react";
+import { Brain, GitBranch, BarChart3, TableProperties, Weight, Target, TrendingUp, TrendingDown, Minus, Calculator, ShieldCheck, Layers } from "lucide-react";
 import { useState } from "react";
 import ScoreSimulator from "@/components/models/ScoreSimulator";
 
-// ─── Actual model data from score-application edge function ───
+// ─── Actual model data from score-application edge function v2.0 ───
 
 const MODEL_META = {
-  name: "WoE/IV Logistic Regression Scorecard + Bureau + Alt-Data",
+  name: "WoE/IV Logistic Regression Scorecard + Bureau + Alt-Data + Data Sanity",
   version: "v2.0",
   calibration: "African lending markets (Zimbabwe, Kenya, Nigeria, Ghana, Uganda, Rwanda)",
   baseScore: 600,
   baseOdds: "50:1 good-to-bad",
   pdo: 20,
   scoreRange: "300 – 900",
+  intercept: -1.8,
 };
 
-const MODEL_COEFFICIENTS: Record<string, { label: string; beta: number; weight: number; note?: string; category?: string }> = {
-  intercept:              { label: "Intercept",              beta: 4.80,  weight: 0, category: "core" },
+// ─── All model coefficients matching score-application edge function ───
+const MODEL_COEFFICIENTS: Record<string, { label: string; beta: number; weight: number; note?: string; category: string }> = {
+  intercept:              { label: "Intercept",              beta: -1.80,  weight: 0, category: "core" },
   // ── Traditional Features ──
   bureau_score:           { label: "Credit Bureau Score",    beta: -1.50, weight: 22, note: "PRIMARY — only when available", category: "traditional" },
   payment_history_score:  { label: "Payment History",        beta: -1.20, weight: 14, category: "traditional" },
-  debt_to_income:         { label: "Debt-to-Income Ratio",   beta: -0.85, weight: 10, category: "traditional" },
-  income_stability_cv:    { label: "Income Stability (CV)",  beta: -0.72, weight: 8, category: "traditional" },
-  loan_to_income:         { label: "Loan-to-Income Ratio",   beta: -0.65, weight: 7, category: "traditional" },
+  debt_to_income:         { label: "Debt-to-Income Ratio",   beta: 0.85,  weight: 10, category: "traditional" },
+  income_stability_cv:    { label: "Income Stability (CV)",  beta: 0.72,  weight: 8, category: "traditional" },
+  loan_to_income:         { label: "Loan-to-Income Ratio",   beta: 0.65,  weight: 7, category: "traditional" },
+  employment_stability:   { label: "Employment Stability",   beta: -0.55, weight: 5, category: "traditional" },
   savings_ratio:          { label: "Savings Capacity",       beta: -0.48, weight: 5, category: "traditional" },
   age:                    { label: "Borrower Age",           beta: -0.42, weight: 3, category: "traditional" },
-  existing_loan_count:    { label: "Existing Obligations",   beta: -0.38, weight: 3, category: "traditional" },
+  existing_loan_count:    { label: "Existing Obligations",   beta: 0.38,  weight: 3, category: "traditional" },
   collateral_flag:        { label: "Collateral",             beta: -0.35, weight: 2, category: "traditional" },
   business_years:         { label: "Business Tenure",        beta: -0.28, weight: 2, category: "traditional" },
-  dependents:             { label: "Dependents",             beta: -0.15, weight: 1, category: "traditional" },
+  dependents:             { label: "Dependents",             beta: 0.15,  weight: 1, category: "traditional" },
+  // ── New v2.0 Business Features ──
+  business_stability_score: { label: "Business Stability",  beta: -0.65, weight: 8, note: "Premises, licenses, staff retention", category: "business" },
+  cashflow_volatility:    { label: "Cash Flow Volatility",   beta: 0.58,  weight: 7, note: "Revenue high/low ratio, seasonality", category: "business" },
+  dscr:                   { label: "Debt Service Coverage",  beta: -0.55, weight: 6, note: "DSCR — ability to service debt", category: "business" },
+  bread_basket_margin:    { label: "Bread Basket Margin",    beta: -0.52, weight: 6, note: "Disposable surplus after essentials", category: "business" },
+  concentration_risk:     { label: "Concentration Risk",     beta: 0.42,  weight: 4, note: "Customer/supplier concentration", category: "business" },
+  social_media_score:     { label: "Digital Footprint",      beta: -0.32, weight: 3, note: "Biz page, Google listing, reviews", category: "business" },
+  forex_exposure:         { label: "Forex Exposure",         beta: 0.28,  weight: 3, note: "Multi-currency risk (Zim-specific)", category: "business" },
   // ── Alt-Data Features (Thin-File / Zimbabwe-Specific) ──
   mobile_money_activity:  { label: "Mobile Money Activity",       beta: -0.85, weight: 8, note: "EcoCash / InnBucks / OneMoney", category: "alt-data" },
-  psychometric_score:     { label: "Psychometric Assessment",     beta: -0.65, weight: 5, note: "15-question behavioural score", category: "alt-data" },
+  psychometric_score:     { label: "Psychometric Assessment",     beta: -0.45, weight: 5, note: "15-question behavioural score", category: "alt-data" },
   mukando_savings:        { label: "Mukando / Savings Club",      beta: -0.55, weight: 4, note: "Informal savings discipline", category: "alt-data" },
   supplier_credit:        { label: "Supplier Credit Performance", beta: -0.50, weight: 4, note: "Informal trade credit history", category: "alt-data" },
   airtime_regularity:     { label: "Airtime Top-up Regularity",   beta: -0.45, weight: 3, note: "Econet / NetOne / Telecel", category: "alt-data" },
@@ -63,7 +74,7 @@ const WOE_BINS: Record<string, { label: string; category: string; bins: WoEBin[]
       { label: "Below Average (600-649)",min: 600, max: 649, woe:  0.35, event_rate: 0.14 },
       { label: "Poor (500-599)",         min: 500, max: 599, woe:  0.82, event_rate: 0.24 },
       { label: "Very Poor (<500)",       min: 0,   max: 499, woe:  1.55, event_rate: 0.42 },
-      { label: "No Bureau Data",         min: -1,  max: -1,  woe:  0.05, event_rate: 0.11 },
+      { label: "No Bureau Data",         min: -1,  max: -1,  woe:  0.10, event_rate: 0.11 },
     ],
   },
   debt_to_income: {
@@ -155,6 +166,81 @@ const WOE_BINS: Record<string, { label: string; category: string; bins: WoEBin[]
       { label: "> 50%",     min: 0.5,  max: 999,  woe: -0.95, event_rate: 0.03 },
     ],
   },
+  // ── New v2.0 Business Features ──
+  business_stability_score: {
+    label: "Business Stability", category: "business",
+    bins: [
+      { label: "Very Stable (80-100%)",  min: 0.8,  max: 1.01, woe: -0.92, event_rate: 0.03 },
+      { label: "Stable (60-80%)",        min: 0.6,  max: 0.8,  woe: -0.35, event_rate: 0.06 },
+      { label: "Moderate (40-60%)",      min: 0.4,  max: 0.6,  woe:  0.15, event_rate: 0.11 },
+      { label: "Unstable (20-40%)",      min: 0.2,  max: 0.4,  woe:  0.62, event_rate: 0.20 },
+      { label: "Very Unstable (<20%)",   min: 0,    max: 0.2,  woe:  1.18, event_rate: 0.34 },
+      { label: "No Data",               min: -1,   max: 0,    woe:  0.20, event_rate: 0.12 },
+    ],
+  },
+  cashflow_volatility: {
+    label: "Cash Flow Volatility", category: "business",
+    bins: [
+      { label: "Very Low (<15%)",   min: 0,    max: 0.15, woe: -0.78, event_rate: 0.04 },
+      { label: "Low (15-30%)",      min: 0.15, max: 0.3,  woe: -0.25, event_rate: 0.07 },
+      { label: "Moderate (30-50%)", min: 0.3,  max: 0.5,  woe:  0.22, event_rate: 0.13 },
+      { label: "High (50-75%)",     min: 0.5,  max: 0.75, woe:  0.68, event_rate: 0.22 },
+      { label: "Very High (>75%)",  min: 0.75, max: 999,  woe:  1.25, event_rate: 0.35 },
+      { label: "No Data",           min: -1,   max: 0,    woe:  0.15, event_rate: 0.11 },
+    ],
+  },
+  dscr: {
+    label: "Debt Service Coverage Ratio", category: "business",
+    bins: [
+      { label: "Strong (>2.0x)",      min: 2.0, max: 999, woe: -0.85, event_rate: 0.03 },
+      { label: "Adequate (1.5-2.0x)", min: 1.5, max: 2.0, woe: -0.42, event_rate: 0.06 },
+      { label: "Marginal (1.2-1.5x)", min: 1.2, max: 1.5, woe:  0.15, event_rate: 0.12 },
+      { label: "Weak (1.0-1.2x)",     min: 1.0, max: 1.2, woe:  0.55, event_rate: 0.20 },
+      { label: "Insufficient (<1.0x)", min: 0,   max: 1.0, woe:  1.15, event_rate: 0.35 },
+      { label: "No Data",             min: -1,  max: 0,   woe:  0.20, event_rate: 0.12 },
+    ],
+  },
+  bread_basket_margin: {
+    label: "Bread Basket Margin", category: "business",
+    bins: [
+      { label: "Strong Surplus (>50%)", min: 0.5,   max: 999,    woe: -0.92, event_rate: 0.03 },
+      { label: "Healthy (30-50%)",      min: 0.3,   max: 0.5,    woe: -0.45, event_rate: 0.05 },
+      { label: "Adequate (15-30%)",     min: 0.15,  max: 0.3,    woe: -0.10, event_rate: 0.09 },
+      { label: "Tight (5-15%)",         min: 0.05,  max: 0.15,   woe:  0.42, event_rate: 0.18 },
+      { label: "Critical (<5%)",        min: -999,  max: 0.05,   woe:  1.05, event_rate: 0.32 },
+      { label: "No Data",               min: -1,    max: -0.999, woe:  0.10, event_rate: 0.10 },
+    ],
+  },
+  concentration_risk: {
+    label: "Concentration Risk", category: "business",
+    bins: [
+      { label: "Well Diversified (<30%)",      min: 0,   max: 0.3,  woe: -0.55, event_rate: 0.05 },
+      { label: "Moderate (30-50%)",            min: 0.3, max: 0.5,  woe: -0.10, event_rate: 0.08 },
+      { label: "Concentrated (50-70%)",        min: 0.5, max: 0.7,  woe:  0.35, event_rate: 0.15 },
+      { label: "Highly Concentrated (>70%)",   min: 0.7, max: 1.01, woe:  0.82, event_rate: 0.25 },
+      { label: "No Data",                      min: -1,  max: 0,    woe:  0.10, event_rate: 0.10 },
+    ],
+  },
+  social_media_score: {
+    label: "Digital Footprint", category: "business",
+    bins: [
+      { label: "Strong Presence",   min: 0.7, max: 1.01, woe: -0.65, event_rate: 0.04 },
+      { label: "Moderate Presence", min: 0.4, max: 0.7,  woe: -0.22, event_rate: 0.07 },
+      { label: "Minimal Presence",  min: 0.1, max: 0.4,  woe:  0.10, event_rate: 0.10 },
+      { label: "No Presence",       min: 0,   max: 0.1,  woe:  0.05, event_rate: 0.10 },
+      { label: "No Data",           min: -1,  max: 0,    woe:  0.00, event_rate: 0.10 },
+    ],
+  },
+  forex_exposure: {
+    label: "Forex Exposure", category: "business",
+    bins: [
+      { label: "No Exposure",      min: 0,    max: 0.05, woe: -0.15, event_rate: 0.08 },
+      { label: "Low (<20%)",       min: 0.05, max: 0.2,  woe: -0.05, event_rate: 0.09 },
+      { label: "Moderate (20-50%)",min: 0.2,  max: 0.5,  woe:  0.18, event_rate: 0.12 },
+      { label: "High (>50%)",      min: 0.5,  max: 1.01, woe:  0.42, event_rate: 0.17 },
+      { label: "No Data",          min: -1,   max: 0,    woe:  0.05, event_rate: 0.10 },
+    ],
+  },
   // ── Alt-Data Features ──
   mobile_money_activity: {
     label: "Mobile Money Activity", category: "alt-data",
@@ -208,11 +294,12 @@ const WOE_BINS: Record<string, { label: string; category: string; bins: WoEBin[]
   psychometric_score: {
     label: "Psychometric Assessment", category: "alt-data",
     bins: [
-      { label: "Strong (>80% across dimensions)",   min: 4, max: 5, woe: -1.10, event_rate: 0.03 },
-      { label: "Good (60-80%)",                      min: 3, max: 4, woe: -0.52, event_rate: 0.06 },
-      { label: "Average (40-60%)",                   min: 2, max: 3, woe:  0.10, event_rate: 0.11 },
-      { label: "Weak (<40%)",                        min: 1, max: 2, woe:  0.65, event_rate: 0.21 },
-      { label: "Not Administered",                   min: 0, max: 1, woe:  0.05, event_rate: 0.10 },
+      { label: "Excellent (80-100%)",      min: 0.8, max: 1.01, woe: -0.88, event_rate: 0.03 },
+      { label: "Good (60-80%)",            min: 0.6, max: 0.8,  woe: -0.35, event_rate: 0.06 },
+      { label: "Average (40-60%)",         min: 0.4, max: 0.6,  woe:  0.12, event_rate: 0.11 },
+      { label: "Below Average (20-40%)",   min: 0.2, max: 0.4,  woe:  0.58, event_rate: 0.20 },
+      { label: "Poor (<20%)",              min: 0,   max: 0.2,  woe:  1.05, event_rate: 0.30 },
+      { label: "Not Administered",         min: -1,  max: 0,    woe:  0.08, event_rate: 0.10 },
     ],
   },
 };
@@ -226,11 +313,141 @@ const SCORE_BANDS = [
   { band: "Very Poor",  min: 300, max: 499, action: "Decline" },
 ];
 
+// ── Category-Specific Weight Schemes (from edge function) ──
+const WEIGHT_SCHEMES: Record<string, { label: string; description: string; features: { name: string; weight: number }[] }> = {
+  retail_bureau: {
+    label: "Retail (with Bureau)",
+    description: "Individual borrowers with credit bureau data available",
+    features: [
+      { name: "Credit Bureau Score", weight: 23 },
+      { name: "Payment History", weight: 14 },
+      { name: "Debt-to-Income Ratio", weight: 11 },
+      { name: "Bread Basket Margin", weight: 9 },
+      { name: "Income Stability", weight: 9 },
+      { name: "Psychometric Assessment", weight: 9 },
+      { name: "Loan-to-Income Ratio", weight: 7 },
+      { name: "Savings Capacity", weight: 6 },
+      { name: "Borrower Age", weight: 4 },
+      { name: "Existing Obligations", weight: 3 },
+      { name: "Collateral", weight: 3 },
+      { name: "Dependents", weight: 2 },
+    ],
+  },
+  retail_no_bureau: {
+    label: "Retail (Thin-File)",
+    description: "Individual borrowers without credit bureau data — alt-data weighted higher",
+    features: [
+      { name: "Payment History", weight: 19 },
+      { name: "Debt-to-Income Ratio", weight: 15 },
+      { name: "Income Stability", weight: 13 },
+      { name: "Psychometric Assessment", weight: 11 },
+      { name: "Bread Basket Margin", weight: 10 },
+      { name: "Loan-to-Income Ratio", weight: 9 },
+      { name: "Savings Capacity", weight: 8 },
+      { name: "Borrower Age", weight: 5 },
+      { name: "Existing Obligations", weight: 4 },
+      { name: "Collateral", weight: 3 },
+      { name: "Dependents", weight: 3 },
+    ],
+  },
+  micro_bureau: {
+    label: "Micro (with Bureau)",
+    description: "Micro-enterprise borrowers with bureau data — business stability heavily weighted",
+    features: [
+      { name: "Credit Bureau Score", weight: 15 },
+      { name: "Repayment History", weight: 13 },
+      { name: "Business Stability", weight: 12 },
+      { name: "Psychometric Assessment", weight: 11 },
+      { name: "Bread Basket Margin", weight: 9 },
+      { name: "Cash Flow Volatility", weight: 9 },
+      { name: "Income Stability", weight: 6 },
+      { name: "Debt-to-Income Ratio", weight: 6 },
+      { name: "Years Trading", weight: 5 },
+      { name: "Savings (incl. Mukando)", weight: 4 },
+      { name: "Loan-to-Income Ratio", weight: 4 },
+      { name: "Collateral", weight: 3 },
+      { name: "Existing Obligations", weight: 3 },
+    ],
+  },
+  micro_no_bureau: {
+    label: "Micro (Thin-File)",
+    description: "Micro-enterprise borrowers without bureau — psychometric & business signals dominate",
+    features: [
+      { name: "Repayment History", weight: 16 },
+      { name: "Business Stability", weight: 14 },
+      { name: "Psychometric Assessment", weight: 13 },
+      { name: "Cash Flow Volatility", weight: 11 },
+      { name: "Bread Basket Margin", weight: 10 },
+      { name: "Income Stability", weight: 8 },
+      { name: "Debt-to-Income Ratio", weight: 6 },
+      { name: "Years Trading", weight: 6 },
+      { name: "Savings (incl. Mukando)", weight: 5 },
+      { name: "Loan-to-Income Ratio", weight: 4 },
+      { name: "Collateral", weight: 4 },
+      { name: "Existing Obligations", weight: 3 },
+    ],
+  },
+  sme_bureau: {
+    label: "SME (with Bureau)",
+    description: "SME borrowers — cash flow, DSCR, concentration risk are primary drivers",
+    features: [
+      { name: "Cash Flow Volatility", weight: 13 },
+      { name: "Credit Bureau Score", weight: 11 },
+      { name: "Repayment History", weight: 10 },
+      { name: "Debt Service Coverage", weight: 9 },
+      { name: "Business Stability", weight: 8 },
+      { name: "Bread Basket Margin", weight: 8 },
+      { name: "Concentration Risk", weight: 7 },
+      { name: "Psychometric Assessment", weight: 7 },
+      { name: "Revenue Stability", weight: 6 },
+      { name: "Digital Footprint", weight: 5 },
+      { name: "Business Tenure", weight: 5 },
+      { name: "Forex Exposure", weight: 4 },
+      { name: "Leverage Ratio", weight: 3 },
+      { name: "Collateral", weight: 2 },
+      { name: "Liquidity Buffer", weight: 2 },
+    ],
+  },
+  sme_no_bureau: {
+    label: "SME (Thin-File)",
+    description: "SME borrowers without bureau — financial analysis & alt-data fill the gap",
+    features: [
+      { name: "Cash Flow Volatility", weight: 14 },
+      { name: "Repayment History", weight: 12 },
+      { name: "Debt Service Coverage", weight: 10 },
+      { name: "Business Stability", weight: 10 },
+      { name: "Bread Basket Margin", weight: 9 },
+      { name: "Psychometric Assessment", weight: 9 },
+      { name: "Concentration Risk", weight: 7 },
+      { name: "Revenue Stability", weight: 7 },
+      { name: "Digital Footprint", weight: 5 },
+      { name: "Business Tenure", weight: 5 },
+      { name: "Forex Exposure", weight: 4 },
+      { name: "Leverage Ratio", weight: 3 },
+      { name: "Collateral", weight: 3 },
+      { name: "Liquidity Buffer", weight: 2 },
+    ],
+  },
+};
+
+// ── Data Sanity Checkpoints (Inherent Intelligence) ──
+const DATA_SANITY_CHECKS = [
+  { name: "Income vs POS Triangulation", description: "Declared income cross-referenced against POS/Till statement turnover", severity: "Critical" },
+  { name: "Income vs Bank Statement", description: "Declared income validated against bank statement credits", severity: "Critical" },
+  { name: "Income vs EcoCash Inflows", description: "Declared income compared to mobile money inflow patterns", severity: "Critical" },
+  { name: "Asset-to-Income Ratio", description: "Flags if declared assets exceed 10x annual income — potential inflation", severity: "Warning" },
+  { name: "Bread Basket Plausibility", description: "Flags if essential expenses < 5% of income — potential understatement", severity: "Warning" },
+  { name: "Revenue Consistency", description: "POS daily turnover extrapolated vs declared monthly revenue", severity: "Critical" },
+  { name: "Expense Consistency", description: "Declared expenses cross-referenced against known cost benchmarks", severity: "Warning" },
+  { name: "Tenure vs Stability", description: "Years in business should correlate with income/business stability scores", severity: "Warning" },
+  { name: "Cross-Document Consistency", description: "Name, ID, amounts consistent across all uploaded documents", severity: "Critical" },
+];
+
 const products = [
-  { name: "Micro-loan",          model: "WoE/IV LR v1.0", countries: ["Kenya", "Rwanda", "Ghana"],    approveThreshold: 670, reviewThreshold: 540 },
-  { name: "Nano-credit",         model: "WoE/IV LR v1.0", countries: ["Kenya", "Nigeria", "Senegal"], approveThreshold: 670, reviewThreshold: 540 },
-  { name: "SME Working Capital", model: "WoE/IV LR v1.0", countries: ["Nigeria", "Ghana"],            approveThreshold: 670, reviewThreshold: 540 },
-  { name: "Retail Individual",   model: "WoE/IV LR v1.0", countries: ["All markets"],                 approveThreshold: 670, reviewThreshold: 540 },
+  { name: "Micro-loan",          model: "WoE/IV LR v2.0", countries: ["Zimbabwe", "Kenya", "Rwanda", "Ghana"],    approveThreshold: 670, reviewThreshold: 540 },
+  { name: "Nano-credit",         model: "WoE/IV LR v2.0", countries: ["Kenya", "Nigeria", "Senegal"], approveThreshold: 670, reviewThreshold: 540 },
+  { name: "SME Working Capital", model: "WoE/IV LR v2.0", countries: ["Nigeria", "Ghana", "Zimbabwe"],            approveThreshold: 670, reviewThreshold: 540 },
+  { name: "Retail Individual",   model: "WoE/IV LR v2.0", countries: ["All markets"],                 approveThreshold: 670, reviewThreshold: 540 },
 ];
 
 const WoeImpactBar = ({ woe }: { woe: number }) => {
@@ -255,14 +472,21 @@ const WoeImpactBar = ({ woe }: { woe: number }) => {
 const Models = () => {
   const [approveScore, setApproveScore] = useState([670]);
   const [selectedFeature, setSelectedFeature] = useState<string>("debt_to_income");
+  const [selectedWeightScheme, setSelectedWeightScheme] = useState<string>("micro_bureau");
 
   const coefficients = Object.entries(MODEL_COEFFICIENTS).filter(([k]) => k !== "intercept");
+  const categories = ["traditional", "business", "alt-data"] as const;
+  const categoryLabels: Record<string, { title: string; badge?: string }> = {
+    traditional: { title: "Traditional Features" },
+    business: { title: "Business & Financial Features", badge: "v2.0" },
+    "alt-data": { title: "Alternative Data Features (Thin-File)", badge: "Alt-Data" },
+  };
 
   return (
     <DashboardLayout>
       <div className="mb-8">
         <h1 className="font-display text-3xl font-bold text-foreground">Models & Policies</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Scorecard architecture, WoE binning, coefficients, and decision thresholds</p>
+        <p className="mt-1 text-sm text-muted-foreground">Scorecard architecture, WoE binning, coefficients, category weight schemes, data sanity, and decision thresholds</p>
       </div>
 
       {/* Model Overview */}
@@ -281,8 +505,12 @@ const Models = () => {
             <div className="flex justify-between"><span>Base Score</span><span className="font-medium text-foreground">{MODEL_META.baseScore}</span></div>
             <div className="flex justify-between"><span>Base Odds</span><span className="font-medium text-foreground">{MODEL_META.baseOdds}</span></div>
             <div className="flex justify-between"><span>Points to Double Odds</span><span className="font-medium text-foreground">{MODEL_META.pdo}</span></div>
+            <div className="flex justify-between"><span>Intercept (β₀)</span><span className="font-medium text-foreground font-mono">{MODEL_META.intercept}</span></div>
             <div className="flex justify-between"><span>Traditional Features</span><span className="font-medium text-foreground">{coefficients.filter(([,c]) => c.category === "traditional").length}</span></div>
+            <div className="flex justify-between"><span>Business Features</span><span className="font-medium text-foreground">{coefficients.filter(([,c]) => c.category === "business").length}</span></div>
             <div className="flex justify-between"><span>Alt-Data Features</span><span className="font-medium text-foreground">{coefficients.filter(([,c]) => c.category === "alt-data").length}</span></div>
+            <div className="flex justify-between"><span>Total Predictors</span><span className="font-medium text-foreground">{coefficients.length}</span></div>
+            <div className="flex justify-between"><span>Data Sanity Checks</span><span className="font-medium text-foreground">{DATA_SANITY_CHECKS.length} checkpoints</span></div>
           </div>
         </GlassCard>
 
@@ -308,12 +536,14 @@ const Models = () => {
         </GlassCard>
       </div>
 
-      {/* Tabs: Coefficients, WoE Bins, Policies */}
+      {/* Tabs */}
       <Tabs defaultValue="simulator" className="mb-6">
         <TabsList className="bg-muted">
           <TabsTrigger value="simulator" className="gap-1.5 text-xs"><Calculator className="h-3.5 w-3.5" /> Simulator</TabsTrigger>
           <TabsTrigger value="coefficients" className="gap-1.5 text-xs"><Weight className="h-3.5 w-3.5" /> Coefficients</TabsTrigger>
           <TabsTrigger value="woe" className="gap-1.5 text-xs"><BarChart3 className="h-3.5 w-3.5" /> WoE Bins</TabsTrigger>
+          <TabsTrigger value="weights" className="gap-1.5 text-xs"><Layers className="h-3.5 w-3.5" /> Weight Schemes</TabsTrigger>
+          <TabsTrigger value="sanity" className="gap-1.5 text-xs"><ShieldCheck className="h-3.5 w-3.5" /> Data Sanity</TabsTrigger>
           <TabsTrigger value="policies" className="gap-1.5 text-xs"><TableProperties className="h-3.5 w-3.5" /> Product Policies</TabsTrigger>
         </TabsList>
 
@@ -326,7 +556,7 @@ const Models = () => {
         <TabsContent value="coefficients">
           <GlassCard hover={false}>
             <h2 className="mb-1 font-display text-lg font-semibold text-foreground">Model Coefficients (β) — v2.0</h2>
-            <p className="mb-4 text-xs text-muted-foreground">Logistic regression coefficients — negative β is protective (lowers PD). Alt-data features enable thin-file scoring when bureau data is unavailable.</p>
+            <p className="mb-4 text-xs text-muted-foreground">Logistic regression coefficients — negative β is protective (lowers PD). Includes traditional, business, and alt-data features for comprehensive thin-file scoring.</p>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -344,74 +574,52 @@ const Models = () => {
                     <td className="py-3 text-muted-foreground">—</td>
                     <td className="py-3 text-muted-foreground">—</td>
                   </tr>
-                  {/* Traditional Features */}
-                  <tr><td colSpan={5} className="pt-4 pb-2 text-xs font-semibold uppercase tracking-wider text-primary">Traditional Features</td></tr>
-                  {coefficients
-                    .filter(([, c]) => c.category === "traditional")
-                    .sort(([, a], [, b]) => b.weight - a.weight)
-                    .map(([key, c]) => {
-                      const isProtective = c.beta < 0;
-                      return (
-                        <tr key={key} className="border-b border-border/50 last:border-0">
-                          <td className="py-3 font-medium text-foreground">{c.label}</td>
-                          <td className="py-3 font-mono">
-                            <span className={isProtective ? "text-success" : "text-destructive"}>
-                              {c.beta > 0 ? "+" : ""}{c.beta.toFixed(2)}
-                            </span>
-                          </td>
-                          <td className="py-3">
-                            <div className="flex items-center gap-2">
-                              <div className="w-16 h-1.5 bg-muted/50 rounded-full overflow-hidden">
-                                <div className="h-full bg-primary rounded-full" style={{ width: `${c.weight * 4}%` }} />
-                              </div>
-                              <span className="text-xs text-muted-foreground">{c.weight}%</span>
-                            </div>
-                          </td>
-                          <td className="py-3">
-                            <div className="flex items-center gap-1">
-                              {isProtective ? (
-                                <><TrendingDown className="h-3.5 w-3.5 text-success" /><span className="text-xs text-success">Protective</span></>
-                              ) : (
-                                <><TrendingUp className="h-3.5 w-3.5 text-destructive" /><span className="text-xs text-destructive">Risk-increasing</span></>
-                              )}
-                            </div>
-                          </td>
-                          <td className="py-3 text-xs text-muted-foreground">{c.note || "—"}</td>
-                        </tr>
-                      );
-                    })}
-                  {/* Alt-Data Features */}
-                  <tr><td colSpan={5} className="pt-6 pb-2 text-xs font-semibold uppercase tracking-wider text-foreground"><Badge variant="outline" className="bg-accent/10 text-foreground border-accent/30 mr-2">Alt-Data</Badge>Alternative Data Features (Thin-File)</td></tr>
-                  {coefficients
-                    .filter(([, c]) => c.category === "alt-data")
-                    .sort(([, a], [, b]) => b.weight - a.weight)
-                    .map(([key, c]) => {
-                      const isProtective = c.beta < 0;
-                      return (
-                        <tr key={key} className="border-b border-border/50 last:border-0 bg-accent/5">
-                          <td className="py-3 font-medium text-foreground">{c.label}</td>
-                          <td className="py-3 font-mono">
-                            <span className={isProtective ? "text-success" : "text-destructive"}>
-                              {c.beta > 0 ? "+" : ""}{c.beta.toFixed(2)}
-                            </span>
-                          </td>
-                          <td className="py-3">
-                            <div className="flex items-center gap-2">
-                              <div className="w-16 h-1.5 bg-muted/50 rounded-full overflow-hidden">
-                                <div className="h-full bg-accent rounded-full" style={{ width: `${c.weight * 4}%` }} />
-                              </div>
-                              <span className="text-xs text-muted-foreground">{c.weight}%</span>
-                            </div>
-                          </td>
-                          <td className="py-3">
-                            <div className="flex items-center gap-1">
-                              <TrendingDown className="h-3.5 w-3.5 text-success" /><span className="text-xs text-success">Protective</span>
-                            </div>
-                          </td>
-                          <td className="py-3 text-xs text-muted-foreground italic">{c.note || "—"}</td>
-                        </tr>
-                      );
-                    })}
+                  {categories.map((cat) => (
+                    <>
+                      <tr key={`header-${cat}`}>
+                        <td colSpan={5} className="pt-4 pb-2 text-xs font-semibold uppercase tracking-wider text-primary">
+                          {categoryLabels[cat].badge && (
+                            <Badge variant="outline" className="bg-accent/10 text-foreground border-accent/30 mr-2 text-[9px]">{categoryLabels[cat].badge}</Badge>
+                          )}
+                          {categoryLabels[cat].title}
+                        </td>
+                      </tr>
+                      {coefficients
+                        .filter(([, c]) => c.category === cat)
+                        .sort(([, a], [, b]) => b.weight - a.weight)
+                        .map(([key, c]) => {
+                          const isProtective = c.beta < 0;
+                          return (
+                            <tr key={key} className={`border-b border-border/50 last:border-0 ${cat === "alt-data" ? "bg-accent/5" : cat === "business" ? "bg-primary/5" : ""}`}>
+                              <td className="py-3 font-medium text-foreground">{c.label}</td>
+                              <td className="py-3 font-mono">
+                                <span className={isProtective ? "text-success" : "text-destructive"}>
+                                  {c.beta > 0 ? "+" : ""}{c.beta.toFixed(2)}
+                                </span>
+                              </td>
+                              <td className="py-3">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-16 h-1.5 bg-muted/50 rounded-full overflow-hidden">
+                                    <div className={`h-full rounded-full ${cat === "alt-data" ? "bg-accent" : cat === "business" ? "bg-primary/70" : "bg-primary"}`} style={{ width: `${c.weight * 4}%` }} />
+                                  </div>
+                                  <span className="text-xs text-muted-foreground">{c.weight}%</span>
+                                </div>
+                              </td>
+                              <td className="py-3">
+                                <div className="flex items-center gap-1">
+                                  {isProtective ? (
+                                    <><TrendingDown className="h-3.5 w-3.5 text-success" /><span className="text-xs text-success">Protective</span></>
+                                  ) : (
+                                    <><TrendingUp className="h-3.5 w-3.5 text-destructive" /><span className="text-xs text-destructive">Risk-increasing</span></>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="py-3 text-xs text-muted-foreground italic">{c.note || "—"}</td>
+                            </tr>
+                          );
+                        })}
+                    </>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -423,7 +631,7 @@ const Models = () => {
           <GlassCard hover={false}>
             <h2 className="mb-1 font-display text-lg font-semibold text-foreground">Weight of Evidence Bins</h2>
             <p className="mb-4 text-xs text-muted-foreground">
-              Negative WoE → lower default risk (good). Positive WoE → higher default risk (bad). Alt-data features enable scoring for thin-file borrowers.
+              Negative WoE → lower default risk (good). Positive WoE → higher default risk (bad). All bins match the live scoring engine v2.0.
             </p>
 
             {/* Feature selector with category grouping */}
@@ -431,6 +639,22 @@ const Models = () => {
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Traditional</p>
               <div className="flex flex-wrap gap-1.5 mb-3">
                 {Object.entries(WOE_BINS).filter(([, f]) => f.category === "traditional").map(([key, feat]) => (
+                  <button
+                    key={key}
+                    onClick={() => setSelectedFeature(key)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      selectedFeature === key
+                        ? "bg-primary/20 text-primary border border-primary/30"
+                        : "bg-muted/50 text-muted-foreground hover:bg-muted border border-transparent"
+                    }`}
+                  >
+                    {feat.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Business & Financial <Badge variant="outline" className="text-[9px] bg-primary/10 text-primary border-primary/30 ml-1 py-0">v2.0</Badge></p>
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {Object.entries(WOE_BINS).filter(([, f]) => f.category === "business").map(([key, feat]) => (
                   <button
                     key={key}
                     onClick={() => setSelectedFeature(key)}
@@ -504,6 +728,106 @@ const Models = () => {
           </GlassCard>
         </TabsContent>
 
+        {/* Weight Schemes Tab */}
+        <TabsContent value="weights">
+          <GlassCard hover={false}>
+            <h2 className="mb-1 font-display text-lg font-semibold text-foreground">Category-Specific Weight Schemes</h2>
+            <p className="mb-4 text-xs text-muted-foreground">
+              The model dynamically selects feature weights based on product category (Retail / Micro / SME) and bureau data availability. This ensures thin-file borrowers are scored fairly using alt-data.
+            </p>
+
+            <div className="flex flex-wrap gap-1.5 mb-6">
+              {Object.entries(WEIGHT_SCHEMES).map(([key, scheme]) => (
+                <button
+                  key={key}
+                  onClick={() => setSelectedWeightScheme(key)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    selectedWeightScheme === key
+                      ? "bg-primary/20 text-primary border border-primary/30"
+                      : "bg-muted/50 text-muted-foreground hover:bg-muted border border-transparent"
+                  }`}
+                >
+                  {scheme.label}
+                </button>
+              ))}
+            </div>
+
+            {WEIGHT_SCHEMES[selectedWeightScheme] && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-4 italic">{WEIGHT_SCHEMES[selectedWeightScheme].description}</p>
+                <div className="space-y-2">
+                  {WEIGHT_SCHEMES[selectedWeightScheme].features.map((f) => (
+                    <div key={f.name} className="flex items-center gap-3">
+                      <span className="text-sm text-foreground w-48 shrink-0">{f.name}</span>
+                      <div className="flex-1 h-3 bg-muted/50 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-primary rounded-full transition-all duration-500"
+                          style={{ width: `${f.weight * 4.5}%` }}
+                        />
+                      </div>
+                      <span className="text-xs font-mono text-muted-foreground w-8 text-right">{f.weight}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </GlassCard>
+        </TabsContent>
+
+        {/* Data Sanity Tab */}
+        <TabsContent value="sanity">
+          <GlassCard hover={false}>
+            <h2 className="mb-1 font-display text-lg font-semibold text-foreground">Inherent Intelligence — Data Sanity Layer</h2>
+            <p className="mb-4 text-xs text-muted-foreground">
+              The scoring engine automatically cross-references user-declared data against documentary evidence (POS, bank statements, EcoCash) to detect falsification or inconsistencies. A Consistency Score (0–100) is computed and persisted with each scorecard result.
+            </p>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border">
+                    {["Checkpoint", "Description", "Severity", "Impact"].map((h) => (
+                      <th key={h} className="pb-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {DATA_SANITY_CHECKS.map((check, i) => (
+                    <tr key={i} className="border-b border-border/50 last:border-0">
+                      <td className="py-3 font-medium text-foreground">{check.name}</td>
+                      <td className="py-3 text-xs text-muted-foreground">{check.description}</td>
+                      <td className="py-3">
+                        <Badge variant="outline" className={`text-[10px] ${
+                          check.severity === "Critical"
+                            ? "bg-destructive/10 text-destructive border-destructive/20"
+                            : "bg-warning/10 text-warning border-warning/20"
+                        }`}>
+                          {check.severity}
+                        </Badge>
+                      </td>
+                      <td className="py-3 text-xs font-mono text-muted-foreground">
+                        {check.severity === "Critical" ? "−30 pts" : "−12 pts"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-6 p-4 bg-muted/30 rounded-lg">
+              <h3 className="text-sm font-semibold text-foreground mb-2">How the Consistency Score Works</h3>
+              <div className="space-y-1 text-xs text-muted-foreground">
+                <p>• Base consistency score starts at <span className="font-mono text-foreground">100</span></p>
+                <p>• Each <Badge variant="outline" className="text-[9px] bg-destructive/10 text-destructive border-destructive/20 mx-1">Critical</Badge> flag deducts <span className="font-mono text-foreground">−30 points</span></p>
+                <p>• Each <Badge variant="outline" className="text-[9px] bg-warning/10 text-warning border-warning/20 mx-1">Warning</Badge> flag deducts <span className="font-mono text-foreground">−12 points</span></p>
+                <p>• Score is clamped to <span className="font-mono text-foreground">0 – 100</span> range</p>
+                <p>• Results are persisted in <span className="font-mono text-foreground">data_sanity</span> JSON alongside the scorecard for audit</p>
+                <p>• Flags are surfaced in the AI Insights narrative for credit officer review</p>
+              </div>
+            </div>
+          </GlassCard>
+        </TabsContent>
+
         {/* Product Policies Tab */}
         <TabsContent value="policies">
           <GlassCard hover={false}>
@@ -548,6 +872,14 @@ const Models = () => {
               <div className="flex items-center gap-3">
                 <Switch id="bureau" defaultChecked />
                 <Label htmlFor="bureau" className="text-sm text-muted-foreground">Require bureau check before scoring</Label>
+              </div>
+              <div className="flex items-center gap-3">
+                <Switch id="sanity" defaultChecked />
+                <Label htmlFor="sanity" className="text-sm text-muted-foreground">Enable Data Sanity checks (Inherent Intelligence)</Label>
+              </div>
+              <div className="flex items-center gap-3">
+                <Switch id="breadbasket" defaultChecked />
+                <Label htmlFor="breadbasket" className="text-sm text-muted-foreground">Include Bread Basket Margin in scoring</Label>
               </div>
             </div>
           </GlassCard>
