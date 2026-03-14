@@ -18,7 +18,7 @@ export interface CountryConfig {
   additionalRetailFields: { key: string; label: string; placeholder: string; type: string }[];
   additionalBusinessFields: { key: string; label: string; placeholder: string; type: string }[];
   // Category-specific fields for deeper data capture
-  microFields?: { key: string; label: string; placeholder: string; type: string; section?: string }[];
+  microFields?: { key: string; label: string; placeholder: string; type: string; section?: string; options?: { value: string; label: string }[] }[];
   smeFields?: { key: string; label: string; placeholder: string; type: string; section?: string }[];
   socialMediaFields?: { key: string; label: string; placeholder: string; type: string }[];
   cashFlowFields?: { key: string; label: string; placeholder: string; type: string }[];
