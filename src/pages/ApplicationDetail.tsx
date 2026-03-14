@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/DashboardLayout";
 import GlassCard from "@/components/GlassCard";
 import ScoreJustification from "@/components/application/ScoreJustification";
+import BalanceSheet from "@/components/application/BalanceSheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -65,6 +66,7 @@ interface FullApplication {
     sector: string | null;
     years_in_operation: number | null;
     employees: number | null;
+    extra_data: Record<string, any> | null;
   } | null;
 }
 
@@ -327,6 +329,21 @@ const ApplicationDetail = () => {
         </div>
       )}
 
+      {/* Balance Sheet */}
+      {app.borrower?.extra_data && (
+        <div className="mb-6">
+          <BalanceSheet
+            extraData={app.borrower.extra_data}
+            currency={app.currency || "ZWL"}
+            requestedAmount={app.requested_amount}
+            posExtraction={
+              documentExtractions.find(e => e.document_type === "pos_statement" && e.extraction_status === "completed")
+                ?.extracted_data || null
+            }
+          />
+        </div>
+      )}
+
       {/* Application Details */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         {/* Borrower Info */}
@@ -495,6 +512,18 @@ const ApplicationDetail = () => {
                           {extraction.extracted_data.full_name && <div><span className="text-muted-foreground">Name:</span> <span className="text-foreground">{extraction.extracted_data.full_name}</span></div>}
                           {extraction.extracted_data.id_number && <div><span className="text-muted-foreground">ID:</span> <span className="text-foreground">{extraction.extracted_data.id_number}</span></div>}
                           {extraction.extracted_data.date_of_birth && <div><span className="text-muted-foreground">DOB:</span> <span className="text-foreground">{extraction.extracted_data.date_of_birth}</span></div>}
+                        </div>
+                      )}
+                      {doc.type === "pos_statement" && (
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                          {extraction.extracted_data.account_holder_name && <div><span className="text-muted-foreground">Merchant:</span> <span className="text-foreground">{extraction.extracted_data.account_holder_name}</span></div>}
+                          {extraction.extracted_data.bank_name && <div><span className="text-muted-foreground">Acquirer:</span> <span className="text-foreground">{extraction.extracted_data.bank_name}</span></div>}
+                          {extraction.extracted_data.total_credits != null && <div><span className="text-muted-foreground">Total Credits:</span> <span className="text-success font-medium">{extraction.extracted_data.currency} {extraction.extracted_data.total_credits?.toLocaleString()}</span></div>}
+                          {extraction.extracted_data.total_debits != null && <div><span className="text-muted-foreground">Total Debits:</span> <span className="text-foreground">{extraction.extracted_data.currency} {extraction.extracted_data.total_debits?.toLocaleString()}</span></div>}
+                          {extraction.extracted_data.statement_period && (
+                            <div><span className="text-muted-foreground">Period:</span> <span className="text-foreground">{extraction.extracted_data.statement_period.start_date} to {extraction.extracted_data.statement_period.end_date}</span></div>
+                          )}
+                          {extraction.extracted_data.average_monthly_income != null && <div><span className="text-muted-foreground">Avg. Monthly (raw):</span> <span className="text-foreground">{extraction.extracted_data.currency} {extraction.extracted_data.average_monthly_income?.toLocaleString()}</span></div>}
                         </div>
                       )}
                       {doc.type === "utility_bill" && (
