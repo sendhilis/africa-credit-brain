@@ -58,6 +58,8 @@ const statusStyles: Record<string, string> = {
 const EntityCatalog = ({ country, integrations, onRefresh, onEntitySelect }: EntityCatalogProps) => {
   const [expandedTypes, setExpandedTypes] = useState<string[]>(["bank", "mno"]);
   const [loadingEntity, setLoadingEntity] = useState<string | null>(null);
+  const [testResults, setTestResults] = useState<Record<string, any[]>>({});
+  const [expandedTests, setExpandedTests] = useState<string | null>(null);
 
   const entities = getEntitiesByCountry(country);
   const grouped = entityTypeOrder
