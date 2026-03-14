@@ -271,6 +271,16 @@ const ScoreJustification = ({
               <Sparkles className="h-3.5 w-3.5" /> AI Insights
             </TabsTrigger>
           )}
+          {dataSanity && dataSanity.flags.length > 0 && (
+            <TabsTrigger value="sanity" className="gap-1">
+              <SearchCheck className="h-3.5 w-3.5" /> Data Sanity
+              {dataSanity.flags.filter(f => f.severity === "critical" || f.severity === "warning").length > 0 && (
+                <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-[10px]">
+                  {dataSanity.flags.filter(f => f.severity === "critical" || f.severity === "warning").length}
+                </Badge>
+              )}
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* Factor Breakdown */}
