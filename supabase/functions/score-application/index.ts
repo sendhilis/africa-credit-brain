@@ -1450,6 +1450,11 @@ ${app.product_category !== "retail" ? `- Business: ${borrower?.business_name || 
 OCR DOCUMENT EXTRACTIONS:
 ${ocrExtractions.length > 0 ? ocrExtractions.map((e: any) => `- ${e.document_type}: ${JSON.stringify(e.extracted_data)}`).join("\n") : "No OCR extractions available"}
 
+DATA SANITY / CONSISTENCY CHECKS (Consistency Score: ${dataSanity.consistency_score}/100):
+${dataSanity.flags.length > 0 ? dataSanity.flags.map((f: any) => `- [${f.severity.toUpperCase()}] ${f.check}: ${f.finding} (Declared: ${f.declared_value}, Evidence: ${f.evidence_value}, Source: ${f.source})`).join("\n") : "No inconsistencies detected — all data points are internally consistent."}
+
+IMPORTANT: Pay special attention to the data sanity flags above. If there are WARNING or CRITICAL flags, these indicate potential data falsification or inconsistencies between what the borrower declared and what the documentary evidence shows. Factor these into your risk assessment and flag them prominently.
+
 Use the provide_insights tool to return your analysis.`;
 
       const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
