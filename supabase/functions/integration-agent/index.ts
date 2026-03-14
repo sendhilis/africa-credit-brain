@@ -148,7 +148,7 @@ Format your responses with clear headings, bullet points, and status indicators 
             environment: "sandbox",
             status: "connecting",
             config: entityConfig || {},
-            created_by: user.id,
+            created_by: userId,
           })
           .select()
           .single();
