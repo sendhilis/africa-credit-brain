@@ -13,6 +13,7 @@ import {
   ArrowLeft, Brain, Loader2, CheckCircle2, XCircle, RotateCcw,
   Send, Banknote, User, Building2, FileText, Shield, Clock
 } from "lucide-react";
+import AdditionalDocumentUpload from "@/components/application/AdditionalDocumentUpload";
 
 type AppStatus = "draft" | "submitted" | "review" | "approved" | "declined" | "disbursed";
 
