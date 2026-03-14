@@ -1382,6 +1382,132 @@ serve(async (req) => {
       }
     }
 
+    // ── EcoCash / Mobile Money enrichment ──
+    const ecocashExtraction = ocrExtractions.find((e: any) =>
+      (e.document_type === "ecocash_statement" || e.document_type === "mobile_money") && e.extraction_status === "completed"
+    );
+    if (ecocashExtraction?.extracted_data && ecocashExtraction.confidence_score >= 0.5) {
+      const ed = ecocashExtraction.extracted_data;
+      console.log(`EcoCash extraction found: total_credits=${ed.total_credits}, avg_monthly_income=${ed.average_monthly_income}`);
+
+      // Normalize by statement period length (same logic as POS)
+      let ecoPeriodDays = 30;
+      let ecoConfDiscount = 1.0;
+      if (ed.statement_period?.start_date && ed.statement_period?.end_date) {
+        const start = new Date(ed.statement_period.start_date);
+        const end = new Date(ed.statement_period.end_date);
+        ecoPeriodDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+        console.log(`EcoCash statement covers ${ecoPeriodDays} day(s): ${ed.statement_period.start_date} → ${ed.statement_period.end_date}`);
+      }
+      if (ecoPeriodDays >= 30) {
+        ecoConfDiscount = 1.0;
+      } else if (ecoPeriodDays >= 7) {
+        ecoConfDiscount = ecoPeriodDays / 30;
+      } else {
+        ecoConfDiscount = (ecoPeriodDays / 30) * 0.5;
+      }
+      console.log(`EcoCash period confidence discount: ${ecoConfDiscount.toFixed(3)} (${ecoPeriodDays} days)`);
+
+      const rawEcoIncome = ed.total_credits || ed.average_monthly_income || 0;
+      let normalizedEcoIncome: number;
+      if (ecoPeriodDays < 30 && ed.total_credits) {
+        const dailyRate = ed.total_credits / ecoPeriodDays;
+        normalizedEcoIncome = Math.round(dailyRate * 30 * ecoConfDiscount);
+        console.log(`EcoCash income normalized: daily=${dailyRate.toFixed(0)} × 30 × ${ecoConfDiscount.toFixed(3)} = ${normalizedEcoIncome}`);
+      } else {
+        normalizedEcoIncome = Math.round(rawEcoIncome * ecoConfDiscount);
+      }
+
+      // If we already have POS-derived income, use higher of the two (triangulated)
+      // EcoCash often captures the full business flow including POS settlements
+      if (normalizedEcoIncome > 0) {
+        if (!app.monthly_income || app.monthly_income === 0) {
+          app.monthly_income = normalizedEcoIncome;
+          ocrIncomeSource = "ecocash_statement";
+          console.log(`Set monthly_income from EcoCash (normalized): ${normalizedEcoIncome}`);
+        } else if (ocrIncomeSource === "pos_statement" && normalizedEcoIncome > app.monthly_income) {
+          // EcoCash captures broader business flow — use it if it's higher and covers more days
+          if (ecoPeriodDays > 1) {
+            console.log(`Upgrading income from POS (${app.monthly_income}) to EcoCash (${normalizedEcoIncome}) — broader coverage (${ecoPeriodDays} days vs POS)`);
+            app.monthly_income = normalizedEcoIncome;
+            ocrIncomeSource = "ecocash_statement";
+          }
+        }
+        if (!app.monthly_revenue || app.monthly_revenue === 0 || (ocrIncomeSource === "ecocash_statement")) {
+          app.monthly_revenue = normalizedEcoIncome;
+        }
+      }
+
+      // EcoCash expenses — for traders, debits are mostly COGS (supplier payments), not personal expenses
+      // Only use non-supplier debits for expense enrichment to avoid inflating DTI
+      const rawEcoExpenses = ed.total_debits || ed.average_monthly_expenses || 0;
+      if (rawEcoExpenses > 0 && ed.recurring_obligations) {
+        // Separate personal/household expenses from business supplier payments
+        const supplierKeywords = ["supplier", "wholesale", "stock", "produce", "cooking oil", "beverages", "sugar", "rice", "groceries", "maize"];
+        const bankTransferKeywords = ["ecocash to bank", "bank transfer"];
+        
+        let personalExpenses = 0;
+        let businessCOGS = 0;
+        for (const ob of ed.recurring_obligations) {
+          const desc = (ob.description || "").toLowerCase();
+          const isSupplier = supplierKeywords.some(kw => desc.includes(kw));
+          const isBankTransfer = bankTransferKeywords.some(kw => desc.includes(kw));
+          if (isSupplier || isBankTransfer) {
+            businessCOGS += ob.amount || 0;
+          } else {
+            personalExpenses += ob.amount || 0;
+          }
+        }
+        
+        // Normalize personal expenses by period
+        const normalizedPersonalExpenses = ecoPeriodDays < 30
+          ? Math.round((personalExpenses / ecoPeriodDays) * 30 * ecoConfDiscount)
+          : Math.round(personalExpenses * ecoConfDiscount);
+        
+        console.log(`EcoCash expense split: personal=${personalExpenses}, COGS=${businessCOGS}, normalized personal=${normalizedPersonalExpenses}`);
+        
+        // Only use personal expenses for DTI (not business COGS)
+        if (normalizedPersonalExpenses > 0 && (!app.monthly_expenses || app.monthly_expenses === 0)) {
+          app.monthly_expenses = normalizedPersonalExpenses;
+          console.log(`Set monthly_expenses from EcoCash (personal only): ${normalizedPersonalExpenses}`);
+        }
+        
+        // Store COGS separately for business analysis
+        const extraData2 = borrower?.extra_data || {};
+        extraData2._ecocash_business_cogs = businessCOGS;
+        extraData2._ecocash_personal_expenses = personalExpenses;
+        if (borrower) borrower.extra_data = extraData2;
+      }
+
+      // Enrich borrower extra_data with EcoCash signals
+      const extraData = borrower?.extra_data || {};
+      extraData._ecocash_total_credits = ed.total_credits;
+      extraData._ecocash_total_debits = ed.total_debits;
+      extraData._ecocash_confidence = ecocashExtraction.confidence_score * ecoConfDiscount;
+      extraData._ecocash_has_data = true;
+      extraData._ecocash_period_days = ecoPeriodDays;
+      extraData._ecocash_period_discount = ecoConfDiscount;
+
+      // Salary deposits from EcoCash → income history enrichment
+      if (ed.salary_deposits?.length > 0) {
+        const ecoIncomeRecords = ed.salary_deposits.map((dep: any) => ({
+          income_amount: dep.amount,
+          period_start: dep.date,
+          period_end: dep.date,
+        }));
+        if (incomeRes.data) {
+          incomeRes.data.push(...ecoIncomeRecords);
+        } else {
+          (incomeRes as any).data = ecoIncomeRecords;
+        }
+        console.log(`Enriched income history with ${ecoIncomeRecords.length} EcoCash deposits`);
+      }
+
+      if (borrower) {
+        borrower.extra_data = extraData;
+      }
+    }
+
     if (financialExtraction?.extracted_data) {
       const fd = financialExtraction.extracted_data;
       if (fd.monthly_revenue_estimate && !app.monthly_revenue) {
