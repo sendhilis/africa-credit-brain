@@ -1246,6 +1246,7 @@ Use the provide_insights tool to return your analysis.`;
           time_series_features: result.time_series_features,
           summary: result.summary,
           ai_insights: aiInsights,
+          bread_basket: result.bread_basket || null,
         }),
     ]);
 
