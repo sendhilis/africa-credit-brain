@@ -899,6 +899,7 @@ function runScorecard(input: ScorecardInput) {
     base_score: BASE_SCORE,
     scaling: { pdo: PDO, base_odds: BASE_ODDS, factor: FACTOR, offset: OFFSET },
     bureau_score_used: hasBureauScore,
+    bread_basket: breadBasket.breakdown,
   };
 }
 
