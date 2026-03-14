@@ -1399,6 +1399,22 @@ serve(async (req) => {
       incomeHistory: (incomeRes.data || []) as IncomeRecord[],
     });
 
+    // ── Data Sanity / Consistency Checks ──
+    const businessStabilityVal = computeBusinessStability(borrower, borrower?.extra_data || {});
+    const paymentStatsVal = computePaymentHistoryScore((paymentRes.data || []) as PaymentRecord[]);
+    const incomeStatsVal = computeIncomeStability((incomeRes.data || []) as IncomeRecord[]);
+    const dataSanity = runDataSanityChecks(
+      app,
+      borrower,
+      borrower?.extra_data || {},
+      ocrExtractions,
+      result.bread_basket,
+      businessStabilityVal,
+      paymentStatsVal,
+      incomeStatsVal,
+    );
+    console.log(`Data Sanity Checks completed: ${dataSanity.flags.length} flags, consistency=${dataSanity.consistency_score}`);
+
     // ── AI Insights Layer ──────────────────────────────────────
     let aiInsights = null;
     try {
