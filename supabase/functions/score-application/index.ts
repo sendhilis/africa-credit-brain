@@ -730,21 +730,42 @@ function runScorecard(input: ScorecardInput) {
   const recommendation = scoreToRecommendation(finalScore);
 
   // 8. Build factor breakdown for UI
+  // "No Data" / "No History" bins should NOT show inflated UI scores — cap at neutral (50)
+  const NO_DATA_BIN_LABELS = ["no history", "unknown", "no data", "no bureau data", "no presence", "no assessment"];
   const factors = Object.entries(FEATURE_WEIGHTS).map(([key, fw]) => {
     const fv = featureValues[key];
     const contrib = contributions[key] || 0;
-    const normalizedScore = Math.max(0, Math.min(100, 50 + contrib * 30));
+    let normalizedScore = Math.max(0, Math.min(100, 50 + contrib * 30));
+
+    // If the feature landed in a "no data" bin, the UI score should reflect uncertainty
+    // not a falsely positive/negative number driven by coefficient sign quirks
+    if (fv && NO_DATA_BIN_LABELS.some(label => fv.bin.label.toLowerCase().includes(label))) {
+      normalizedScore = Math.min(normalizedScore, 50); // cap at neutral — absence of data is NOT a strength
+    }
+
+    // Build human-readable description
+    let description: string;
+    if (fv) {
+      const isNoData = NO_DATA_BIN_LABELS.some(label => fv.bin.label.toLowerCase().includes(label));
+      const valueStr = typeof fv.value === "number" && fv.value % 1 !== 0
+        ? (fv.value * 100).toFixed(1) + "%"
+        : String(fv.value);
+      description = isNoData
+        ? `${fv.bin.label} — insufficient data to assess`
+        : `Value: ${valueStr} → Bin: ${fv.bin.label} (WoE: ${fv.woe.toFixed(2)})`;
+    } else if (key === "collateral_flag") {
+      description = hasCollateral ? "Collateral provided — risk mitigant applied" : "No collateral — higher risk exposure";
+    } else if (key === "bureau_score") {
+      description = "No bureau data available — not factored into score";
+    } else {
+      description = "Data not available";
+    }
+
     return {
       name: fw.name,
       weight: fw.weight,
       score: Math.round(normalizedScore),
-      description: fv
-        ? `Value: ${typeof fv.value === "number" && fv.value % 1 !== 0 ? (fv.value * 100).toFixed(1) + "%" : fv.value} → Bin: ${fv.bin.label} (WoE: ${fv.woe.toFixed(2)})`
-        : key === "collateral_flag"
-          ? hasCollateral ? "Collateral provided — risk mitigant applied" : "No collateral — higher risk exposure"
-          : key === "bureau_score"
-            ? "No bureau data available — not factored into score"
-            : "Data not available",
+      description,
     };
   });
 
