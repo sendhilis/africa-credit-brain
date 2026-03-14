@@ -45,6 +45,7 @@ const MODEL_COEFFICIENTS = {
   dscr: -0.55,                     // debt service coverage ratio
   forex_exposure: 0.28,            // multi-currency risk (Zim-specific)
   psychometric_score: -0.45,       // behavioural assessment (financial discipline, risk, conscientiousness, locus of control)
+  bread_basket_margin: -0.52,     // disposable surplus after essential household expenses
 };
 
 // WoE bins for each feature
@@ -182,17 +183,26 @@ const WOE_BINS: Record<string, WoEBin[]> = {
     { label: "Poor (<20%)", min: 0, max: 0.2, woe: 1.05, event_rate: 0.30 },
     { label: "No Assessment", min: -1, max: 0, woe: 0.08, event_rate: 0.10 },
   ],
+  bread_basket_margin: [
+    { label: "Strong Surplus (>50%)", min: 0.5, max: 999, woe: -0.92, event_rate: 0.03 },
+    { label: "Healthy (30-50%)", min: 0.3, max: 0.5, woe: -0.45, event_rate: 0.05 },
+    { label: "Adequate (15-30%)", min: 0.15, max: 0.3, woe: -0.10, event_rate: 0.09 },
+    { label: "Tight (5-15%)", min: 0.05, max: 0.15, woe: 0.42, event_rate: 0.18 },
+    { label: "Critical (<5%)", min: -999, max: 0.05, woe: 1.05, event_rate: 0.32 },
+    { label: "No Data", min: -1, max: -0.999, woe: 0.10, event_rate: 0.10 },
+  ],
 };
 
 // ── CATEGORY-SPECIFIC FEATURE WEIGHT SCHEMES ──
 
 // INDIVIDUAL (retail) — focus on personal income, employment, DTI
 const WEIGHTS_RETAIL_BUREAU: Record<string, { name: string; weight: number }> = {
-  bureau_score:           { name: "Credit Bureau Score", weight: 26 },
-  payment_history_score:  { name: "Payment History", weight: 16 },
-  debt_to_income:         { name: "Debt-to-Income Ratio", weight: 13 },
-  income_stability_cv:    { name: "Income Stability", weight: 10 },
-  psychometric_score:     { name: "Psychometric Assessment", weight: 10 },
+  bureau_score:           { name: "Credit Bureau Score", weight: 23 },
+  payment_history_score:  { name: "Payment History", weight: 14 },
+  debt_to_income:         { name: "Debt-to-Income Ratio", weight: 11 },
+  bread_basket_margin:    { name: "Bread Basket Margin", weight: 9 },
+  income_stability_cv:    { name: "Income Stability", weight: 9 },
+  psychometric_score:     { name: "Psychometric Assessment", weight: 9 },
   loan_to_income:         { name: "Loan-to-Income Ratio", weight: 7 },
   savings_ratio:          { name: "Savings Capacity", weight: 6 },
   age:                    { name: "Borrower Age", weight: 4 },
@@ -202,12 +212,13 @@ const WEIGHTS_RETAIL_BUREAU: Record<string, { name: string; weight: number }> = 
 };
 
 const WEIGHTS_RETAIL_NO_BUREAU: Record<string, { name: string; weight: number }> = {
-  payment_history_score:  { name: "Payment History", weight: 22 },
-  debt_to_income:         { name: "Debt-to-Income Ratio", weight: 17 },
-  income_stability_cv:    { name: "Income Stability", weight: 15 },
-  psychometric_score:     { name: "Psychometric Assessment", weight: 12 },
-  loan_to_income:         { name: "Loan-to-Income Ratio", weight: 10 },
-  savings_ratio:          { name: "Savings Capacity", weight: 9 },
+  payment_history_score:  { name: "Payment History", weight: 19 },
+  debt_to_income:         { name: "Debt-to-Income Ratio", weight: 15 },
+  bread_basket_margin:    { name: "Bread Basket Margin", weight: 10 },
+  income_stability_cv:    { name: "Income Stability", weight: 13 },
+  psychometric_score:     { name: "Psychometric Assessment", weight: 11 },
+  loan_to_income:         { name: "Loan-to-Income Ratio", weight: 9 },
+  savings_ratio:          { name: "Savings Capacity", weight: 8 },
   age:                    { name: "Borrower Age", weight: 5 },
   existing_loan_count:    { name: "Existing Obligations", weight: 4 },
   dependents:             { name: "Dependents", weight: 3 },
@@ -216,29 +227,31 @@ const WEIGHTS_RETAIL_NO_BUREAU: Record<string, { name: string; weight: number }>
 
 // MICRO — focus on business stability, cash flow, informal savings, repayment
 const WEIGHTS_MICRO_BUREAU: Record<string, { name: string; weight: number }> = {
-  bureau_score:                { name: "Credit Bureau Score", weight: 17 },
-  payment_history_score:       { name: "Repayment History", weight: 15 },
-  business_stability_score:    { name: "Business Stability", weight: 13 },
-  psychometric_score:          { name: "Psychometric Assessment", weight: 12 },
-  cashflow_volatility:         { name: "Cash Flow Volatility", weight: 10 },
-  income_stability_cv:         { name: "Income Stability", weight: 7 },
+  bureau_score:                { name: "Credit Bureau Score", weight: 15 },
+  payment_history_score:       { name: "Repayment History", weight: 13 },
+  business_stability_score:    { name: "Business Stability", weight: 12 },
+  psychometric_score:          { name: "Psychometric Assessment", weight: 11 },
+  bread_basket_margin:         { name: "Bread Basket Margin", weight: 9 },
+  cashflow_volatility:         { name: "Cash Flow Volatility", weight: 9 },
+  income_stability_cv:         { name: "Income Stability", weight: 6 },
   debt_to_income:              { name: "Debt-to-Income Ratio", weight: 6 },
   business_years:              { name: "Years Trading", weight: 5 },
-  savings_ratio:               { name: "Savings (incl. Mukando)", weight: 5 },
+  savings_ratio:               { name: "Savings (incl. Mukando)", weight: 4 },
   loan_to_income:              { name: "Loan-to-Income Ratio", weight: 4 },
   collateral_flag:             { name: "Collateral", weight: 3 },
   existing_loan_count:         { name: "Existing Obligations", weight: 3 },
 };
 
 const WEIGHTS_MICRO_NO_BUREAU: Record<string, { name: string; weight: number }> = {
-  payment_history_score:       { name: "Repayment History", weight: 18 },
-  business_stability_score:    { name: "Business Stability", weight: 15 },
-  psychometric_score:          { name: "Psychometric Assessment", weight: 15 },
-  cashflow_volatility:         { name: "Cash Flow Volatility", weight: 12 },
-  income_stability_cv:         { name: "Income Stability", weight: 9 },
-  debt_to_income:              { name: "Debt-to-Income Ratio", weight: 7 },
-  business_years:              { name: "Years Trading", weight: 7 },
-  savings_ratio:               { name: "Savings (incl. Mukando)", weight: 6 },
+  payment_history_score:       { name: "Repayment History", weight: 16 },
+  business_stability_score:    { name: "Business Stability", weight: 14 },
+  psychometric_score:          { name: "Psychometric Assessment", weight: 13 },
+  bread_basket_margin:         { name: "Bread Basket Margin", weight: 10 },
+  cashflow_volatility:         { name: "Cash Flow Volatility", weight: 11 },
+  income_stability_cv:         { name: "Income Stability", weight: 8 },
+  debt_to_income:              { name: "Debt-to-Income Ratio", weight: 6 },
+  business_years:              { name: "Years Trading", weight: 6 },
+  savings_ratio:               { name: "Savings (incl. Mukando)", weight: 5 },
   loan_to_income:              { name: "Loan-to-Income Ratio", weight: 4 },
   collateral_flag:             { name: "Collateral", weight: 4 },
   existing_loan_count:         { name: "Existing Obligations", weight: 3 },
@@ -246,34 +259,36 @@ const WEIGHTS_MICRO_NO_BUREAU: Record<string, { name: string; weight: number }> 
 
 // SME — focus on financial analysis, cash flow volatility, concentration, social media
 const WEIGHTS_SME_BUREAU: Record<string, { name: string; weight: number }> = {
-  bureau_score:                { name: "Credit Bureau Score", weight: 13 },
-  cashflow_volatility:         { name: "Cash Flow Volatility", weight: 14 },
-  payment_history_score:       { name: "Repayment History", weight: 11 },
-  dscr:                        { name: "Debt Service Coverage", weight: 10 },
-  business_stability_score:    { name: "Business Stability", weight: 9 },
-  psychometric_score:          { name: "Psychometric Assessment", weight: 8 },
+  bureau_score:                { name: "Credit Bureau Score", weight: 11 },
+  cashflow_volatility:         { name: "Cash Flow Volatility", weight: 13 },
+  payment_history_score:       { name: "Repayment History", weight: 10 },
+  dscr:                        { name: "Debt Service Coverage", weight: 9 },
+  business_stability_score:    { name: "Business Stability", weight: 8 },
+  bread_basket_margin:         { name: "Bread Basket Margin", weight: 8 },
+  psychometric_score:          { name: "Psychometric Assessment", weight: 7 },
   concentration_risk:          { name: "Concentration Risk", weight: 7 },
   income_stability_cv:         { name: "Revenue Stability", weight: 6 },
   social_media_score:          { name: "Digital Footprint", weight: 5 },
   business_years:              { name: "Business Tenure", weight: 5 },
   forex_exposure:              { name: "Forex Exposure", weight: 4 },
-  debt_to_income:              { name: "Leverage Ratio", weight: 4 },
+  debt_to_income:              { name: "Leverage Ratio", weight: 3 },
   collateral_flag:             { name: "Collateral", weight: 2 },
   savings_ratio:               { name: "Liquidity Buffer", weight: 2 },
 };
 
 const WEIGHTS_SME_NO_BUREAU: Record<string, { name: string; weight: number }> = {
-  cashflow_volatility:         { name: "Cash Flow Volatility", weight: 16 },
-  payment_history_score:       { name: "Repayment History", weight: 13 },
-  dscr:                        { name: "Debt Service Coverage", weight: 11 },
-  business_stability_score:    { name: "Business Stability", weight: 11 },
-  psychometric_score:          { name: "Psychometric Assessment", weight: 10 },
-  concentration_risk:          { name: "Concentration Risk", weight: 8 },
+  cashflow_volatility:         { name: "Cash Flow Volatility", weight: 14 },
+  payment_history_score:       { name: "Repayment History", weight: 12 },
+  dscr:                        { name: "Debt Service Coverage", weight: 10 },
+  business_stability_score:    { name: "Business Stability", weight: 10 },
+  bread_basket_margin:         { name: "Bread Basket Margin", weight: 9 },
+  psychometric_score:          { name: "Psychometric Assessment", weight: 9 },
+  concentration_risk:          { name: "Concentration Risk", weight: 7 },
   income_stability_cv:         { name: "Revenue Stability", weight: 7 },
   social_media_score:          { name: "Digital Footprint", weight: 5 },
   business_years:              { name: "Business Tenure", weight: 5 },
-  forex_exposure:              { name: "Forex Exposure", weight: 5 },
-  debt_to_income:              { name: "Leverage Ratio", weight: 4 },
+  forex_exposure:              { name: "Forex Exposure", weight: 4 },
+  debt_to_income:              { name: "Leverage Ratio", weight: 3 },
   collateral_flag:             { name: "Collateral", weight: 3 },
   savings_ratio:               { name: "Liquidity Buffer", weight: 2 },
 };
@@ -602,6 +617,44 @@ function computeForexExposure(extraData: any, app: any): number {
   return -0.5;
 }
 
+function computeBreadBasketMargin(extraData: any, app: any): { margin: number; breakdown: any } {
+  const monthlyIncome = app.monthly_income || app.monthly_revenue || 0;
+  if (monthlyIncome <= 0) return { margin: -0.5, breakdown: null };
+
+  const foodBasket = parseFloat(extraData?.monthly_food_basket) || 0;
+  const transport = parseFloat(extraData?.monthly_transport) || 0;
+  const schoolFees = parseFloat(extraData?.monthly_school_fees) || 0;
+  const health = parseFloat(extraData?.monthly_health) || 0;
+  const rent = app.monthly_rent || 0;
+
+  const totalEssentials = foodBasket + transport + schoolFees + health + rent;
+
+  // If no household expense data was captured at all, return no-data sentinel
+  if (foodBasket === 0 && transport === 0 && schoolFees === 0 && health === 0 && rent === 0) {
+    return { margin: -0.5, breakdown: null };
+  }
+
+  const disposableSurplus = monthlyIncome - totalEssentials;
+  const margin = disposableSurplus / monthlyIncome;
+
+  console.log(`Bread Basket Margin: income=${monthlyIncome}, essentials=${totalEssentials}, surplus=${disposableSurplus}, margin=${(margin * 100).toFixed(1)}%`);
+
+  return {
+    margin,
+    breakdown: {
+      monthly_income: monthlyIncome,
+      food_basket: foodBasket,
+      transport: transport,
+      school_fees: schoolFees,
+      health: health,
+      rent: rent,
+      total_essentials: totalEssentials,
+      disposable_surplus: disposableSurplus,
+      margin_pct: Math.round(margin * 1000) / 10,
+    },
+  };
+}
+
 // ──────────────────────────────────────────────────────────────
 // Main scorecard computation (v2.0 — category-aware)
 // ──────────────────────────────────────────────────────────────
@@ -657,6 +710,7 @@ function runScorecard(input: ScorecardInput) {
   const concRisk = computeConcentrationRisk(extraData);
   const dscrValue = computeDSCR(extraData);
   const forexExp = computeForexExposure(extraData, app);
+  const breadBasket = computeBreadBasketMargin(extraData, app);
 
   // 5. Find WoE bins for each feature
   const featureValues: Record<string, { value: number; bin: WoEBin; woe: number }> = {};
@@ -680,6 +734,7 @@ function runScorecard(input: ScorecardInput) {
   binAndStore("income_stability_cv", incomeStats.has_history ? incomeStats.cv : -0.5);
   binAndStore("business_years", category !== "retail" ? businessYears : 5);
   binAndStore("savings_ratio", savingsRatio);
+  binAndStore("bread_basket_margin", breadBasket.margin);
 
   // Category-specific features
   if (category === "micro" || category === "sme") {
@@ -844,6 +899,7 @@ function runScorecard(input: ScorecardInput) {
     base_score: BASE_SCORE,
     scaling: { pdo: PDO, base_odds: BASE_ODDS, factor: FACTOR, offset: OFFSET },
     bureau_score_used: hasBureauScore,
+    bread_basket: breadBasket.breakdown,
   };
 }
 

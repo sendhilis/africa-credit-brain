@@ -332,14 +332,17 @@ const ApplicationDetail = () => {
       {/* Balance Sheet */}
       {app.borrower?.extra_data && (
         <div className="mb-6">
-          <BalanceSheet
+        <BalanceSheet
             extraData={app.borrower.extra_data}
             currency={app.currency || "ZWL"}
             requestedAmount={app.requested_amount}
+            monthlyIncome={app.monthly_income || app.monthly_revenue}
+            monthlyRent={app.monthly_rent}
             posExtraction={
               documentExtractions.find(e => e.document_type === "pos_statement" && e.extraction_status === "completed")
                 ?.extracted_data || null
             }
+            breadBasketData={(scoreResult?.bread_basket || (scorecardDetail as any)?.bread_basket) ?? null}
           />
         </div>
       )}
