@@ -197,11 +197,12 @@ const WOE_BINS: Record<string, WoEBin[]> = {
 
 // INDIVIDUAL (retail) — focus on personal income, employment, DTI
 const WEIGHTS_RETAIL_BUREAU: Record<string, { name: string; weight: number }> = {
-  bureau_score:           { name: "Credit Bureau Score", weight: 26 },
-  payment_history_score:  { name: "Payment History", weight: 16 },
-  debt_to_income:         { name: "Debt-to-Income Ratio", weight: 13 },
-  income_stability_cv:    { name: "Income Stability", weight: 10 },
-  psychometric_score:     { name: "Psychometric Assessment", weight: 10 },
+  bureau_score:           { name: "Credit Bureau Score", weight: 23 },
+  payment_history_score:  { name: "Payment History", weight: 14 },
+  debt_to_income:         { name: "Debt-to-Income Ratio", weight: 11 },
+  bread_basket_margin:    { name: "Bread Basket Margin", weight: 9 },
+  income_stability_cv:    { name: "Income Stability", weight: 9 },
+  psychometric_score:     { name: "Psychometric Assessment", weight: 9 },
   loan_to_income:         { name: "Loan-to-Income Ratio", weight: 7 },
   savings_ratio:          { name: "Savings Capacity", weight: 6 },
   age:                    { name: "Borrower Age", weight: 4 },
@@ -211,12 +212,13 @@ const WEIGHTS_RETAIL_BUREAU: Record<string, { name: string; weight: number }> = 
 };
 
 const WEIGHTS_RETAIL_NO_BUREAU: Record<string, { name: string; weight: number }> = {
-  payment_history_score:  { name: "Payment History", weight: 22 },
-  debt_to_income:         { name: "Debt-to-Income Ratio", weight: 17 },
-  income_stability_cv:    { name: "Income Stability", weight: 15 },
-  psychometric_score:     { name: "Psychometric Assessment", weight: 12 },
-  loan_to_income:         { name: "Loan-to-Income Ratio", weight: 10 },
-  savings_ratio:          { name: "Savings Capacity", weight: 9 },
+  payment_history_score:  { name: "Payment History", weight: 19 },
+  debt_to_income:         { name: "Debt-to-Income Ratio", weight: 15 },
+  bread_basket_margin:    { name: "Bread Basket Margin", weight: 10 },
+  income_stability_cv:    { name: "Income Stability", weight: 13 },
+  psychometric_score:     { name: "Psychometric Assessment", weight: 11 },
+  loan_to_income:         { name: "Loan-to-Income Ratio", weight: 9 },
+  savings_ratio:          { name: "Savings Capacity", weight: 8 },
   age:                    { name: "Borrower Age", weight: 5 },
   existing_loan_count:    { name: "Existing Obligations", weight: 4 },
   dependents:             { name: "Dependents", weight: 3 },
