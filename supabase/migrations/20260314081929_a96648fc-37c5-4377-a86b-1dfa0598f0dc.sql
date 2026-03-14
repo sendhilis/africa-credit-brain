@@ -1,0 +1,1 @@
+ALTER TABLE public.scorecard_results ADD COLUMN IF NOT EXISTS data_sanity jsonb DEFAULT NULL;
