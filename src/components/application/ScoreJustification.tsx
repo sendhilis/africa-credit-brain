@@ -136,6 +136,7 @@ const ScoreJustification = ({
   woeDetails,
   timeSeriesFeatures,
   aiInsights,
+  dataSanity,
 }: ScoreJustificationProps) => {
   const recConfig = recommendationConfig[recommendation as keyof typeof recommendationConfig] || recommendationConfig.review;
   const RecIcon = recConfig.icon;
