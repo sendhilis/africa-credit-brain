@@ -3,7 +3,8 @@ import { Badge } from "@/components/ui/badge";
 import GlassCard from "@/components/GlassCard";
 import {
   TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle2, XCircle,
-  Activity, BarChart3, Layers, Sparkles, ShieldAlert, ShieldCheck, CircleHelp
+  Activity, BarChart3, Layers, Sparkles, ShieldAlert, ShieldCheck, CircleHelp,
+  SearchCheck, AlertOctagon, Info
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -63,6 +64,21 @@ interface AIInsights {
   error?: string;
 }
 
+interface SanityFlag {
+  check: string;
+  severity: "info" | "warning" | "critical";
+  finding: string;
+  declared_value: string;
+  evidence_value: string;
+  source: string;
+  deviation_pct?: number;
+}
+
+interface DataSanity {
+  flags: SanityFlag[];
+  consistency_score: number;
+}
+
 interface ScoreJustificationProps {
   score: number;
   scoreBand: string;
@@ -76,6 +92,7 @@ interface ScoreJustificationProps {
   woeDetails?: WoEDetail[];
   timeSeriesFeatures?: TimeSeriesFeatures;
   aiInsights?: AIInsights | null;
+  dataSanity?: DataSanity | null;
 }
 
 const impactIcons = {
@@ -119,6 +136,7 @@ const ScoreJustification = ({
   woeDetails,
   timeSeriesFeatures,
   aiInsights,
+  dataSanity,
 }: ScoreJustificationProps) => {
   const recConfig = recommendationConfig[recommendation as keyof typeof recommendationConfig] || recommendationConfig.review;
   const RecIcon = recConfig.icon;
@@ -251,6 +269,16 @@ const ScoreJustification = ({
           {aiInsights && !aiInsights.error && (
             <TabsTrigger value="ai" className="gap-1">
               <Sparkles className="h-3.5 w-3.5" /> AI Insights
+            </TabsTrigger>
+          )}
+          {dataSanity && dataSanity.flags.length > 0 && (
+            <TabsTrigger value="sanity" className="gap-1">
+              <SearchCheck className="h-3.5 w-3.5" /> Data Sanity
+              {dataSanity.flags.filter(f => f.severity === "critical" || f.severity === "warning").length > 0 && (
+                <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-[10px]">
+                  {dataSanity.flags.filter(f => f.severity === "critical" || f.severity === "warning").length}
+                </Badge>
+              )}
             </TabsTrigger>
           )}
         </TabsList>
@@ -476,6 +504,132 @@ const ScoreJustification = ({
                   </div>
                 </GlassCard>
               )}
+            </div>
+          </TabsContent>
+        )}
+
+        {/* Data Sanity / Consistency Checks */}
+        {dataSanity && dataSanity.flags.length > 0 && (
+          <TabsContent value="sanity">
+            <div className="space-y-4">
+              {/* Consistency Score Header */}
+              <GlassCard hover={false}>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-display text-lg font-semibold text-foreground flex items-center gap-2">
+                    <SearchCheck className="h-5 w-5 text-primary" /> Data Consistency Analysis
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Consistency Score</span>
+                    <span className={`font-display text-2xl font-bold ${
+                      dataSanity.consistency_score >= 80 ? "text-success" :
+                      dataSanity.consistency_score >= 50 ? "text-warning" : "text-destructive"
+                    }`}>
+                      {dataSanity.consistency_score}/100
+                    </span>
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Cross-referencing declared data against POS statements, bank statements, mobile money records, and computed indicators to detect inconsistencies or potential data falsification.
+                </p>
+                <div className="mt-3 grid grid-cols-3 gap-3">
+                  <div className="p-2 rounded-lg bg-destructive/10 border border-destructive/20 text-center">
+                    <p className="font-display text-xl font-bold text-destructive">
+                      {dataSanity.flags.filter(f => f.severity === "critical").length}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Critical</p>
+                  </div>
+                  <div className="p-2 rounded-lg bg-warning/10 border border-warning/20 text-center">
+                    <p className="font-display text-xl font-bold text-warning">
+                      {dataSanity.flags.filter(f => f.severity === "warning").length}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Warnings</p>
+                  </div>
+                  <div className="p-2 rounded-lg bg-success/10 border border-success/20 text-center">
+                    <p className="font-display text-xl font-bold text-success">
+                      {dataSanity.flags.filter(f => f.severity === "info").length}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Verified</p>
+                  </div>
+                </div>
+              </GlassCard>
+
+              {/* Flags List */}
+              <GlassCard hover={false}>
+                <div className="space-y-3">
+                  {dataSanity.flags
+                    .sort((a, b) => {
+                      const order = { critical: 0, warning: 1, info: 2 };
+                      return order[a.severity] - order[b.severity];
+                    })
+                    .map((flag, i) => {
+                      const severityConfig = {
+                        critical: {
+                          icon: AlertOctagon,
+                          bg: "bg-destructive/10 border-destructive/20",
+                          iconColor: "text-destructive",
+                          label: "CRITICAL",
+                          labelColor: "bg-destructive text-destructive-foreground",
+                        },
+                        warning: {
+                          icon: AlertTriangle,
+                          bg: "bg-warning/10 border-warning/20",
+                          iconColor: "text-warning",
+                          label: "WARNING",
+                          labelColor: "bg-warning text-warning-foreground",
+                        },
+                        info: {
+                          icon: CheckCircle2,
+                          bg: "bg-success/10 border-success/20",
+                          iconColor: "text-success",
+                          label: "VERIFIED",
+                          labelColor: "bg-success text-success-foreground",
+                        },
+                      };
+                      const config = severityConfig[flag.severity];
+                      const FlagIcon = config.icon;
+
+                      return (
+                        <div key={i} className={`p-3 rounded-lg border ${config.bg}`}>
+                          <div className="flex items-start gap-3">
+                            <FlagIcon className={`h-5 w-5 mt-0.5 flex-shrink-0 ${config.iconColor}`} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="font-medium text-sm text-foreground">{flag.check}</span>
+                                <Badge className={`text-[10px] px-1.5 py-0 ${config.labelColor}`}>
+                                  {config.label}
+                                </Badge>
+                                {flag.deviation_pct !== undefined && (
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                    {flag.deviation_pct}% deviation
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-sm text-foreground/80 mb-2">{flag.finding}</p>
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                                <div>
+                                  <span className="text-muted-foreground">Declared: </span>
+                                  <span className="font-medium text-foreground">{flag.declared_value}</span>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">Evidence: </span>
+                                  <span className="font-medium text-foreground">{flag.evidence_value}</span>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">Source: </span>
+                                  <span className="font-medium text-foreground">{flag.source}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </GlassCard>
+
+              <div className="text-[10px] text-muted-foreground px-1">
+                💡 <strong>Inherent Intelligence:</strong> The scoring model automatically cross-references all declared data points against documentary evidence (POS/Till statements, bank statements, EcoCash/mobile money records) to detect inconsistencies. Critical flags indicate high-confidence data discrepancies that require investigation before approval.
+              </div>
             </div>
           </TabsContent>
         )}

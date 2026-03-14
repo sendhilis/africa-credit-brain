@@ -656,6 +656,317 @@ function computeBreadBasketMargin(extraData: any, app: any): { margin: number; b
 }
 
 // ──────────────────────────────────────────────────────────────
+// Data Sanity / Consistency Checks — Inherent Intelligence
+// Cross-references declared data against extracted/computed data
+// to detect potential falsification or inconsistencies
+// ──────────────────────────────────────────────────────────────
+
+interface SanityFlag {
+  check: string;
+  severity: "info" | "warning" | "critical";
+  finding: string;
+  declared_value: string;
+  evidence_value: string;
+  source: string;
+  deviation_pct?: number;
+}
+
+function runDataSanityChecks(
+  app: any,
+  borrower: any,
+  extraData: any,
+  ocrExtractions: any[],
+  breadBasketBreakdown: any,
+  businessStability: number,
+  paymentStats: any,
+  incomeStats: any,
+): { flags: SanityFlag[]; consistency_score: number } {
+  const flags: SanityFlag[] = [];
+
+  const declaredIncome = app.monthly_income || app.monthly_revenue || 0;
+  const declaredExpenses = (app.monthly_expenses || 0) + (app.monthly_rent || 0);
+
+  // ── 1. Declared Income vs POS Turnover ──
+  const posExtraction = ocrExtractions.find((e: any) => e.document_type === "pos_statement" && e.extraction_status === "completed");
+  if (posExtraction?.extracted_data && declaredIncome > 0) {
+    const posData = posExtraction.extracted_data;
+    const posPeriod = posData.statement_period;
+    let posMonthly = posData.average_monthly_income || posData.total_credits || 0;
+    if (posPeriod?.start_date && posPeriod?.end_date) {
+      const days = Math.max(1, Math.round((new Date(posPeriod.end_date).getTime() - new Date(posPeriod.start_date).getTime()) / 86400000) + 1);
+      if (days < 30 && posData.total_credits) {
+        posMonthly = Math.round((posData.total_credits / days) * 30);
+      }
+    }
+    if (posMonthly > 0) {
+      const deviation = Math.abs(declaredIncome - posMonthly) / declaredIncome;
+      if (deviation > 0.5) {
+        flags.push({
+          check: "Income vs POS Turnover",
+          severity: deviation > 1.0 ? "critical" : "warning",
+          finding: declaredIncome > posMonthly
+            ? `Declared income is ${(deviation * 100).toFixed(0)}% higher than POS-verified turnover. Possible income inflation.`
+            : `POS turnover exceeds declared income by ${(deviation * 100).toFixed(0)}%. Possible under-reporting or multiple revenue streams.`,
+          declared_value: `${app.currency || ""} ${declaredIncome.toLocaleString()}`,
+          evidence_value: `${app.currency || ""} ${posMonthly.toLocaleString()} (POS)`,
+          source: "POS Statement",
+          deviation_pct: Math.round(deviation * 100),
+        });
+      } else {
+        flags.push({
+          check: "Income vs POS Turnover",
+          severity: "info",
+          finding: `Declared income is consistent with POS turnover (${(deviation * 100).toFixed(0)}% deviation). Data corroborated.`,
+          declared_value: `${app.currency || ""} ${declaredIncome.toLocaleString()}`,
+          evidence_value: `${app.currency || ""} ${posMonthly.toLocaleString()} (POS)`,
+          source: "POS Statement",
+          deviation_pct: Math.round(deviation * 100),
+        });
+      }
+    }
+  }
+
+  // ── 2. Declared Income vs Bank Statement ──
+  const bankExtraction = ocrExtractions.find((e: any) => e.document_type === "bank_statement" && e.extraction_status === "completed");
+  if (bankExtraction?.extracted_data && declaredIncome > 0) {
+    const bankIncome = bankExtraction.extracted_data.average_monthly_income || 0;
+    if (bankIncome > 0) {
+      const deviation = Math.abs(declaredIncome - bankIncome) / declaredIncome;
+      if (deviation > 0.4) {
+        flags.push({
+          check: "Income vs Bank Statement",
+          severity: deviation > 0.8 ? "critical" : "warning",
+          finding: declaredIncome > bankIncome
+            ? `Declared income exceeds bank-verified income by ${(deviation * 100).toFixed(0)}%. Possible overstatement.`
+            : `Bank statement shows higher income than declared (${(deviation * 100).toFixed(0)}% gap). Possible under-declaration.`,
+          declared_value: `${app.currency || ""} ${declaredIncome.toLocaleString()}`,
+          evidence_value: `${app.currency || ""} ${bankIncome.toLocaleString()} (Bank)`,
+          source: "Bank Statement",
+          deviation_pct: Math.round(deviation * 100),
+        });
+      } else {
+        flags.push({
+          check: "Income vs Bank Statement",
+          severity: "info",
+          finding: `Declared income aligns with bank statement deposits (${(deviation * 100).toFixed(0)}% deviation).`,
+          declared_value: `${app.currency || ""} ${declaredIncome.toLocaleString()}`,
+          evidence_value: `${app.currency || ""} ${bankIncome.toLocaleString()} (Bank)`,
+          source: "Bank Statement",
+          deviation_pct: Math.round(deviation * 100),
+        });
+      }
+    }
+  }
+
+  // ── 3. Balance Sheet Strength vs Business Activity ──
+  // A healthy balance sheet (high savings, assets) should correlate with actual business activity
+  const totalSavings = parseFloat(extraData?.total_savings) || 0;
+  const stockValue = parseFloat(extraData?.stock_value_estimate) || 0;
+  const equipmentValue = parseFloat(extraData?.equipment_tools_value) || 0;
+  const totalDeclaredAssets = totalSavings + stockValue + equipmentValue;
+
+  if (totalDeclaredAssets > 0 && declaredIncome > 0) {
+    // Assets-to-income ratio check: if declared assets are very high relative to income, suspicious
+    const assetIncomeRatio = totalDeclaredAssets / (declaredIncome * 12);
+    if (assetIncomeRatio > 5) {
+      flags.push({
+        check: "Asset-to-Income Plausibility",
+        severity: assetIncomeRatio > 10 ? "critical" : "warning",
+        finding: `Declared assets (${assetIncomeRatio.toFixed(1)}x annual income) appear disproportionately high. May indicate inflated asset values.`,
+        declared_value: `${app.currency || ""} ${totalDeclaredAssets.toLocaleString()} (total assets)`,
+        evidence_value: `${app.currency || ""} ${(declaredIncome * 12).toLocaleString()} (annual income)`,
+        source: "Balance Sheet vs Income",
+        deviation_pct: Math.round((assetIncomeRatio - 1) * 100),
+      });
+    }
+
+    // If POS data exists and shows low turnover but balance sheet is very strong
+    if (posExtraction?.extracted_data?.total_credits) {
+      const posTurnover = posExtraction.extracted_data.total_credits;
+      if (totalDeclaredAssets > posTurnover * 3 && totalDeclaredAssets > declaredIncome * 6) {
+        flags.push({
+          check: "Balance Sheet vs POS Activity",
+          severity: "warning",
+          finding: `Strong balance sheet (${app.currency || ""} ${totalDeclaredAssets.toLocaleString()}) but POS activity is relatively low. Declared assets may not reflect operational reality.`,
+          declared_value: `${app.currency || ""} ${totalDeclaredAssets.toLocaleString()} (assets)`,
+          evidence_value: `${app.currency || ""} ${posTurnover.toLocaleString()} (POS credits)`,
+          source: "Balance Sheet vs POS",
+        });
+      }
+    }
+  }
+
+  // ── 4. Bread Basket Plausibility ──
+  if (breadBasketBreakdown) {
+    const { monthly_income, total_essentials, margin_pct } = breadBasketBreakdown;
+    
+    // Extremely low essentials relative to income — suspicious
+    if (margin_pct > 90 && monthly_income > 0) {
+      flags.push({
+        check: "Bread Basket Plausibility",
+        severity: "warning",
+        finding: `Reported essential expenses are only ${(100 - margin_pct).toFixed(1)}% of income. Household expenses appear unrealistically low — possible under-reporting of costs.`,
+        declared_value: `${app.currency || ""} ${total_essentials.toLocaleString()} (essentials)`,
+        evidence_value: `${app.currency || ""} ${monthly_income.toLocaleString()} (income)`,
+        source: "Bread Basket Margin",
+      });
+    }
+
+    // Zero rent declared but business is in formal premises
+    const premisesType = extraData?.premises_type;
+    if ((app.monthly_rent || 0) === 0 && premisesType && premisesType.includes("rented")) {
+      flags.push({
+        check: "Rent Consistency",
+        severity: "warning",
+        finding: `Zero rent declared but premises are listed as "${premisesType}". Expected non-zero rent expense.`,
+        declared_value: "ZWL 0 (declared rent)",
+        evidence_value: `Premises: ${premisesType}`,
+        source: "Application vs Business Profile",
+      });
+    }
+  }
+
+  // ── 5. Business Years vs Stability Indicators ──
+  const businessYears = borrower?.years_in_operation || parseFloat(extraData?.years_trading) || 0;
+  if (businessYears > 5 && businessStability >= 0 && businessStability < 0.3) {
+    flags.push({
+      check: "Business Tenure vs Stability",
+      severity: "warning",
+      finding: `Claims ${businessYears} years in operation but business stability score is very low (${(businessStability * 100).toFixed(0)}%). Long-tenured businesses typically show stronger stability indicators.`,
+      declared_value: `${businessYears} years`,
+      evidence_value: `Stability: ${(businessStability * 100).toFixed(0)}%`,
+      source: "Business Profile",
+    });
+  }
+
+  // ── 6. Savings vs Income Consistency ──
+  if (totalSavings > 0 && declaredIncome > 0) {
+    const savingsToIncome = totalSavings / declaredIncome;
+    // Very high savings relative to monthly income without corresponding high income stability
+    if (savingsToIncome > 12 && incomeStats.has_history && incomeStats.cv > 0.5) {
+      flags.push({
+        check: "Savings vs Income Volatility",
+        severity: "warning",
+        finding: `High declared savings (${savingsToIncome.toFixed(0)}x monthly income) but income is highly volatile (CV: ${(incomeStats.cv * 100).toFixed(0)}%). Difficult to accumulate such savings with unstable income.`,
+        declared_value: `${app.currency || ""} ${totalSavings.toLocaleString()} (savings)`,
+        evidence_value: `Income CV: ${(incomeStats.cv * 100).toFixed(0)}%`,
+        source: "Savings vs Income History",
+      });
+    }
+  }
+
+  // ── 7. Declared Expenses vs Dependents Plausibility ──
+  if (app.dependents > 0 && declaredExpenses > 0 && declaredIncome > 0) {
+    const expensePerDependent = declaredExpenses / (1 + app.dependents);
+    // Extremely low per-person expenses in context
+    if (expensePerDependent < declaredIncome * 0.03 && app.dependents >= 3) {
+      flags.push({
+        check: "Expenses vs Dependents",
+        severity: "warning",
+        finding: `${app.dependents} dependents declared but per-person expenses (${app.currency || ""} ${Math.round(expensePerDependent).toLocaleString()}) seem very low relative to income. Possible expense under-reporting.`,
+        declared_value: `${app.dependents} dependents, ${app.currency || ""} ${declaredExpenses.toLocaleString()} total expenses`,
+        evidence_value: `${app.currency || ""} ${Math.round(expensePerDependent).toLocaleString()} per person`,
+        source: "Expense Analysis",
+      });
+    }
+  }
+
+  // ── 8. EcoCash / Mobile Money Cross-Check ──
+  const ecocashExtraction = ocrExtractions.find((e: any) =>
+    (e.document_type === "ecocash_statement" || e.document_type === "mobile_money") && e.extraction_status === "completed"
+  );
+  if (ecocashExtraction?.extracted_data && declaredIncome > 0) {
+    const mobileIncome = ecocashExtraction.extracted_data.average_monthly_income || ecocashExtraction.extracted_data.total_credits || 0;
+    if (mobileIncome > 0) {
+      const deviation = Math.abs(declaredIncome - mobileIncome) / declaredIncome;
+      if (deviation > 0.6) {
+        flags.push({
+          check: "Income vs Mobile Money",
+          severity: deviation > 1.0 ? "critical" : "warning",
+          finding: `Declared income diverges from EcoCash/mobile money activity by ${(deviation * 100).toFixed(0)}%. ${
+            declaredIncome > mobileIncome ? "Lower mobile money activity than expected for declared income level." : "Higher mobile money activity suggests undeclared income."
+          }`,
+          declared_value: `${app.currency || ""} ${declaredIncome.toLocaleString()}`,
+          evidence_value: `${app.currency || ""} ${mobileIncome.toLocaleString()} (Mobile Money)`,
+          source: "EcoCash/Mobile Money Statement",
+          deviation_pct: Math.round(deviation * 100),
+        });
+      } else {
+        flags.push({
+          check: "Income vs Mobile Money",
+          severity: "info",
+          finding: `Mobile money activity is consistent with declared income (${(deviation * 100).toFixed(0)}% deviation).`,
+          declared_value: `${app.currency || ""} ${declaredIncome.toLocaleString()}`,
+          evidence_value: `${app.currency || ""} ${mobileIncome.toLocaleString()} (Mobile Money)`,
+          source: "EcoCash/Mobile Money Statement",
+          deviation_pct: Math.round(deviation * 100),
+        });
+      }
+    }
+  }
+
+  // ── 9. Cross-Source Income Triangulation ──
+  // If we have 2+ income sources, check they're mutually consistent
+  const incomeSources: { source: string; value: number }[] = [];
+  if (declaredIncome > 0) incomeSources.push({ source: "Declared", value: declaredIncome });
+  if (posExtraction?.extracted_data?.total_credits) {
+    const pd = posExtraction.extracted_data;
+    let posMonthly = pd.average_monthly_income || pd.total_credits;
+    if (pd.statement_period?.start_date && pd.statement_period?.end_date) {
+      const days = Math.max(1, Math.round((new Date(pd.statement_period.end_date).getTime() - new Date(pd.statement_period.start_date).getTime()) / 86400000) + 1);
+      if (days < 30) posMonthly = Math.round((pd.total_credits / days) * 30);
+    }
+    incomeSources.push({ source: "POS", value: posMonthly });
+  }
+  if (bankExtraction?.extracted_data?.average_monthly_income) {
+    incomeSources.push({ source: "Bank", value: bankExtraction.extracted_data.average_monthly_income });
+  }
+  if (ecocashExtraction?.extracted_data?.average_monthly_income) {
+    incomeSources.push({ source: "Mobile Money", value: ecocashExtraction.extracted_data.average_monthly_income });
+  }
+
+  if (incomeSources.length >= 3) {
+    const values = incomeSources.map(s => s.value);
+    const mean = values.reduce((a, b) => a + b, 0) / values.length;
+    const maxDev = Math.max(...values.map(v => Math.abs(v - mean) / mean));
+    if (maxDev > 0.5) {
+      flags.push({
+        check: "Multi-Source Income Triangulation",
+        severity: maxDev > 1.0 ? "critical" : "warning",
+        finding: `Income reported across ${incomeSources.length} sources shows significant dispersion (max ${(maxDev * 100).toFixed(0)}% from mean). Sources: ${incomeSources.map(s => `${s.source}: ${app.currency || ""} ${s.value.toLocaleString()}`).join(", ")}. Investigate root cause.`,
+        declared_value: incomeSources.map(s => `${s.source}: ${s.value.toLocaleString()}`).join(", "),
+        evidence_value: `Mean: ${app.currency || ""} ${Math.round(mean).toLocaleString()}`,
+        source: "Cross-Source Analysis",
+        deviation_pct: Math.round(maxDev * 100),
+      });
+    } else {
+      flags.push({
+        check: "Multi-Source Income Triangulation",
+        severity: "info",
+        finding: `Income is consistent across ${incomeSources.length} independent sources (max ${(maxDev * 100).toFixed(0)}% deviation). Strong data corroboration.`,
+        declared_value: incomeSources.map(s => `${s.source}: ${s.value.toLocaleString()}`).join(", "),
+        evidence_value: `Mean: ${app.currency || ""} ${Math.round(mean).toLocaleString()}`,
+        source: "Cross-Source Analysis",
+        deviation_pct: Math.round(maxDev * 100),
+      });
+    }
+  }
+
+  // ── Compute overall consistency score ──
+  const criticalCount = flags.filter(f => f.severity === "critical").length;
+  const warningCount = flags.filter(f => f.severity === "warning").length;
+  const infoCount = flags.filter(f => f.severity === "info").length;
+  const totalChecks = flags.length || 1;
+  const consistencyScore = Math.max(0, Math.min(100,
+    100 - (criticalCount * 30) - (warningCount * 12) + (infoCount * 3)
+  ));
+
+  console.log(`Data Sanity: ${criticalCount} critical, ${warningCount} warnings, ${infoCount} info → consistency score ${consistencyScore}`);
+
+  return { flags, consistency_score: consistencyScore };
+}
+
+// ──────────────────────────────────────────────────────────────
 // Main scorecard computation (v2.0 — category-aware)
 // ──────────────────────────────────────────────────────────────
 
@@ -1088,6 +1399,22 @@ serve(async (req) => {
       incomeHistory: (incomeRes.data || []) as IncomeRecord[],
     });
 
+    // ── Data Sanity / Consistency Checks ──
+    const businessStabilityVal = computeBusinessStability(borrower, borrower?.extra_data || {});
+    const paymentStatsVal = computePaymentHistoryScore((paymentRes.data || []) as PaymentRecord[]);
+    const incomeStatsVal = computeIncomeStability((incomeRes.data || []) as IncomeRecord[]);
+    const dataSanity = runDataSanityChecks(
+      app,
+      borrower,
+      borrower?.extra_data || {},
+      ocrExtractions,
+      result.bread_basket,
+      businessStabilityVal,
+      paymentStatsVal,
+      incomeStatsVal,
+    );
+    console.log(`Data Sanity Checks completed: ${dataSanity.flags.length} flags, consistency=${dataSanity.consistency_score}`);
+
     // ── AI Insights Layer ──────────────────────────────────────
     let aiInsights = null;
     try {
@@ -1122,6 +1449,11 @@ ${app.product_category !== "retail" ? `- Business: ${borrower?.business_name || 
 
 OCR DOCUMENT EXTRACTIONS:
 ${ocrExtractions.length > 0 ? ocrExtractions.map((e: any) => `- ${e.document_type}: ${JSON.stringify(e.extracted_data)}`).join("\n") : "No OCR extractions available"}
+
+DATA SANITY / CONSISTENCY CHECKS (Consistency Score: ${dataSanity.consistency_score}/100):
+${dataSanity.flags.length > 0 ? dataSanity.flags.map((f: any) => `- [${f.severity.toUpperCase()}] ${f.check}: ${f.finding} (Declared: ${f.declared_value}, Evidence: ${f.evidence_value}, Source: ${f.source})`).join("\n") : "No inconsistencies detected — all data points are internally consistent."}
+
+IMPORTANT: Pay special attention to the data sanity flags above. If there are WARNING or CRITICAL flags, these indicate potential data falsification or inconsistencies between what the borrower declared and what the documentary evidence shows. Factor these into your risk assessment and flag them prominently.
 
 Use the provide_insights tool to return your analysis.`;
 
@@ -1247,13 +1579,14 @@ Use the provide_insights tool to return your analysis.`;
           summary: result.summary,
           ai_insights: aiInsights,
           bread_basket: result.bread_basket || null,
+          data_sanity: dataSanity,
         }),
     ]);
 
     if (updateRes.error) throw updateRes.error;
     if (insertRes.error) console.error("Scorecard result insert error:", insertRes.error);
 
-    return new Response(JSON.stringify({ success: true, ...result, ai_insights: aiInsights }), {
+    return new Response(JSON.stringify({ success: true, ...result, ai_insights: aiInsights, data_sanity: dataSanity }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {

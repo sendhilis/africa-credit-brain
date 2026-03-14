@@ -615,6 +615,7 @@ export type Database = {
           application_id: string
           base_score: number
           bread_basket: Json | null
+          data_sanity: Json | null
           feature_contributions: Json
           final_score: number
           id: string
@@ -632,6 +633,7 @@ export type Database = {
           application_id: string
           base_score: number
           bread_basket?: Json | null
+          data_sanity?: Json | null
           feature_contributions?: Json
           final_score: number
           id?: string
@@ -649,6 +651,7 @@ export type Database = {
           application_id?: string
           base_score?: number
           bread_basket?: Json | null
+          data_sanity?: Json | null
           feature_contributions?: Json
           final_score?: number
           id?: string
