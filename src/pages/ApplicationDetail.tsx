@@ -66,6 +66,7 @@ interface FullApplication {
     sector: string | null;
     years_in_operation: number | null;
     employees: number | null;
+    extra_data: Record<string, any> | null;
   } | null;
 }
 
