@@ -1579,6 +1579,7 @@ Use the provide_insights tool to return your analysis.`;
           summary: result.summary,
           ai_insights: aiInsights,
           bread_basket: result.bread_basket || null,
+          data_sanity: dataSanity,
         }),
     ]);
 
