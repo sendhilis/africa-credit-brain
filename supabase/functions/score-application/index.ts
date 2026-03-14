@@ -1438,20 +1438,45 @@ serve(async (req) => {
         }
       }
 
-      // EcoCash expenses
+      // EcoCash expenses — for traders, debits are mostly COGS (supplier payments), not personal expenses
+      // Only use non-supplier debits for expense enrichment to avoid inflating DTI
       const rawEcoExpenses = ed.total_debits || ed.average_monthly_expenses || 0;
-      if (rawEcoExpenses > 0) {
-        const normalizedEcoExpenses = ecoPeriodDays < 30
-          ? Math.round((rawEcoExpenses / ecoPeriodDays) * 30 * ecoConfDiscount)
-          : Math.round(rawEcoExpenses * ecoConfDiscount);
-        // Supplement expenses — EcoCash debits often include supplier payments
-        if (!app.monthly_expenses || app.monthly_expenses === 0) {
-          app.monthly_expenses = normalizedEcoExpenses;
-        } else if (normalizedEcoExpenses > app.monthly_expenses) {
-          // Use higher expenses for conservative assessment
-          app.monthly_expenses = normalizedEcoExpenses;
-          console.log(`Updated monthly_expenses from EcoCash: ${normalizedEcoExpenses}`);
+      if (rawEcoExpenses > 0 && ed.recurring_obligations) {
+        // Separate personal/household expenses from business supplier payments
+        const supplierKeywords = ["supplier", "wholesale", "stock", "produce", "cooking oil", "beverages", "sugar", "rice", "groceries", "maize"];
+        const bankTransferKeywords = ["ecocash to bank", "bank transfer"];
+        
+        let personalExpenses = 0;
+        let businessCOGS = 0;
+        for (const ob of ed.recurring_obligations) {
+          const desc = (ob.description || "").toLowerCase();
+          const isSupplier = supplierKeywords.some(kw => desc.includes(kw));
+          const isBankTransfer = bankTransferKeywords.some(kw => desc.includes(kw));
+          if (isSupplier || isBankTransfer) {
+            businessCOGS += ob.amount || 0;
+          } else {
+            personalExpenses += ob.amount || 0;
+          }
         }
+        
+        // Normalize personal expenses by period
+        const normalizedPersonalExpenses = ecoPeriodDays < 30
+          ? Math.round((personalExpenses / ecoPeriodDays) * 30 * ecoConfDiscount)
+          : Math.round(personalExpenses * ecoConfDiscount);
+        
+        console.log(`EcoCash expense split: personal=${personalExpenses}, COGS=${businessCOGS}, normalized personal=${normalizedPersonalExpenses}`);
+        
+        // Only use personal expenses for DTI (not business COGS)
+        if (normalizedPersonalExpenses > 0 && (!app.monthly_expenses || app.monthly_expenses === 0)) {
+          app.monthly_expenses = normalizedPersonalExpenses;
+          console.log(`Set monthly_expenses from EcoCash (personal only): ${normalizedPersonalExpenses}`);
+        }
+        
+        // Store COGS separately for business analysis
+        const extraData2 = borrower?.extra_data || {};
+        extraData2._ecocash_business_cogs = businessCOGS;
+        extraData2._ecocash_personal_expenses = personalExpenses;
+        if (borrower) borrower.extra_data = extraData2;
       }
 
       // Enrich borrower extra_data with EcoCash signals
