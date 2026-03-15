@@ -14,6 +14,7 @@ import {
   Send, Banknote, User, Building2, FileText, Shield, Clock
 } from "lucide-react";
 import AdditionalDocumentUpload from "@/components/application/AdditionalDocumentUpload";
+import GraceChat from "@/components/application/GraceChat";
 
 type AppStatus = "draft" | "submitted" | "review" | "approved" | "declined" | "disbursed";
 
