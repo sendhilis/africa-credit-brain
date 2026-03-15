@@ -1,19 +1,28 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Send, Bot, User, Loader2, Sparkles, X, MessageCircle } from "lucide-react";
+import { Send, Bot, User, Loader2, Sparkles, X, MessageCircle, History, Plus } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
 }
 
+interface ChatSession {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+}
+
 interface GraceChatProps {
+  applicationId: string;
   applicationContext: {
     appCode: string;
     borrowerName: string;
@@ -46,17 +55,22 @@ interface GraceChatProps {
 
 const GRACE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/grace-assistant`;
 
-const GraceChat = ({ applicationContext }: GraceChatProps) => {
+const WELCOME_MESSAGE = (ctx: GraceChatProps["applicationContext"]): Message => ({
+  role: "assistant",
+  content: `👋 Mhoro! I'm **Grace**, your Credit Scoring Assistant.\n\nI'm fully trained on the scoring model and I have complete context on **${ctx.appCode}** for **${ctx.borrowerName}**.\n\nAsk me anything about:\n- 📊 Why this score was given\n- 🔍 What each factor means\n- 💡 How to improve the score\n- ⚠️ Risk flags and data concerns\n- 📋 Model policies and thresholds\n\nI speak **English**, **Shona**, and **Ndebele** — feel free to ask in any language! 🇿🇼`,
+});
+
+const GraceChat = ({ applicationId, applicationContext }: GraceChatProps) => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "assistant",
-      content: `👋 Mhoro! I'm **Grace**, your Credit Scoring Assistant.\n\nI'm fully trained on the scoring model and I have complete context on **${applicationContext.appCode}** for **${applicationContext.borrowerName}**.\n\nAsk me anything about:\n- 📊 Why this score was given\n- 🔍 What each factor means\n- 💡 How to improve the score\n- ⚠️ Risk flags and data concerns\n- 📋 Model policies and thresholds\n\nI speak **English**, **Shona**, and **Ndebele** — feel free to ask in any language! 🇿🇼`,
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE(applicationContext)]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -64,6 +78,92 @@ const GraceChat = ({ applicationContext }: GraceChatProps) => {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Load existing sessions for this application
+  const loadSessions = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("grace_chat_sessions")
+      .select("id, title, created_at, updated_at")
+      .eq("application_id", applicationId)
+      .eq("user_id", user.id)
+      .order("updated_at", { ascending: false });
+    if (data) setSessions(data);
+  }, [applicationId, user]);
+
+  // Load on open
+  useEffect(() => {
+    if (isOpen) loadSessions();
+  }, [isOpen, loadSessions]);
+
+  // Load a specific session's messages
+  const loadSession = async (sid: string) => {
+    setLoadingHistory(true);
+    const { data } = await supabase
+      .from("grace_chat_messages")
+      .select("role, content")
+      .eq("session_id", sid)
+      .order("created_at", { ascending: true });
+    if (data && data.length > 0) {
+      setMessages(data.map((m: any) => ({ role: m.role, content: m.content })));
+    } else {
+      setMessages([WELCOME_MESSAGE(applicationContext)]);
+    }
+    setSessionId(sid);
+    setShowHistory(false);
+    setLoadingHistory(false);
+  };
+
+  // Create a new session
+  const createSession = async (firstUserMessage: string): Promise<string | null> => {
+    if (!user) return null;
+    // Get institution_id from profile
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("institution_id")
+      .eq("user_id", user.id)
+      .single();
+    if (!profile?.institution_id) return null;
+
+    const title = firstUserMessage.length > 60
+      ? firstUserMessage.slice(0, 57) + "..."
+      : firstUserMessage;
+
+    const { data, error } = await supabase
+      .from("grace_chat_sessions")
+      .insert({
+        application_id: applicationId,
+        institution_id: profile.institution_id,
+        user_id: user.id,
+        title,
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      console.error("Failed to create session:", error);
+      return null;
+    }
+    return data.id;
+  };
+
+  // Save a message to DB
+  const saveMessage = async (sid: string, role: string, content: string) => {
+    await supabase.from("grace_chat_messages").insert({
+      session_id: sid,
+      role,
+      content,
+    });
+    // Update session updated_at
+    await supabase.from("grace_chat_sessions").update({ updated_at: new Date().toISOString() }).eq("id", sid);
+  };
+
+  // Start a new chat
+  const startNewChat = () => {
+    setSessionId(null);
+    setMessages([WELCOME_MESSAGE(applicationContext)]);
+    setShowHistory(false);
+  };
 
   const sendMessage = async () => {
     if (!input.trim() || isStreaming) return;
@@ -73,9 +173,22 @@ const GraceChat = ({ applicationContext }: GraceChatProps) => {
     setInput("");
     setIsStreaming(true);
 
+    let currentSessionId = sessionId;
     let assistantContent = "";
 
     try {
+      // Create session on first user message if needed
+      if (!currentSessionId) {
+        currentSessionId = await createSession(userMsg.content);
+        if (!currentSessionId) throw new Error("Failed to create chat session");
+        setSessionId(currentSessionId);
+        // Save the welcome message first
+        await saveMessage(currentSessionId, "assistant", messages[0].content);
+      }
+
+      // Save user message
+      await saveMessage(currentSessionId, "user", userMsg.content);
+
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
       if (!token) throw new Error("Not authenticated");
@@ -136,6 +249,11 @@ const GraceChat = ({ applicationContext }: GraceChatProps) => {
           }
         }
       }
+
+      // Save the completed assistant message
+      if (assistantContent && currentSessionId) {
+        await saveMessage(currentSessionId, "assistant", assistantContent);
+      }
     } catch (e: any) {
       console.error("Grace chat error:", e);
       toast({ title: "Grace Error", description: e.message, variant: "destructive" });
@@ -145,6 +263,7 @@ const GraceChat = ({ applicationContext }: GraceChatProps) => {
       ]);
     } finally {
       setIsStreaming(false);
+      loadSessions(); // Refresh session list
     }
   };
 
@@ -172,6 +291,11 @@ const GraceChat = ({ applicationContext }: GraceChatProps) => {
           </span>
         </div>
         <span className="font-medium text-sm">Ask Grace</span>
+        {sessions.length > 0 && (
+          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+            {sessions.length}
+          </Badge>
+        )}
       </button>
     );
   }
@@ -192,78 +316,132 @@ const GraceChat = ({ applicationContext }: GraceChatProps) => {
           <h3 className="text-sm font-semibold text-foreground">Grace — Score Assistant</h3>
           <p className="text-[10px] text-muted-foreground">EN · Shona · Ndebele · Analyzing {applicationContext.appCode}</p>
         </div>
-        <Badge variant="outline" className="bg-success/10 text-success border-success/30 text-[10px]">
-          Online
-        </Badge>
+        <button
+          onClick={() => setShowHistory(!showHistory)}
+          className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors relative"
+          title="Chat History"
+        >
+          <History className="h-4 w-4" />
+          {sessions.length > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-primary text-[8px] text-primary-foreground font-bold">
+              {sessions.length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={startNewChat}
+          className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+          title="New Chat"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
         <button onClick={() => setIsOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors">
           <X className="h-4 w-4" />
         </button>
       </div>
 
-      {/* Messages */}
-      <ScrollArea className="flex-1 p-4" ref={scrollRef}>
-        <div className="space-y-4">
-          {messages.map((msg, i) => (
-            <div key={i} className={`flex gap-2.5 ${msg.role === "user" ? "justify-end" : ""}`}>
-              {msg.role === "assistant" && (
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/15 mt-0.5">
-                  <Bot className="h-3.5 w-3.5 text-primary" />
-                </div>
-              )}
-              <div
-                className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                  msg.role === "user"
-                    ? "bg-primary text-primary-foreground rounded-br-md"
-                    : "bg-muted/40 text-foreground rounded-bl-md"
-                }`}
-              >
-                {msg.role === "assistant" ? (
-                  <div className="prose prose-sm max-w-none [&>p]:mb-2 [&>ul]:mb-2 [&>h1]:text-base [&>h2]:text-sm [&>h3]:text-sm [&_strong]:text-foreground [&_a]:text-primary">
-                    <ReactMarkdown>{msg.content}</ReactMarkdown>
-                  </div>
-                ) : (
-                  msg.content
-                )}
+      {/* History Panel */}
+      {showHistory && (
+        <div className="border-b border-border bg-muted/20 max-h-[200px] overflow-y-auto">
+          <div className="px-3 py-2">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-2">Chat History</p>
+            {sessions.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-2">No previous chats yet.</p>
+            ) : (
+              <div className="space-y-1">
+                {sessions.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => loadSession(s.id)}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors hover:bg-muted/50 ${
+                      sessionId === s.id ? "bg-primary/10 text-primary border border-primary/20" : "text-foreground"
+                    }`}
+                  >
+                    <p className="font-medium truncate">{s.title}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      {new Date(s.updated_at).toLocaleDateString()} · {new Date(s.updated_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  </button>
+                ))}
               </div>
-              {msg.role === "user" && (
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/15 mt-0.5">
-                  <User className="h-3.5 w-3.5 text-accent-foreground" />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Loading History */}
+      {loadingHistory ? (
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <>
+          {/* Messages */}
+          <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+            <div className="space-y-4">
+              {messages.map((msg, i) => (
+                <div key={i} className={`flex gap-2.5 ${msg.role === "user" ? "justify-end" : ""}`}>
+                  {msg.role === "assistant" && (
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/15 mt-0.5">
+                      <Bot className="h-3.5 w-3.5 text-primary" />
+                    </div>
+                  )}
+                  <div
+                    className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                      msg.role === "user"
+                        ? "bg-primary text-primary-foreground rounded-br-md"
+                        : "bg-muted/40 text-foreground rounded-bl-md"
+                    }`}
+                  >
+                    {msg.role === "assistant" ? (
+                      <div className="prose prose-sm max-w-none [&>p]:mb-2 [&>ul]:mb-2 [&>h1]:text-base [&>h2]:text-sm [&>h3]:text-sm [&_strong]:text-foreground [&_a]:text-primary">
+                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      msg.content
+                    )}
+                  </div>
+                  {msg.role === "user" && (
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/15 mt-0.5">
+                      <User className="h-3.5 w-3.5 text-accent-foreground" />
+                    </div>
+                  )}
+                </div>
+              ))}
+              {isStreaming && messages[messages.length - 1]?.role !== "assistant" && (
+                <div className="flex gap-2.5">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/15">
+                    <Bot className="h-3.5 w-3.5 text-primary" />
+                  </div>
+                  <div className="bg-muted/40 rounded-2xl rounded-bl-md px-4 py-3">
+                    <div className="flex items-center gap-1.5">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">Grace is thinking...</span>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
-          ))}
-          {isStreaming && messages[messages.length - 1]?.role !== "assistant" && (
-            <div className="flex gap-2.5">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/15">
-                <Bot className="h-3.5 w-3.5 text-primary" />
-              </div>
-              <div className="bg-muted/40 rounded-2xl rounded-bl-md px-4 py-3">
-                <div className="flex items-center gap-1.5">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">Grace is thinking...</span>
-                </div>
+          </ScrollArea>
+
+          {/* Quick actions */}
+          {messages.length <= 1 && (
+            <div className="px-4 pb-2">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2 font-medium">Quick Questions</p>
+              <div className="flex flex-wrap gap-1.5">
+                {quickActions.map((qa) => (
+                  <button
+                    key={qa.label}
+                    onClick={() => { setInput(qa.message); }}
+                    className="text-[11px] px-2.5 py-1.5 rounded-lg border border-border bg-muted/30 text-muted-foreground hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all duration-200"
+                  >
+                    {qa.label}
+                  </button>
+                ))}
               </div>
             </div>
           )}
-        </div>
-      </ScrollArea>
-
-      {/* Quick actions */}
-      {messages.length <= 1 && (
-        <div className="px-4 pb-2">
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2 font-medium">Quick Questions</p>
-          <div className="flex flex-wrap gap-1.5">
-            {quickActions.map((qa) => (
-              <button
-                key={qa.label}
-                onClick={() => { setInput(qa.message); }}
-                className="text-[11px] px-2.5 py-1.5 rounded-lg border border-border bg-muted/30 text-muted-foreground hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all duration-200"
-              >
-                {qa.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        </>
       )}
 
       {/* Input */}
