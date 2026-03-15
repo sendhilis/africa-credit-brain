@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.integration-agent]
 verify_jwt = false
+
+[functions.grace-assistant]
+verify_jwt = false
