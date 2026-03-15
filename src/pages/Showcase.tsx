@@ -349,7 +349,7 @@ const Showcase = () => {
 
   return (
     <DashboardLayout>
-      <div className="max-w-6xl mx-auto space-y-12" ref={contentRef}>
+      <div className="max-w-6xl mx-auto space-y-12">
 
         {/* ── Hero ── */}
         <Section>
