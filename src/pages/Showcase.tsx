@@ -344,7 +344,7 @@ const AdvantageCard = ({ icon: Icon, title, subtitle, details }: {
 
 const Showcase = () => {
   const [activeTab, setActiveTab] = useState(0);
-  const contentRef = useRef<HTMLDivElement>(null);
+  
   const tabs = ["Overview", "AI Scoring", "Features", "Infrastructure", "Advantages", "Integration"];
 
   return (
