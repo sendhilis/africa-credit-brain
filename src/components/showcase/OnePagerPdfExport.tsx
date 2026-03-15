@@ -68,10 +68,8 @@ const OnePagerPdfExport = () => {
       }
 
       // Logo circle
-      setF([255, 255, 255]);
-      pdf.setGState(new (jsPDF as any).GState({ opacity: 0.15 }));
+      setF([50, 70, 65]);
       pdf.circle(ML + 8, y + 10, 8, "F");
-      pdf.setGState(new (jsPDF as any).GState({ opacity: 1 }));
 
       pdf.setFontSize(7);
       pdf.setFont("helvetica", "bold");
