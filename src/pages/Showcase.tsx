@@ -4,6 +4,7 @@ import GlassCard from "@/components/GlassCard";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import ShowcasePdfExport from "@/components/showcase/ShowcasePdfExport";
+import OnePagerPdfExport from "@/components/showcase/OnePagerPdfExport";
 import {
   Brain, Globe2, Shield, BarChart3, FileText, Zap, Users, TrendingUp,
   CheckCircle2, ArrowRight, Layers, Lock, Activity, Cpu, Eye,
