@@ -48,12 +48,9 @@ const OnePagerPdfExport = () => {
       // ══════════════════════════════════════════════
       setF(bg); pdf.rect(0, 0, W, H, "F");
 
-      // Decorative top-right glow
-      pdf.setGState(new (jsPDF as any).GState({ opacity: 0.08 }));
-      setF(primary); pdf.circle(W + 10, -10, 80, "F");
-      pdf.setGState(new (jsPDF as any).GState({ opacity: 0.05 }));
-      setF(accent); pdf.circle(-20, H + 10, 70, "F");
-      pdf.setGState(new (jsPDF as any).GState({ opacity: 1 }));
+      // Decorative top-right glow (subtle solid tints)
+      setF([22, 34, 32]); pdf.circle(W + 10, -10, 80, "F");
+      setF([24, 22, 18]); pdf.circle(-20, H + 10, 70, "F");
 
       let y = 10;
 
