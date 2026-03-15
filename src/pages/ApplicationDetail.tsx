@@ -594,6 +594,7 @@ const ApplicationDetail = () => {
       {/* Grace AI Assistant */}
       {displayScore && (
         <GraceChat
+          applicationId={app.id}
           applicationContext={{
             appCode: app.app_code,
             borrowerName: app.borrower?.full_name || "Unknown",
