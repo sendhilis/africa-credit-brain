@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.grace-assistant]
 verify_jwt = false
+
+[functions.integration-proxy]
+verify_jwt = false
