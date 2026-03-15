@@ -4,6 +4,7 @@ import GlassCard from "@/components/GlassCard";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import ShowcasePdfExport from "@/components/showcase/ShowcasePdfExport";
+import OnePagerPdfExport from "@/components/showcase/OnePagerPdfExport";
 import {
   Brain, Globe2, Shield, BarChart3, FileText, Zap, Users, TrendingUp,
   CheckCircle2, ArrowRight, Layers, Lock, Activity, Cpu, Eye,
@@ -361,6 +362,7 @@ const Showcase = () => {
                 <Badge className="bg-primary/20 text-primary border-primary/30 px-4 py-1.5 text-sm">
                   <Sparkles className="h-3.5 w-3.5 mr-1.5" /> Pan-African Credit Intelligence
                 </Badge>
+                <OnePagerPdfExport />
                 <ShowcasePdfExport />
               </div>
               <h1 className="font-display text-4xl lg:text-5xl font-bold text-foreground leading-tight max-w-3xl">
