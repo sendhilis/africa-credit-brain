@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Download, Loader2 } from "lucide-react";
 import jsPDF from "jspdf";
 
+type RGB = [number, number, number];
+
 const ShowcasePdfExport = () => {
   const [generating, setGenerating] = useState(false);
 
@@ -11,128 +13,191 @@ const ShowcasePdfExport = () => {
     try {
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
       const W = 210, H = 297;
-      const ML = 18, MR = 18, MT = 20, MB = 20;
+      const ML = 16, MR = 16, MT = 18, MB = 16;
       const CW = W - ML - MR;
       let y = MT;
       let pageNum = 1;
 
       // ── Colors ──
-      const bg: [number, number, number] = [20, 24, 36];
-      const cardBg: [number, number, number] = [30, 35, 52];
-      const primary: [number, number, number] = [64, 201, 176];
-      const accent: [number, number, number] = [217, 165, 32];
-      const white: [number, number, number] = [220, 228, 240];
-      const muted: [number, number, number] = [120, 130, 160];
-      const success: [number, number, number] = [64, 184, 120];
-      const warning: [number, number, number] = [217, 165, 32];
-      const destructive: [number, number, number] = [220, 60, 60];
-      const divider: [number, number, number] = [50, 55, 75];
+      const bg: RGB = [20, 24, 36];
+      const bgDark: RGB = [14, 17, 27];
+      const cardBg: RGB = [28, 33, 48];
+      const cardBgAlt: RGB = [35, 40, 58];
+      const primary: RGB = [64, 201, 176];
+      const primaryDark: RGB = [40, 140, 120];
+      const accent: RGB = [217, 165, 32];
+      const white: RGB = [225, 232, 245];
+      const muted: RGB = [110, 120, 150];
+      const success: RGB = [64, 184, 120];
+      const warning: RGB = [217, 165, 32];
+      const destructive: RGB = [220, 60, 60];
+      const divider: RGB = [45, 50, 68];
+      const glow: RGB = [40, 60, 55];
 
-      const fillPage = () => {
-        pdf.setFillColor(...bg);
-        pdf.rect(0, 0, W, H, "F");
-      };
+      const fillPage = () => { pdf.setFillColor(...bg); pdf.rect(0, 0, W, H, "F"); };
 
       const addFooter = () => {
-        pdf.setFontSize(6.5);
-        pdf.setTextColor(...muted);
-        pdf.text(`AfricaOne Credit Intelligence Platform  •  Confidential  •  Page ${pageNum}`, W / 2, H - 8, { align: "center" });
-        // Bottom accent line
-        pdf.setDrawColor(...primary);
+        // Gradient footer bar
+        pdf.setFillColor(...bgDark);
+        pdf.rect(0, H - 14, W, 14, "F");
+        pdf.setDrawColor(...primaryDark);
         pdf.setLineWidth(0.3);
-        pdf.line(ML, H - 12, W - MR, H - 12);
+        pdf.line(0, H - 14, W, H - 14);
+        pdf.setFontSize(6);
+        pdf.setTextColor(...muted);
+        pdf.text(`AfricaOne Credit Intelligence Platform`, ML, H - 6);
+        pdf.text(`Confidential  •  Page ${pageNum}`, W - MR, H - 6, { align: "right" });
       };
 
-      const newPage = () => {
-        addFooter();
-        pdf.addPage();
-        pageNum++;
-        fillPage();
-        y = MT;
-      };
+      const newPage = () => { addFooter(); pdf.addPage(); pageNum++; fillPage(); y = MT; };
+      const ensureSpace = (need: number) => { if (y + need > H - MB - 14) newPage(); };
 
-      const ensureSpace = (need: number) => {
-        if (y + need > H - MB) newPage();
-      };
+      // ── Visual Helpers ──
 
-      const heading = (text: string, size: number, color: [number, number, number] = white) => {
-        ensureSpace(size * 0.6 + 4);
-        pdf.setFontSize(size);
-        pdf.setTextColor(...color);
+      const sectionHeader = (num: string, title: string, color: RGB = primary) => {
+        ensureSpace(18);
+        // Full-width colored header bar
+        pdf.setFillColor(color[0], color[1], color[2]);
+        pdf.roundedRect(ML, y, CW, 12, 2, 2, "F");
+        // Darker overlay for depth
+        pdf.setFillColor(0, 0, 0);
+        pdf.setGState(new (pdf as any).GState({ opacity: 0.25 }));
+        pdf.roundedRect(ML, y, CW, 12, 2, 2, "F");
+        pdf.setGState(new (pdf as any).GState({ opacity: 1 }));
+        // Text
+        pdf.setFontSize(12);
+        pdf.setTextColor(255, 255, 255);
         pdf.setFont("helvetica", "bold");
-        pdf.text(text, ML, y);
-        y += size * 0.45 + 2;
+        pdf.text(`${num}  ${title}`, ML + 6, y + 8);
+        y += 16;
       };
 
-      const subheading = (text: string) => {
+      const subSection = (title: string) => {
         ensureSpace(10);
-        pdf.setFontSize(9);
+        pdf.setFillColor(...primary);
+        pdf.rect(ML, y, 3, 6, "F");
+        pdf.setFontSize(10.5);
+        pdf.setTextColor(...white);
+        pdf.setFont("helvetica", "bold");
+        pdf.text(title, ML + 7, y + 5);
+        y += 10;
+      };
+
+      const bodyText = (text: string, maxW = CW) => {
+        pdf.setFontSize(8);
         pdf.setTextColor(...muted);
         pdf.setFont("helvetica", "normal");
-        const lines = pdf.splitTextToSize(text, CW);
+        const lines = pdf.splitTextToSize(text, maxW);
+        ensureSpace(lines.length * 3.5 + 1);
         pdf.text(lines, ML, y);
-        y += lines.length * 4 + 3;
+        y += lines.length * 3.5 + 2;
       };
 
-      const bodyText = (text: string, indent = 0) => {
+      const bulletList = (items: string[], color: RGB = primary) => {
+        for (const text of items) {
+          ensureSpace(5);
+          pdf.setFillColor(...color);
+          pdf.circle(ML + 2.5, y - 0.8, 0.7, "F");
+          pdf.setFontSize(7.5);
+          pdf.setTextColor(...white);
+          pdf.setFont("helvetica", "normal");
+          const lines = pdf.splitTextToSize(text, CW - 8);
+          pdf.text(lines, ML + 6, y);
+          y += lines.length * 3.2 + 1;
+        }
+      };
+
+      const featureCard = (x: number, yPos: number, w: number, h: number, title: string, desc: string, accentColor: RGB) => {
+        // Card background
+        pdf.setFillColor(...cardBg);
+        pdf.roundedRect(x, yPos, w, h, 2.5, 2.5, "F");
+        // Left accent stripe
+        pdf.setFillColor(...accentColor);
+        pdf.roundedRect(x, yPos, 2.5, h, 1.5, 1.5, "F");
+        pdf.rect(x + 1.5, yPos, 1, h, "F"); // Fill corner gap
+        // Title
         pdf.setFontSize(8.5);
         pdf.setTextColor(...white);
-        pdf.setFont("helvetica", "normal");
-        const lines = pdf.splitTextToSize(text, CW - indent);
-        ensureSpace(lines.length * 3.8 + 2);
-        pdf.text(lines, ML + indent, y);
-        y += lines.length * 3.8 + 1.5;
-      };
-
-      const bulletPoint = (text: string, color: [number, number, number] = primary) => {
-        ensureSpace(5);
-        pdf.setFillColor(...color);
-        pdf.circle(ML + 3, y - 1, 0.8, "F");
-        pdf.setFontSize(8);
-        pdf.setTextColor(...white);
-        pdf.setFont("helvetica", "normal");
-        const lines = pdf.splitTextToSize(text, CW - 10);
-        pdf.text(lines, ML + 7, y);
-        y += lines.length * 3.5 + 1.5;
-      };
-
-      const sectionDivider = () => {
-        ensureSpace(8);
-        y += 3;
-        pdf.setDrawColor(...divider);
-        pdf.setLineWidth(0.2);
-        pdf.line(ML, y, W - MR, y);
-        y += 5;
-      };
-
-      const cardBox = (x: number, yPos: number, w: number, h: number) => {
-        pdf.setFillColor(...cardBg);
-        pdf.roundedRect(x, yPos, w, h, 2, 2, "F");
-        pdf.setDrawColor(...divider);
-        pdf.setLineWidth(0.2);
-        pdf.roundedRect(x, yPos, w, h, 2, 2, "S");
-      };
-
-      const badge = (text: string, x: number, yPos: number, color: [number, number, number]) => {
-        pdf.setFontSize(6.5);
-        const tw = pdf.getTextWidth(text) + 6;
-        pdf.setFillColor(color[0], color[1], color[2]);
-        pdf.roundedRect(x, yPos - 3, tw, 5, 1.5, 1.5, "F");
-        pdf.setTextColor(...bg);
         pdf.setFont("helvetica", "bold");
-        pdf.text(text, x + 3, yPos);
-      };
-
-      const statBox = (x: number, yPos: number, w: number, value: string, label: string) => {
-        cardBox(x, yPos, w, 22);
-        pdf.setFontSize(16);
-        pdf.setTextColor(...primary);
-        pdf.setFont("helvetica", "bold");
-        pdf.text(value, x + w / 2, yPos + 10, { align: "center" });
+        pdf.text(title, x + 7, yPos + 7);
+        // Desc
         pdf.setFontSize(7);
         pdf.setTextColor(...muted);
         pdf.setFont("helvetica", "normal");
-        pdf.text(label, x + w / 2, yPos + 17, { align: "center" });
+        const lines = pdf.splitTextToSize(desc, w - 12);
+        pdf.text(lines, x + 7, yPos + 12);
+      };
+
+      const progressBar = (x: number, yPos: number, w: number, pct: number, label: string, value: string, color: RGB) => {
+        pdf.setFontSize(7);
+        pdf.setTextColor(...muted);
+        pdf.text(label, x, yPos);
+        pdf.setTextColor(...white);
+        pdf.setFont("helvetica", "bold");
+        pdf.text(value, x + w, yPos, { align: "right" });
+        // Track
+        pdf.setFillColor(...divider);
+        pdf.roundedRect(x, yPos + 2, w, 3, 1.5, 1.5, "F");
+        // Fill
+        pdf.setFillColor(...color);
+        pdf.roundedRect(x, yPos + 2, w * pct / 100, 3, 1.5, 1.5, "F");
+      };
+
+      const statCircle = (cx: number, cy: number, r: number, pct: number, value: string, label: string, color: RGB) => {
+        // Background ring
+        pdf.setDrawColor(...divider);
+        pdf.setLineWidth(2.5);
+        pdf.circle(cx, cy, r, "S");
+        // Colored arc (simulate with filled arc)
+        pdf.setDrawColor(...color);
+        pdf.setLineWidth(2.5);
+        const startAngle = -90;
+        const endAngle = startAngle + (360 * pct / 100);
+        const steps = Math.ceil(pct / 2);
+        for (let i = 0; i < steps; i++) {
+          const a1 = (startAngle + (endAngle - startAngle) * i / steps) * Math.PI / 180;
+          const a2 = (startAngle + (endAngle - startAngle) * (i + 1) / steps) * Math.PI / 180;
+          pdf.line(cx + r * Math.cos(a1), cy + r * Math.sin(a1), cx + r * Math.cos(a2), cy + r * Math.sin(a2));
+        }
+        // Center text
+        pdf.setFontSize(11);
+        pdf.setTextColor(...color);
+        pdf.setFont("helvetica", "bold");
+        pdf.text(value, cx, cy + 1.5, { align: "center" });
+        // Label below
+        pdf.setFontSize(6.5);
+        pdf.setTextColor(...muted);
+        pdf.setFont("helvetica", "normal");
+        pdf.text(label, cx, cy + r + 6, { align: "center" });
+      };
+
+      const badge = (text: string, x: number, yPos: number, color: RGB) => {
+        pdf.setFontSize(6);
+        pdf.setFont("helvetica", "bold");
+        const tw = pdf.getTextWidth(text) + 5;
+        pdf.setFillColor(color[0], color[1], color[2]);
+        pdf.roundedRect(x, yPos - 2.5, tw, 4.5, 1.2, 1.2, "F");
+        pdf.setTextColor(20, 24, 36);
+        pdf.text(text, x + 2.5, yPos + 0.5);
+        return tw;
+      };
+
+      const iconCircle = (cx: number, cy: number, r: number, color: RGB) => {
+        pdf.setFillColor(color[0], color[1], color[2]);
+        pdf.setGState(new (pdf as any).GState({ opacity: 0.15 }));
+        pdf.circle(cx, cy, r, "F");
+        pdf.setGState(new (pdf as any).GState({ opacity: 1 }));
+        pdf.setFillColor(...color);
+        pdf.circle(cx, cy, r * 0.35, "F");
+      };
+
+      const pipelineArrow = (x1: number, x2: number, yPos: number) => {
+        pdf.setDrawColor(...primary);
+        pdf.setLineWidth(0.4);
+        pdf.line(x1, yPos, x2, yPos);
+        // Arrowhead
+        pdf.setFillColor(...primary);
+        pdf.triangle(x2, yPos, x2 - 1.5, yPos - 1, x2 - 1.5, yPos + 1, "F");
       };
 
       // ═══════════════════════════════════════════
@@ -140,55 +205,73 @@ const ShowcasePdfExport = () => {
       // ═══════════════════════════════════════════
       fillPage();
 
-      // Top accent bar
-      pdf.setFillColor(...primary);
-      pdf.rect(0, 0, W, 3, "F");
+      // Top gradient stripe
+      for (let i = 0; i < 5; i++) {
+        const opacity = 1 - i * 0.2;
+        pdf.setFillColor(primary[0], primary[1], primary[2]);
+        pdf.setGState(new (pdf as any).GState({ opacity }));
+        pdf.rect(0, i * 1.2, W, 1.2, "F");
+      }
+      pdf.setGState(new (pdf as any).GState({ opacity: 1 }));
 
-      // Logo area
-      y = 50;
-      badge("PAN-AFRICAN CREDIT INTELLIGENCE", ML, y, primary);
-      y += 14;
+      // Decorative glow circles
+      pdf.setFillColor(...glow);
+      pdf.setGState(new (pdf as any).GState({ opacity: 0.3 }));
+      pdf.circle(W - 40, 60, 35, "F");
+      pdf.circle(30, 200, 25, "F");
+      pdf.setGState(new (pdf as any).GState({ opacity: 1 }));
 
-      pdf.setFontSize(32);
+      y = 45;
+      let bw = badge("PAN-AFRICAN CREDIT INTELLIGENCE", ML, y, primary);
+      y += 12;
+
+      pdf.setFontSize(36);
       pdf.setTextColor(...white);
       pdf.setFont("helvetica", "bold");
       pdf.text("AfricaOne", ML, y);
-      y += 12;
-      pdf.setFontSize(20);
+      y += 14;
+      pdf.setFontSize(18);
       pdf.setTextColor(...primary);
       pdf.text("Platform Showcase", ML, y);
-      y += 14;
+      y += 6;
+      // Accent underline
+      pdf.setFillColor(...primary);
+      pdf.rect(ML, y, 45, 1, "F");
+      y += 10;
 
-      pdf.setFontSize(10);
+      pdf.setFontSize(9.5);
       pdf.setTextColor(...muted);
       pdf.setFont("helvetica", "normal");
       const tagline = "AI-Powered Credit Scoring, Document Intelligence, and Production-Grade Integrations for Africa's Financial Future.";
-      const tagLines = pdf.splitTextToSize(tagline, CW);
+      const tagLines = pdf.splitTextToSize(tagline, CW * 0.7);
       pdf.text(tagLines, ML, y);
-      y += tagLines.length * 5 + 12;
+      y += tagLines.length * 4.5 + 10;
 
-      // Key stats row
-      const sw = (CW - 9) / 4;
-      statBox(ML, y, sw, "12+", "African Markets");
-      statBox(ML + sw + 3, y, sw, "300–900", "Score Range");
-      statBox(ML + (sw + 3) * 2, y, sw, "< 2s", "Scoring Latency");
-      statBox(ML + (sw + 3) * 3, y, sw, "40+", "Entity Integrations");
-      y += 30;
+      // Stat circles row
+      const circleY = y + 14;
+      statCircle(ML + CW * 0.125, circleY, 11, 100, "12+", "Markets", primary);
+      statCircle(ML + CW * 0.375, circleY, 11, 75, "300-900", "Score Range", accent);
+      statCircle(ML + CW * 0.625, circleY, 11, 95, "< 2s", "Latency", success);
+      statCircle(ML + CW * 0.875, circleY, 11, 80, "40+", "Integrations", warning);
+      y = circleY + 24;
 
-      // Decorative line
+      // Decorative divider
+      y += 8;
       pdf.setDrawColor(...primary);
       pdf.setLineWidth(0.5);
-      pdf.line(ML, y, ML + 40, y);
+      pdf.line(ML, y, ML + 35, y);
+      pdf.setFillColor(...primary);
+      pdf.circle(ML + 37, y, 1, "F");
       y += 10;
 
-      // Metadata
-      pdf.setFontSize(8);
+      // Metadata box
+      pdf.setFillColor(...cardBg);
+      pdf.roundedRect(ML, y, CW, 20, 2, 2, "F");
+      pdf.setFontSize(7.5);
       pdf.setTextColor(...muted);
-      pdf.text(`Generated: ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}`, ML, y);
-      y += 5;
-      pdf.text("Classification: Confidential — For Authorized Recipients Only", ML, y);
-      y += 5;
-      pdf.text("Version: 1.1  •  Model: WoE + IV Logistic Regression  •  PDO 20", ML, y);
+      pdf.text(`Generated: ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}`, ML + 6, y + 6);
+      pdf.text("Classification: Confidential — For Authorized Recipients Only", ML + 6, y + 11);
+      pdf.text("Version: 1.1  •  Model: WoE + IV Logistic Regression  •  PDO 20  •  Deno Edge Runtime", ML + 6, y + 16);
 
       addFooter();
 
@@ -196,365 +279,446 @@ const ShowcasePdfExport = () => {
       // PAGE 2: OVERVIEW
       // ═══════════════════════════════════════════
       newPage();
-      heading("1. Platform Overview", 18, primary);
-      y += 2;
-      subheading("A neutral, multi-tenant platform that transforms credit underwriting with AI-driven insights tailored for thin-file borrowers in emerging African markets.");
+      sectionHeader("01", "PLATFORM OVERVIEW");
 
-      const overviewItems = [
-        { title: "AI-First Scoring", desc: "WoE/IV logistic regression with time-series analysis and bureau integration for explainable, accurate decisions." },
-        { title: "Pan-African Coverage", desc: "Localized ID types, mobile wallets, bureaus, and currencies across 12+ markets — one integration for the continent." },
-        { title: "Regulatory Compliant", desc: "Built-in fairness auditing, bias monitoring, and full model transparency for central bank compliance." },
-        { title: "Smart OCR", desc: "AI-powered document extraction with mandatory 3-month period validation for bank statements and utility bills." },
-        { title: "Production-Ready Integrations", desc: "Full sandbox → production promotion pipeline with encrypted credential vault and secure API proxy for live traffic." },
-        { title: "Developer-First", desc: "Full sandbox environment, interactive API console, webhook callbacks, and SDK snippets in Python, Node.js, and cURL." },
+      bodyText("A neutral, multi-tenant platform that transforms credit underwriting with AI-driven insights tailored for thin-file borrowers in emerging African markets.");
+
+      // 2x3 feature cards grid
+      const fcW = (CW - 4) / 2;
+      const fcH = 22;
+      const features = [
+        { t: "AI-First Scoring", d: "WoE/IV logistic regression with time-series analysis and bureau integration.", c: primary },
+        { t: "Pan-African Coverage", d: "Localized ID types, wallets, bureaus across 12+ markets.", c: accent },
+        { t: "Regulatory Compliant", d: "Built-in fairness auditing, bias monitoring, model transparency.", c: success },
+        { t: "Smart OCR", d: "AI-powered extraction with 3-month period validation.", c: [100, 160, 255] as RGB },
+        { t: "Production Integrations", d: "Sandbox → production pipeline with encrypted credential vault.", c: warning },
+        { t: "Developer-First", d: "Sandbox API, interactive console, webhooks, SDK snippets.", c: destructive },
       ];
-
-      for (const item of overviewItems) {
-        ensureSpace(16);
-        pdf.setFontSize(10);
-        pdf.setTextColor(...white);
-        pdf.setFont("helvetica", "bold");
-        pdf.text(`▸ ${item.title}`, ML + 2, y);
-        y += 4.5;
-        pdf.setFontSize(8);
-        pdf.setTextColor(...muted);
-        pdf.setFont("helvetica", "normal");
-        const lines = pdf.splitTextToSize(item.desc, CW - 8);
-        pdf.text(lines, ML + 6, y);
-        y += lines.length * 3.5 + 4;
+      for (let i = 0; i < features.length; i++) {
+        const col = i % 2;
+        const row = Math.floor(i / 2);
+        if (col === 0) ensureSpace(fcH + 3);
+        const fx = ML + col * (fcW + 4);
+        const fy = y + row * 0;
+        featureCard(fx, y, fcW, fcH, features[i].t, features[i].d, features[i].c);
+        if (col === 1) y += fcH + 3;
       }
+      y += 3;
 
-      sectionDivider();
-      heading("Platform at a Glance", 12);
-      y += 2;
-
-      const glanceItems = [
-        ["Multi-Tenant", "Isolated"], ["Security", "RLS + RBAC"], ["Uptime", "99.9%"],
-        ["Storage", "Encrypted"], ["Fairness", "Audited"], ["Integrations", "40+ Entities"],
+      // Platform glance - horizontal stat boxes
+      ensureSpace(28);
+      pdf.setFillColor(...cardBgAlt);
+      pdf.roundedRect(ML, y, CW, 22, 2, 2, "F");
+      const glance = [
+        { v: "Isolated", l: "Multi-Tenant" }, { v: "RLS+RBAC", l: "Security" }, { v: "99.9%", l: "Uptime" },
+        { v: "Encrypted", l: "Storage" }, { v: "Audited", l: "Fairness" }, { v: "40+", l: "Entities" },
       ];
-      const gw = (CW - 15) / 6;
-      glanceItems.forEach((g, i) => {
-        const gx = ML + i * (gw + 3);
+      const gw = CW / 6;
+      glance.forEach((g, i) => {
+        const gx = ML + i * gw;
         pdf.setFontSize(9);
         pdf.setTextColor(...primary);
         pdf.setFont("helvetica", "bold");
-        pdf.text(g[1], gx + gw / 2, y + 4, { align: "center" });
+        pdf.text(g.v, gx + gw / 2, y + 9, { align: "center" });
+        pdf.setFontSize(6);
+        pdf.setTextColor(...muted);
+        pdf.setFont("helvetica", "normal");
+        pdf.text(g.l, gx + gw / 2, y + 14, { align: "center" });
+        // Separator
+        if (i < 5) {
+          pdf.setDrawColor(...divider);
+          pdf.setLineWidth(0.15);
+          pdf.line(gx + gw, y + 4, gx + gw, y + 18);
+        }
+      });
+      y += 26;
+
+      // ═══════════════════════════════════════════
+      // AI SCORING
+      // ═══════════════════════════════════════════
+      sectionHeader("02", "AI-POWERED SCORING MODEL", accent);
+
+      // Two-column layout: text left, visual right
+      const colL = CW * 0.55;
+      const colR = CW * 0.4;
+      const colRx = ML + CW - colR;
+
+      bodyText("WoE + IV logistic regression scorecard scaled to 300–900, enriched with time-series analysis and AI-generated insights.");
+
+      // Left column: bullets
+      const savedY = y;
+      bulletList([
+        "Base score 600, PDO 20 scaling",
+        "Bureau scores weighted 30% when available",
+        "PD with calibrated conversion",
+        "5 risk bands (A–E) configurable",
+        "Explainable reason codes",
+        "Interactive Score Simulator",
+      ]);
+
+      // Right column: Score bands chart
+      const bandsY = savedY;
+      const bandData: [string, string, RGB, number][] = [
+        ["A", "740–900", success, 95],
+        ["B", "670–739", primary, 78],
+        ["C", "580–669", warning, 60],
+        ["D", "500–579", [217, 140, 50], 42],
+        ["E", "300–499", destructive, 25],
+      ];
+      pdf.setFillColor(...cardBg);
+      pdf.roundedRect(colRx - 2, bandsY - 3, colR + 4, 44, 2, 2, "F");
+      pdf.setFontSize(7);
+      pdf.setTextColor(...muted);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("SCORE BANDS", colRx + colR / 2, bandsY + 2, { align: "center" });
+
+      let bandY = bandsY + 7;
+      for (const [band, range, color, barPct] of bandData) {
+        pdf.setFontSize(9);
+        pdf.setTextColor(...white);
+        pdf.setFont("helvetica", "bold");
+        pdf.text(band, colRx + 2, bandY);
+        // Bar
+        const barMaxW = colR - 28;
+        pdf.setFillColor(...divider);
+        pdf.roundedRect(colRx + 10, bandY - 2.5, barMaxW, 3.5, 1, 1, "F");
+        pdf.setFillColor(...color);
+        pdf.roundedRect(colRx + 10, bandY - 2.5, barMaxW * barPct / 100, 3.5, 1, 1, "F");
         pdf.setFontSize(6.5);
         pdf.setTextColor(...muted);
         pdf.setFont("helvetica", "normal");
-        pdf.text(g[0], gx + gw / 2, y + 9, { align: "center" });
-      });
-      y += 16;
-
-      // ═══════════════════════════════════════════
-      // PAGE 3: AI SCORING
-      // ═══════════════════════════════════════════
-      newPage();
-      heading("2. AI-Powered Scoring Model", 18, primary);
-      badge("CORE ENGINE", ML, y, accent);
-      y += 8;
-      subheading("A statistically validated WoE + IV logistic regression scorecard scaled to a 300–900 range, enriched with time-series analysis and AI-generated qualitative insights.");
-
-      heading("Scoring Engine", 13);
-      bodyText("The scoring model uses Weight of Evidence (WoE) binning and Information Value (IV) feature selection to build an interpretable logistic regression scorecard. Each feature's contribution is transparent and auditable.");
-      y += 2;
-      const scoringPoints = [
-        "Base score 600, Points-to-Double-Odds (PDO) 20 scaling",
-        "Credit Bureau scores weighted at 30% when available",
-        "Probability of Default (PD) with calibrated conversion",
-        "5 risk bands (A–E) with configurable policy thresholds",
-        "Explainable reason codes for every decision",
-        "Interactive Score Simulator for what-if analysis",
-      ];
-      scoringPoints.forEach(p => bulletPoint(p));
-
-      sectionDivider();
-
-      // Score bands visual
-      heading("Score Bands", 12);
-      const bands: [string, string, [number, number, number], number][] = [
-        ["A", "740–900", success, 160],
-        ["B", "670–739", primary, 130],
-        ["C", "580–669", warning, 100],
-        ["D", "500–579", [217, 140, 50], 70],
-        ["E", "300–499", destructive, 42],
-      ];
-
-      for (const [band, range, color, barW] of bands) {
-        ensureSpace(7);
-        pdf.setFontSize(10);
-        pdf.setTextColor(...white);
-        pdf.setFont("helvetica", "bold");
-        pdf.text(band, ML + 2, y);
-        pdf.setFillColor(color[0], color[1], color[2]);
-        pdf.roundedRect(ML + 12, y - 3, barW * (CW - 50) / 160, 4, 1, 1, "F");
-        pdf.setFontSize(7.5);
-        pdf.setTextColor(...muted);
-        pdf.setFont("helvetica", "normal");
-        pdf.text(range, W - MR, y, { align: "right" });
-        y += 7;
+        pdf.text(range, colRx + colR, bandY, { align: "right" });
+        bandY += 7;
       }
 
-      sectionDivider();
-      heading("Time-Series Intelligence", 13);
-      bodyText("Beyond static snapshots, AfricaOne analyzes temporal patterns in income, expenses, and payment behavior to detect trends that traditional scorecards miss.");
-      y += 2;
-      [
-        "Income stability coefficient from 12-month salary data",
-        "Payment trajectory scoring for existing loan history",
-        "Seasonal pattern recognition for agricultural borrowers",
-        "Auto-enrichment from OCR-extracted bank statement data",
-      ].forEach(p => bulletPoint(p));
+      if (y < bandY + 4) y = bandY + 4;
+
+      // Scoring architecture pipeline
+      ensureSpace(24);
+      pdf.setFillColor(...cardBgAlt);
+      pdf.roundedRect(ML, y, CW, 18, 2, 2, "F");
+      pdf.setFontSize(7);
+      pdf.setTextColor(...muted);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("SCORING ARCHITECTURE", ML + 4, y + 5);
+
+      const archSteps = ["Data Ingestion", "WoE Binning", "Logistic Reg.", "Band Assign.", "AI Insights"];
+      const archW = (CW - 10) / archSteps.length;
+      archSteps.forEach((s, i) => {
+        const ax = ML + 5 + i * archW;
+        iconCircle(ax + archW / 2 - 3, y + 10, 3, primary);
+        pdf.setFontSize(6.5);
+        pdf.setTextColor(...white);
+        pdf.setFont("helvetica", "bold");
+        pdf.text(s, ax + archW / 2 + 1, y + 12);
+        if (i < archSteps.length - 1) {
+          pipelineArrow(ax + archW - 4, ax + archW + 1, y + 10);
+        }
+      });
+      y += 22;
+
+      // Time-series section
+      subSection("Time-Series Intelligence");
+      bodyText("Analyzes temporal patterns in income, expenses, and payment behavior to detect trends traditional scorecards miss.");
+
+      // Progress bars as visual
+      ensureSpace(22);
+      progressBar(ML, y, CW, 87, "Income Stability Coefficient", "0.87", success);
+      y += 9;
+      progressBar(ML, y, CW, 92, "Payment Trajectory Score", "92%", primary);
+      y += 9;
+      progressBar(ML, y, CW, 78, "Seasonal Pattern Detection", "Active", accent);
+      y += 7;
 
       // ═══════════════════════════════════════════
       // FEATURES
       // ═══════════════════════════════════════════
       newPage();
-      heading("3. Platform Features", 18, primary);
-      y += 2;
+      sectionHeader("03", "PLATFORM FEATURES");
 
-      // Document Intelligence
-      heading("Smart Document Intelligence", 13);
-      bodyText("AI-powered OCR extracts structured financial data from bank statements and utility bills, automatically validating document type and enforcing a minimum 3-month coverage period.");
-      y += 1;
-      [
-        "Gemini-powered extraction with 92%+ confidence",
-        "Mandatory 3-month period validation",
-        "Salary deposit auto-mapping to income history",
-        "Additional document upload with category tagging",
-        "Invalid documents flagged with specific error reasons",
-      ].forEach(p => bulletPoint(p));
-      sectionDivider();
+      // Feature sections with icon dots + compact layout
+      const featureSections = [
+        {
+          title: "Smart Document Intelligence",
+          desc: "AI-powered OCR extracts structured financial data with mandatory 3-month period validation.",
+          items: ["Gemini-powered extraction, 92%+ confidence", "3-month period validation", "Salary auto-mapping", "Category tagging", "Error flagging"],
+          color: success,
+        },
+        {
+          title: "Pan-African Market Coverage",
+          desc: "Purpose-built for 12+ African markets with localized ID types, bureaus, wallets, currencies.",
+          items: ["12+ countries configured", "Multi-currency (ZWL/USD)", "BVN, Huduma, Kebele, Ghana Card", "Regional bureaus & wallets", "Country-specific templates"],
+          color: primary,
+        },
+        {
+          title: "Fairness & Bias Monitoring",
+          desc: "Continuous outcome monitoring across demographic dimensions for equitable access.",
+          items: ["Gender, age, regional tracking", "≤5% disparity thresholds", "Transparent feature contributions", "Central bank compliance reports"],
+          color: accent,
+        },
+        {
+          title: "Psychometric Assessment",
+          desc: "Optional borrower profiling via SMS/WhatsApp with in-branch sessions.",
+          items: ["Remote SMS/WhatsApp delivery", "In-branch guided sessions", "Status: sent → completed", "Feeds into decisioning model"],
+          color: [180, 100, 220] as RGB,
+        },
+        {
+          title: "Grace AI Assistant",
+          desc: "Contextual AI embedded in applications for real-time insights during review.",
+          items: ["Natural language Q&A", "Score justification", "Policy recommendations", "Session persistence"],
+          color: [100, 160, 255] as RGB,
+        },
+      ];
 
-      // Pan-African
-      heading("Pan-African Market Coverage", 13);
-      bodyText("Purpose-built for African financial markets with localized configurations for ID types, credit bureaus, mobile money wallets, utilities, and regulatory requirements.");
-      y += 1;
-      [
-        "12+ countries with complete local configurations",
-        "Multi-currency support including dual-currency markets (e.g. ZWL/USD)",
-        "Local ID types: BVN, Huduma Namba, Kebele ID, Ghana Card, etc.",
-        "Regional bureau and mobile wallet integrations",
-        "Country-specific balance sheet templates",
-      ].forEach(p => bulletPoint(p));
-      sectionDivider();
+      for (let fi = 0; fi < featureSections.length; fi++) {
+        const fs = featureSections[fi];
+        ensureSpace(32);
+        // Two-column: left card, right bullets
+        const leftW = CW * 0.42;
+        const rightW = CW * 0.52;
+        const rightX = ML + CW - rightW;
 
-      // Fairness
-      heading("Fairness & Bias Monitoring", 13);
-      bodyText("Continuous monitoring of model outcomes across demographic dimensions ensures equitable credit access and regulatory compliance.");
-      y += 1;
-      [
-        "Gender, age, and regional disparity tracking",
-        "Configurable disparity thresholds (default ≤5%)",
-        "Transparent feature contributions for audit trails",
-        "Central bank compliance-ready reporting",
-      ].forEach(p => bulletPoint(p));
-      sectionDivider();
+        // Left: visual card
+        pdf.setFillColor(...cardBg);
+        pdf.roundedRect(ML, y, leftW, 28, 2, 2, "F");
+        pdf.setFillColor(fs.color[0], fs.color[1], fs.color[2]);
+        pdf.setGState(new (pdf as any).GState({ opacity: 0.1 }));
+        pdf.roundedRect(ML, y, leftW, 28, 2, 2, "F");
+        pdf.setGState(new (pdf as any).GState({ opacity: 1 }));
+        // Accent dot
+        iconCircle(ML + 10, y + 8, 4, fs.color);
+        pdf.setFontSize(9.5);
+        pdf.setTextColor(...white);
+        pdf.setFont("helvetica", "bold");
+        pdf.text(fs.title, ML + 6, y + 17);
+        pdf.setFontSize(7);
+        pdf.setTextColor(...muted);
+        pdf.setFont("helvetica", "normal");
+        const descLines = pdf.splitTextToSize(fs.desc, leftW - 12);
+        pdf.text(descLines, ML + 6, y + 22);
 
-      // Psychometric
-      heading("Psychometric Assessment", 13);
-      bodyText("Optional borrower psychometric profiling via SMS or WhatsApp, with in-branch sessions for walk-in applicants.");
-      y += 1;
-      [
-        "Remote assessment via SMS / WhatsApp link",
-        "In-branch session with guided prompts",
-        "Granular status tracking: sent → in-progress → completed",
-        "Scores fed directly into the decisioning model",
-      ].forEach(p => bulletPoint(p));
-      sectionDivider();
+        // Right: bullet points
+        let by = y + 2;
+        for (const item of fs.items) {
+          pdf.setFillColor(...fs.color);
+          pdf.circle(rightX + 2, by + 1, 0.6, "F");
+          pdf.setFontSize(7.5);
+          pdf.setTextColor(...white);
+          pdf.setFont("helvetica", "normal");
+          pdf.text(item, rightX + 5, by + 2);
+          by += 5;
+        }
 
-      // Grace
-      heading("Grace AI Assistant", 13);
-      bodyText("An AI-powered contextual assistant embedded within each application, providing real-time insights and recommendations to credit officers during review.");
-      y += 1;
-      [
-        "Natural language Q&A about any application",
-        "Score justification and risk factor explanation",
-        "Policy recommendation based on institution rules",
-        "Session persistence for audit trail",
-      ].forEach(p => bulletPoint(p));
+        y += 32;
+      }
+
+      // ── Bias Audit Visual ──
+      ensureSpace(24);
+      pdf.setFillColor(...cardBgAlt);
+      pdf.roundedRect(ML, y, CW, 20, 2, 2, "F");
+      pdf.setFontSize(7);
+      pdf.setTextColor(...muted);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("BIAS AUDIT RESULTS", ML + 4, y + 5);
+
+      const biasData = [
+        { dim: "Gender", gap: 2.1, color: success },
+        { dim: "Age Group", gap: 3.8, color: primary },
+        { dim: "Region", gap: 4.2, color: accent },
+      ];
+      const biasBW = (CW - 20) / 3;
+      biasData.forEach((b, i) => {
+        const bx = ML + 8 + i * biasBW;
+        progressBar(bx, y + 9, biasBW - 10, 100 - b.gap * 10, b.dim, `${b.gap}% gap`, b.color);
+      });
+      y += 24;
 
       // ═══════════════════════════════════════════
       // INFRASTRUCTURE
       // ═══════════════════════════════════════════
       newPage();
-      heading("4. Integration Infrastructure", 18, primary);
-      badge("PRODUCTION-READY", ML, y, success);
-      y += 8;
-      subheading("A complete pipeline from sandbox testing to production traffic with encrypted credential management, agentic AI setup, and a secure API proxy layer.");
+      sectionHeader("04", "INTEGRATION INFRASTRUCTURE", success);
 
-      heading("Credential Vault & Encryption", 13);
-      bodyText("Secure storage for API keys, OAuth secrets, and certificates. Credentials are encrypted server-side and never exposed to the frontend.");
+      bodyText("Complete pipeline from sandbox testing to production traffic with encrypted credential management, agentic AI setup, and secure API proxy layer.");
       y += 1;
-      [
-        "XOR obfuscation with environment-scoped encryption keys",
-        "Per-entity credential isolation by institution",
-        "Base URL and endpoint path auto-detection from registry",
-        "Masked display in admin UI — full values never leave the server",
-        "Support for API-Key, OAuth2 Client Credentials, and Bearer tokens",
-      ].forEach(p => bulletPoint(p));
-      sectionDivider();
 
-      heading("Production Promotion Flow", 13);
-      bodyText("Automated sandbox-to-production promotion that validates test results, verifies encrypted credentials, and clones configurations to the live environment.");
-      y += 1;
-      [
-        "Pre-flight validation: sandbox tests must pass before promotion",
-        "Credential verification: encrypted keys must be stored before go-live",
-        "Config cloning: sandbox settings replicated to production environment",
-        "Status tracking: LIVE badge and production count metrics in catalog",
-        "Rollback-safe: sandbox config preserved independently",
-      ].forEach(p => bulletPoint(p));
-      sectionDivider();
+      // 2x2 infrastructure cards
+      const infraCards = [
+        { t: "Credential Vault", d: "Encrypted server-side storage for API keys, OAuth secrets. Never exposed to frontend. Supports API-Key, OAuth2, Bearer.", c: warning },
+        { t: "Production Promotion", d: "Automated sandbox → production. Pre-flight validation, credential checks, config cloning, rollback-safe.", c: success },
+        { t: "API Proxy Gateway", d: "Secure edge function gateway. Server-side decryption, auto auth injection, ~50ms cold start.", c: primary },
+        { t: "Agentic AI Setup", d: "Zero-code onboarding via streaming AI agent. 40+ entities, entity-specific test suites, drag-and-drop catalog.", c: accent },
+      ];
 
-      heading("API Proxy Gateway", 13);
-      bodyText("A secure edge function that serves as the single gateway for all production API calls to external financial institutions.");
-      y += 1;
-      [
-        "Server-side credential decryption — zero client exposure",
-        "Auto-detection of auth type: X-API-Key, OAuth2 Basic, Bearer",
-        "Request/response passthrough with latency tracking",
-        "Per-institution endpoint routing based on stored config",
-        "Deno edge function with ~50ms cold start",
-      ].forEach(p => bulletPoint(p));
-      sectionDivider();
-
-      heading("Agentic AI Integration Setup", 13);
-      bodyText("Zero-code integration onboarding powered by a streaming AI agent. Connect to banks, credit bureaus, MNOs, and utilities through a conversational interface.");
-      y += 1;
-      [
-        "Natural language 'connect' and 'test' commands",
-        "Entity-specific sandbox test suites (USSD STK, KYC pull, etc.)",
-        "Real-time streaming progress with step-by-step observation",
-        "40+ pre-configured entities across 6 countries",
-        "Drag-and-drop entity catalog with status indicators",
-      ].forEach(p => bulletPoint(p));
-
-      // ═══════════════════════════════════════════
-      // PIPELINE DIAGRAM
-      // ═══════════════════════════════════════════
-      ensureSpace(40);
-      sectionDivider();
-      heading("End-to-End Integration Pipeline", 12);
+      const icW = (CW - 4) / 2;
+      const icH = 28;
+      for (let i = 0; i < infraCards.length; i++) {
+        const col = i % 2;
+        if (col === 0) ensureSpace(icH + 3);
+        const ix = ML + col * (icW + 4);
+        featureCard(ix, y, icW, icH, infraCards[i].t, infraCards[i].d, infraCards[i].c);
+        if (col === 1) y += icH + 3;
+      }
       y += 2;
 
-      const pipeSteps = ["Select Entity", "AI Connect", "Sandbox Test", "Store Creds", "Promote", "Live Traffic"];
-      const stepW = (CW - (pipeSteps.length - 1) * 2) / pipeSteps.length;
-      pipeSteps.forEach((s, i) => {
-        const sx = ML + i * (stepW + 2);
-        cardBox(sx, y, stepW, 14);
+      // Credential visual mockup
+      ensureSpace(26);
+      pdf.setFillColor(...cardBg);
+      pdf.roundedRect(ML, y, CW, 22, 2, 2, "F");
+      pdf.setFontSize(7);
+      pdf.setTextColor(...muted);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("CREDENTIAL VAULT PREVIEW", ML + 4, y + 5);
+
+      const credRows = [
+        ["API Key", "sk_live_••••••••3f9a", "Encrypted"],
+        ["Client Secret", "cs_••••••••7b2e", "Encrypted"],
+        ["Base URL", "https://api.cbz.co.zw/v1", "Verified"],
+      ];
+      credRows.forEach((cr, i) => {
+        const ry = y + 9 + i * 4;
         pdf.setFontSize(6.5);
+        pdf.setTextColor(...muted);
+        pdf.text(cr[0], ML + 6, ry);
+        pdf.setTextColor(...white);
+        pdf.setFont("helvetica", "normal");
+        pdf.text(cr[1], ML + 40, ry);
+        badge(cr[2], ML + CW - 30, ry, cr[2] === "Encrypted" ? success : primary);
+      });
+      y += 26;
+
+      // End-to-End Pipeline
+      ensureSpace(28);
+      pdf.setFillColor(...cardBgAlt);
+      pdf.roundedRect(ML, y, CW, 22, 2, 2, "F");
+      pdf.setFontSize(7);
+      pdf.setTextColor(...muted);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("END-TO-END INTEGRATION PIPELINE", ML + 4, y + 5);
+
+      const pSteps = ["Select\nEntity", "AI\nConnect", "Sandbox\nTest", "Store\nCreds", "Promote", "Live\nTraffic"];
+      const psW = (CW - 20) / pSteps.length;
+      pSteps.forEach((s, i) => {
+        const px = ML + 8 + i * psW;
+        // Circle with number
+        pdf.setFillColor(...primary);
+        pdf.setGState(new (pdf as any).GState({ opacity: 0.15 }));
+        pdf.circle(px + psW / 2, y + 11, 4.5, "F");
+        pdf.setGState(new (pdf as any).GState({ opacity: 1 }));
+        pdf.setFontSize(8);
         pdf.setTextColor(...primary);
         pdf.setFont("helvetica", "bold");
-        pdf.text(s, sx + stepW / 2, y + 9, { align: "center" });
-        if (i < pipeSteps.length - 1) {
-          pdf.setFontSize(8);
-          pdf.setTextColor(...muted);
-          pdf.text("→", sx + stepW + 1, y + 8, { align: "center" });
-        }
-      });
-      y += 20;
-
-      // ═══════════════════════════════════════════
-      // COMPETITIVE ADVANTAGES
-      // ═══════════════════════════════════════════
-      newPage();
-      heading("5. Competitive Advantages", 18, primary);
-      y += 2;
-
-      const advantages = [
-        { title: "Thin-File Friendly", desc: "Leverages alternative data signals — mobile money, utility payments, psychometric assessments, OCR-extracted data — to score first-time borrowers and informal sector workers." },
-        { title: "Full Model Transparency", desc: "WoE bins, feature coefficients, IV values, and an interactive Score Simulator are exposed for governance and regulatory explainability." },
-        { title: "Production-Grade Integration Pipeline", desc: "Automated lifecycle: AI sandbox setup, entity-specific tests, encrypted credential storage, one-click promotion, and secure API proxy for live traffic across 40+ entities." },
-        { title: "Enterprise-Grade Security", desc: "RLS isolation, SHA-256 hashed API keys, server-side encrypted credentials, encrypted storage buckets, and RBAC (admin, credit officer, underwriter, viewer)." },
-        { title: "One Integration, All Markets", desc: "A single API covers 12+ countries. Country-specific ID types, bureau providers, currencies, and regulatory rules are handled by the platform." },
-        { title: "Regulatory-First Design", desc: "Fairness auditing, model transparency, reason codes, and complete audit trails baked in — generating the exact artifacts African regulators require." },
-        { title: "Grace AI Assistant", desc: "Contextual AI embedded in every application — real-time insights, score justifications, risk explanations, and persisted sessions for compliance." },
-        { title: "Reloan & Upgrade Engine", desc: "Payment history tracking automatically improves future scores, enabling automated reloan approvals and credit limit upgrades." },
-      ];
-
-      for (const adv of advantages) {
-        ensureSpace(18);
-        pdf.setFontSize(10);
+        pdf.text(`${i + 1}`, px + psW / 2, y + 12.5, { align: "center" });
+        // Label
+        pdf.setFontSize(5.5);
         pdf.setTextColor(...white);
         pdf.setFont("helvetica", "bold");
-        pdf.text(`▸ ${adv.title}`, ML + 2, y);
-        y += 4.5;
-        pdf.setFontSize(8);
-        pdf.setTextColor(...muted);
-        pdf.setFont("helvetica", "normal");
-        const lines = pdf.splitTextToSize(adv.desc, CW - 8);
-        pdf.text(lines, ML + 6, y);
-        y += lines.length * 3.5 + 5;
-      }
+        const labelLines = s.split("\n");
+        labelLines.forEach((l, li) => {
+          pdf.text(l, px + psW / 2, y + 18 + li * 3, { align: "center" });
+        });
+        // Arrow
+        if (i < pSteps.length - 1) {
+          pipelineArrow(px + psW / 2 + 5, px + psW / 2 + psW - 5, y + 11);
+        }
+      });
+      y += 26;
 
       // ═══════════════════════════════════════════
-      // COMPARISON TABLE
+      // ADVANTAGES & COMPARISON
       // ═══════════════════════════════════════════
-      sectionDivider();
-      heading("AfricaOne vs. Traditional Scoring", 13);
+      newPage();
+      sectionHeader("05", "COMPETITIVE ADVANTAGES");
+
+      const advantages = [
+        { t: "Thin-File Friendly", d: "Alternative data — mobile money, utilities, psychometrics, OCR — for first-time borrowers.", c: primary },
+        { t: "Full Transparency", d: "WoE bins, coefficients, IV values, Score Simulator exposed for governance.", c: accent },
+        { t: "Production Pipeline", d: "AI sandbox setup, encrypted credentials, one-click promotion, API proxy.", c: success },
+        { t: "Enterprise Security", d: "RLS isolation, SHA-256 keys, encrypted credentials, RBAC roles.", c: destructive },
+        { t: "One API, All Markets", d: "Single integration for 12+ countries. Platform handles localization.", c: [100, 160, 255] as RGB },
+        { t: "Regulatory-First", d: "Fairness auditing, reason codes, audit trails for central bank approval.", c: warning },
+        { t: "Grace AI Assistant", d: "Contextual AI in every application with persisted sessions.", c: [180, 100, 220] as RGB },
+        { t: "Reloan Engine", d: "Payment history auto-improves scores for reloan approvals.", c: primary },
+      ];
+
+      // 2x4 compact cards
+      const aW = (CW - 4) / 2;
+      const aH = 18;
+      for (let i = 0; i < advantages.length; i++) {
+        const col = i % 2;
+        if (col === 0) ensureSpace(aH + 3);
+        const ax = ML + col * (aW + 4);
+        featureCard(ax, y, aW, aH, advantages[i].t, advantages[i].d, advantages[i].c);
+        if (col === 1) y += aH + 3;
+      }
       y += 2;
 
-      const compLeft = [
-        "Alternative data + bureau fusion",
-        "Time-series income analysis",
-        "AI-powered document OCR",
-        "Real-time API scoring < 2s",
-        "Pan-African localization",
-        "Built-in fairness monitoring",
-        "Encrypted credential vault",
-        "Sandbox → Production pipeline",
-        "Secure API proxy for live traffic",
-      ];
-      const compRight = [
-        "Bureau-only data dependency",
-        "Static point-in-time snapshot",
-        "Manual document review",
-        "Batch processing (hours/days)",
-        "Single-market configuration",
-        "Compliance as afterthought",
-        "Manual credential management",
-        "No sandbox environment",
-        "Direct API key exposure",
-      ];
+      // Comparison table
+      ensureSpace(55);
+      pdf.setFillColor(...cardBg);
+      pdf.roundedRect(ML, y, CW, 52, 2, 2, "F");
 
-      const halfW = CW / 2 - 4;
-
-      ensureSpace(10);
-      pdf.setFontSize(9);
+      // Header row
+      pdf.setFillColor(...primary);
+      pdf.setGState(new (pdf as any).GState({ opacity: 0.12 }));
+      pdf.roundedRect(ML, y, CW / 2, 8, 2, 0, "F");
+      pdf.setGState(new (pdf as any).GState({ opacity: 1 }));
+      pdf.setFontSize(8);
       pdf.setFont("helvetica", "bold");
       pdf.setTextColor(...primary);
-      pdf.text("✓  AfricaOne", ML, y);
+      pdf.text("✓  AfricaOne", ML + 6, y + 5.5);
       pdf.setTextColor(...muted);
-      pdf.text("—  Traditional", ML + halfW + 8, y);
-      y += 6;
+      pdf.text("—  Traditional", ML + CW / 2 + 6, y + 5.5);
+      y += 10;
 
-      for (let i = 0; i < compLeft.length; i++) {
-        ensureSpace(6);
-        pdf.setFontSize(7.5);
-        pdf.setFont("helvetica", "normal");
+      const compL = [
+        "Alternative data + bureau fusion", "Time-series income analysis", "AI-powered document OCR",
+        "Real-time API scoring < 2s", "Pan-African localization", "Built-in fairness monitoring",
+        "Encrypted credential vault", "Sandbox → Production pipeline", "Secure API proxy",
+      ];
+      const compR = [
+        "Bureau-only dependency", "Static snapshot", "Manual document review",
+        "Batch processing (hrs/days)", "Single-market config", "Compliance as afterthought",
+        "Manual credential mgmt", "No sandbox", "Direct API key exposure",
+      ];
+
+      for (let i = 0; i < compL.length; i++) {
+        pdf.setFontSize(7);
         pdf.setTextColor(...success);
-        pdf.text("✓", ML + 2, y);
+        pdf.setFont("helvetica", "normal");
+        pdf.text("✓", ML + 6, y);
         pdf.setTextColor(...white);
-        pdf.text(compLeft[i], ML + 7, y);
-        pdf.setTextColor(80, 85, 100);
-        pdf.text("—", ML + halfW + 10, y);
-        pdf.text(compRight[i], ML + halfW + 15, y);
-        y += 5;
+        pdf.text(compL[i], ML + 11, y);
+        pdf.setTextColor(70, 75, 90);
+        pdf.text("—", ML + CW / 2 + 6, y);
+        pdf.text(compR[i], ML + CW / 2 + 11, y);
+        // Alternating row bg
+        if (i % 2 === 0) {
+          pdf.setFillColor(...cardBgAlt);
+          pdf.setGState(new (pdf as any).GState({ opacity: 0.3 }));
+          pdf.rect(ML + 1, y - 2.5, CW - 2, 4.5, "F");
+          pdf.setGState(new (pdf as any).GState({ opacity: 1 }));
+        }
+        y += 4.5;
       }
+      y += 4;
 
       // ═══════════════════════════════════════════
       // INTEGRATION & API
       // ═══════════════════════════════════════════
       newPage();
-      heading("6. Integration & Developer Experience", 18, primary);
-      y += 2;
-      subheading("Full-fledged sandbox, interactive console, production promotion, and comprehensive API for seamless third-party integration.");
+      sectionHeader("06", "INTEGRATION & DEVELOPER EXPERIENCE");
 
-      heading("API Endpoints", 12);
-      y += 1;
+      bodyText("Full-fledged sandbox, interactive console, production promotion, and comprehensive API for seamless third-party integration.");
 
-      const endpoints = [
+      // API Endpoints table
+      subSection("API Endpoints");
+      ensureSpace(38);
+
+      pdf.setFillColor(...cardBg);
+      pdf.roundedRect(ML, y, CW, 35, 2, 2, "F");
+
+      const eps = [
         ["POST", "/v1/score", "Score a borrower application"],
         ["POST", "/v1/applications", "Create a new application"],
         ["POST", "/v1/documents", "Extract document data"],
@@ -563,120 +727,128 @@ const ShowcasePdfExport = () => {
         ["GET", "/v1/health", "Service health check"],
       ];
 
-      for (const [method, path, desc] of endpoints) {
-        ensureSpace(7);
-        const methodColor: [number, number, number] = method === "POST" ? warning : success;
-        badge(method, ML + 2, y, methodColor);
+      let epY = y + 4;
+      for (const [method, path, desc] of eps) {
+        const methodColor: RGB = method === "POST" ? warning : success;
+        badge(method, ML + 4, epY + 2, methodColor);
         pdf.setFontSize(8);
         pdf.setTextColor(...white);
         pdf.setFont("helvetica", "bold");
-        pdf.text(path, ML + 22, y);
+        pdf.text(path, ML + 24, epY + 2);
+        pdf.setFontSize(7);
         pdf.setTextColor(...muted);
         pdf.setFont("helvetica", "normal");
-        pdf.text(desc, ML + 68, y);
-        y += 7;
+        pdf.text(desc, ML + 70, epY + 2);
+        epY += 5.5;
       }
+      y += 38;
 
-      sectionDivider();
-
-      heading("Integration Flow", 12);
-      y += 2;
-      const flowSteps = [
-        ["1", "Generate API Key", "Sandbox or Live"],
-        ["2", "Test in Sandbox", "Interactive console"],
-        ["3", "Configure Webhooks", "Event callbacks"],
-        ["4", "Store Credentials", "Encrypted vault"],
-        ["5", "Go Live", "Production promote"],
+      // Integration Flow
+      subSection("Integration Flow");
+      ensureSpace(24);
+      pdf.setFillColor(...cardBgAlt);
+      pdf.roundedRect(ML, y, CW, 20, 2, 2, "F");
+      const fSteps = [
+        ["1", "Gen. API Key"], ["2", "Test Sandbox"], ["3", "Webhooks"], ["4", "Store Creds"], ["5", "Go Live"],
       ];
-
-      const flowW = (CW - (flowSteps.length - 1) * 2) / flowSteps.length;
-      ensureSpace(22);
-      flowSteps.forEach(([num, label, sub], i) => {
-        const fx = ML + i * (flowW + 2);
-        cardBox(fx, y, flowW, 20);
-        pdf.setFontSize(12);
-        pdf.setTextColor(...primary);
+      const fW = (CW - 10) / fSteps.length;
+      fSteps.forEach(([num, label], i) => {
+        const fx = ML + 5 + i * fW;
+        pdf.setFillColor(...primary);
+        pdf.circle(fx + fW / 2, y + 8, 4, "F");
+        pdf.setFontSize(9);
+        pdf.setTextColor(...bg);
         pdf.setFont("helvetica", "bold");
-        pdf.text(num, fx + flowW / 2, y + 8, { align: "center" });
+        pdf.text(num, fx + fW / 2, y + 10, { align: "center" });
         pdf.setFontSize(6);
         pdf.setTextColor(...white);
-        pdf.setFont("helvetica", "bold");
-        pdf.text(label, fx + flowW / 2, y + 13, { align: "center" });
-        pdf.setFontSize(5.5);
-        pdf.setTextColor(...muted);
-        pdf.setFont("helvetica", "normal");
-        pdf.text(sub, fx + flowW / 2, y + 17, { align: "center" });
+        pdf.text(label, fx + fW / 2, y + 16, { align: "center" });
+        if (i < fSteps.length - 1) pipelineArrow(fx + fW / 2 + 5, fx + fW / 2 + fW - 5, y + 8);
       });
-      y += 28;
+      y += 24;
 
-      sectionDivider();
-
-      heading("Entity Coverage by Country", 12);
-      y += 2;
-
+      // Country coverage grid
+      subSection("Entity Coverage by Country");
       const countries = [
-        ["🇿🇼 Zimbabwe", "CBZ Bank, EcoCash, ZESA, TransUnion, XDS, CRB Africa, Creditinfo, FinCheck"],
-        ["🇰🇪 Kenya", "M-Pesa, Equity Bank, KCB, TransUnion KE, Metropol, KPLC, CRB"],
-        ["🇬🇭 Ghana", "MTN MoMo, GCB, Ecobank, XDS Ghana, GWCL, ECG, GhIPSS"],
-        ["🇳🇬 Nigeria", "GTBank, Access Bank, CRC Bureau, First Central, NIBSS, Flutterwave"],
-        ["🇷🇼 Rwanda", "MTN Rwanda, BK, TransUnion RW, RURA, REG"],
-        ["🇺🇬 Uganda", "MTN Uganda, Stanbic, Compuscan, UMEME, NWSC"],
+        ["Zimbabwe", "CBZ Bank, EcoCash, ZESA, TransUnion, XDS, CRB Africa, Creditinfo, FinCheck"],
+        ["Kenya", "M-Pesa, Equity Bank, KCB, TransUnion KE, Metropol, KPLC, CRB"],
+        ["Ghana", "MTN MoMo, GCB, Ecobank, XDS Ghana, GWCL, ECG, GhIPSS"],
+        ["Nigeria", "GTBank, Access Bank, CRC Bureau, First Central, NIBSS, Flutterwave"],
+        ["Rwanda", "MTN Rwanda, BK, TransUnion RW, RURA, REG"],
+        ["Uganda", "MTN Uganda, Stanbic, Compuscan, UMEME, NWSC"],
       ];
 
-      for (const [country, entities] of countries) {
-        ensureSpace(12);
-        pdf.setFontSize(9);
+      const cCardW = (CW - 4) / 2;
+      for (let i = 0; i < countries.length; i++) {
+        const col = i % 2;
+        if (col === 0) ensureSpace(16);
+        const cx = ML + col * (cCardW + 4);
+        // Card
+        pdf.setFillColor(...cardBg);
+        pdf.roundedRect(cx, y, cCardW, 14, 2, 2, "F");
+        pdf.setFontSize(8);
         pdf.setTextColor(...white);
         pdf.setFont("helvetica", "bold");
-        pdf.text(country, ML + 2, y);
-        y += 4;
-        pdf.setFontSize(7.5);
+        pdf.text(countries[i][0], cx + 5, y + 5);
+        pdf.setFontSize(6.5);
         pdf.setTextColor(...muted);
         pdf.setFont("helvetica", "normal");
-        const lines = pdf.splitTextToSize(entities, CW - 8);
-        pdf.text(lines, ML + 6, y);
-        y += lines.length * 3.5 + 4;
+        const elines = pdf.splitTextToSize(countries[i][1], cCardW - 10);
+        pdf.text(elines, cx + 5, y + 10);
+        if (col === 1) y += 17;
       }
+      y += 4;
 
       // ═══════════════════════════════════════════
       // BACK COVER
       // ═══════════════════════════════════════════
       newPage();
 
-      y = H / 2 - 30;
+      // Full decorative background
+      pdf.setFillColor(...glow);
+      pdf.setGState(new (pdf as any).GState({ opacity: 0.2 }));
+      pdf.circle(W / 2, H / 2, 60, "F");
+      pdf.setGState(new (pdf as any).GState({ opacity: 0.1 }));
+      pdf.circle(W / 2 - 50, H / 2 + 40, 30, "F");
+      pdf.circle(W / 2 + 50, H / 2 - 40, 25, "F");
+      pdf.setGState(new (pdf as any).GState({ opacity: 1 }));
 
-      pdf.setFontSize(24);
+      y = H / 2 - 35;
+
+      pdf.setFontSize(28);
       pdf.setTextColor(...white);
       pdf.setFont("helvetica", "bold");
       pdf.text("Ready to Transform", W / 2, y, { align: "center" });
-      y += 10;
+      y += 12;
+      pdf.setFontSize(28);
+      pdf.setTextColor(...primary);
       pdf.text("Credit Decisioning?", W / 2, y, { align: "center" });
       y += 14;
 
-      pdf.setFontSize(11);
+      pdf.setFontSize(10);
       pdf.setTextColor(...muted);
       pdf.setFont("helvetica", "normal");
       pdf.text("Start scoring borrowers across Africa in minutes — not months.", W / 2, y, { align: "center" });
       y += 16;
 
-      // Feature badges
-      const badgeLabels = [
-        { text: "API-First", color: primary },
-        { text: "12+ Markets", color: accent },
-        { text: "Compliant", color: success },
-        { text: "40+ Entities", color: warning },
+      // Badge row
+      const badges = [
+        { t: "API-First", c: primary }, { t: "12+ Markets", c: accent },
+        { t: "Compliant", c: success }, { t: "40+ Entities", c: warning },
       ];
-      const totalBadgeW = badgeLabels.length * 30 + (badgeLabels.length - 1) * 4;
-      let bx = (W - totalBadgeW) / 2;
-      for (const b of badgeLabels) {
-        badge(b.text, bx, y, b.color);
-        bx += 34;
-      }
+      let totalW = 0;
+      badges.forEach(b => { pdf.setFontSize(7); totalW += pdf.getTextWidth(b.t) + 9; });
+      let bx = (W - totalW) / 2;
+      badges.forEach(b => {
+        pdf.setFontSize(7);
+        const tw = badge(b.t, bx, y, b.c);
+        bx += tw + 4;
+      });
 
-      y += 20;
+      y += 22;
       pdf.setDrawColor(...primary);
       pdf.setLineWidth(0.5);
-      pdf.line(W / 2 - 20, y, W / 2 + 20, y);
+      pdf.line(W / 2 - 25, y, W / 2 + 25, y);
       y += 10;
 
       pdf.setFontSize(8);
@@ -686,7 +858,6 @@ const ShowcasePdfExport = () => {
       pdf.text("© 2026 All Rights Reserved", W / 2, y, { align: "center" });
 
       addFooter();
-
       pdf.save("AfricaOne-Platform-Showcase.pdf");
     } catch (err) {
       console.error("PDF generation failed:", err);
@@ -696,22 +867,12 @@ const ShowcasePdfExport = () => {
   };
 
   return (
-    <Button
-      onClick={generatePdf}
-      disabled={generating}
-      variant="outline"
-      className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
-    >
+    <Button onClick={generatePdf} disabled={generating} variant="outline"
+      className="gap-2 border-primary/30 text-primary hover:bg-primary/10">
       {generating ? (
-        <>
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Generating PDF…
-        </>
+        <><Loader2 className="h-4 w-4 animate-spin" />Generating PDF…</>
       ) : (
-        <>
-          <Download className="h-4 w-4" />
-          Download PDF
-        </>
+        <><Download className="h-4 w-4" />Download PDF</>
       )}
     </Button>
   );
