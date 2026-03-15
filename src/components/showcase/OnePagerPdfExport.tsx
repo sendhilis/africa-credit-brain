@@ -89,10 +89,8 @@ const OnePagerPdfExport = () => {
       pdf.setFontSize(5.5);
       pdf.setFont("helvetica", "bold");
       rr(W - MR - 28, y + 5, 28, 7, 3, [255, 255, 255] as RGB);
-      pdf.setGState(new (jsPDF as any).GState({ opacity: 0.9 }));
       setC([16, 20, 32]);
       pdf.text("ENTERPRISE LICENSE", W - MR - 26, y + 9.5);
-      pdf.setGState(new (jsPDF as any).GState({ opacity: 1 }));
 
       y += 24;
 
