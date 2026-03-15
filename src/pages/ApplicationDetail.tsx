@@ -591,6 +591,39 @@ const ApplicationDetail = () => {
           <pre className="text-sm text-muted-foreground whitespace-pre-wrap font-sans">{app.notes}</pre>
         </GlassCard>
       )}
+      {/* Grace AI Assistant */}
+      {displayScore && (
+        <GraceChat
+          applicationContext={{
+            appCode: app.app_code,
+            borrowerName: app.borrower?.full_name || "Unknown",
+            country: app.country,
+            productType: app.product_type,
+            productCategory: app.product_category,
+            status: app.status,
+            currency: app.currency,
+            requestedAmount: app.requested_amount,
+            tenorMonths: app.tenor_months,
+            score: displayScore.score,
+            scoreBand: displayScore.score_band,
+            probabilityOfDefault: displayScore.probability_of_default,
+            recommendation: displayScore.recommendation,
+            modelVersion: displayScore.model_version || null,
+            factors: displayScore.factors || [],
+            reasonCodes: displayScore.reason_codes || [],
+            woeDetails: displayScore.woe_details || [],
+            summary: displayScore.summary || null,
+            aiInsights: displayScore.ai_insights || null,
+            dataSanity: displayScore.data_sanity || null,
+            monthlyIncome: app.monthly_income,
+            monthlyExpenses: app.monthly_expenses,
+            monthlyRent: app.monthly_rent,
+            dependents: app.dependents,
+            existingLoans: app.existing_loans,
+            employer: app.employer,
+          }}
+        />
+      )}
     </DashboardLayout>
   );
 };
