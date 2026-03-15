@@ -48,12 +48,9 @@ const OnePagerPdfExport = () => {
       // ══════════════════════════════════════════════
       setF(bg); pdf.rect(0, 0, W, H, "F");
 
-      // Decorative top-right glow
-      pdf.setGState(new (jsPDF as any).GState({ opacity: 0.08 }));
-      setF(primary); pdf.circle(W + 10, -10, 80, "F");
-      pdf.setGState(new (jsPDF as any).GState({ opacity: 0.05 }));
-      setF(accent); pdf.circle(-20, H + 10, 70, "F");
-      pdf.setGState(new (jsPDF as any).GState({ opacity: 1 }));
+      // Decorative top-right glow (subtle solid tints)
+      setF([22, 34, 32]); pdf.circle(W + 10, -10, 80, "F");
+      setF([24, 22, 18]); pdf.circle(-20, H + 10, 70, "F");
 
       let y = 10;
 
@@ -71,10 +68,8 @@ const OnePagerPdfExport = () => {
       }
 
       // Logo circle
-      setF([255, 255, 255]);
-      pdf.setGState(new (jsPDF as any).GState({ opacity: 0.15 }));
+      setF([50, 70, 65]);
       pdf.circle(ML + 8, y + 10, 8, "F");
-      pdf.setGState(new (jsPDF as any).GState({ opacity: 1 }));
 
       pdf.setFontSize(7);
       pdf.setFont("helvetica", "bold");
@@ -94,10 +89,8 @@ const OnePagerPdfExport = () => {
       pdf.setFontSize(5.5);
       pdf.setFont("helvetica", "bold");
       rr(W - MR - 28, y + 5, 28, 7, 3, [255, 255, 255] as RGB);
-      pdf.setGState(new (jsPDF as any).GState({ opacity: 0.9 }));
       setC([16, 20, 32]);
       pdf.text("ENTERPRISE LICENSE", W - MR - 26, y + 9.5);
-      pdf.setGState(new (jsPDF as any).GState({ opacity: 1 }));
 
       y += 24;
 
