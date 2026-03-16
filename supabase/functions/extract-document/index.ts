@@ -466,7 +466,9 @@ If data is unclear or missing, omit optional fields rather than guessing. Set co
         ? "Rate limited — please retry in a moment"
         : errStatus === 402
           ? "AI credits exhausted"
-          : `AI extraction failed (${errStatus})`;
+          : errStatus === 400
+            ? `AI could not process this file (format: ${resolvedMimeType}, extension: .${fileExt}). Ensure the file is a valid PDF or image (JPG/PNG/WEBP) and not corrupted.`
+            : `AI extraction failed with status ${errStatus}. Please re-upload the document or try a different file.`;
 
       await supabase
         .from("document_extractions")
