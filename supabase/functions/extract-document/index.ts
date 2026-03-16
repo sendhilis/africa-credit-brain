@@ -215,6 +215,39 @@ serve(async (req) => {
     }
     console.log("extract-document: file downloaded, size =", fileData.size);
 
+    // ── File type validation ──
+    const mimeType = fileData.type || "application/octet-stream";
+    const filePath = extraction.storage_path as string;
+    const fileExt = filePath.split(".").pop()?.toLowerCase() || "";
+
+    const SUPPORTED_MIME_TYPES = [
+      "application/pdf",
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+      "image/tiff",
+    ];
+    const SUPPORTED_EXTENSIONS = ["pdf", "jpg", "jpeg", "png", "webp", "tiff", "tif"];
+
+    const mimeOk = SUPPORTED_MIME_TYPES.includes(mimeType);
+    const extOk = SUPPORTED_EXTENSIONS.includes(fileExt);
+
+    if (!mimeOk && !extOk) {
+      const friendlyFormats = "PDF, JPG, PNG, or WEBP";
+      const errMsg = `Unsupported file format ".${fileExt}" (${mimeType}). The OCR engine only accepts ${friendlyFormats} files. Please re-upload the document in a supported format.`;
+      console.error("extract-document: UNSUPPORTED FORMAT:", errMsg);
+      await supabase
+        .from("document_extractions")
+        .update({ extraction_status: "failed", error_message: errMsg })
+        .eq("id", extraction_id);
+
+      return new Response(JSON.stringify({ success: false, error: errMsg }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Convert to base64 for AI (chunked to avoid call stack overflow)
     const arrayBuffer = await fileData.arrayBuffer();
     const bytes = new Uint8Array(arrayBuffer);
@@ -224,7 +257,7 @@ serve(async (req) => {
       binaryStr += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
     }
     const base64 = btoa(binaryStr);
-    const mimeType = fileData.type || "application/pdf";
+    const resolvedMimeType = mimeOk ? mimeType : (fileExt === "pdf" ? "application/pdf" : `image/${fileExt}`);
 
     // Determine schema based on document type
     const docType = extraction.document_type;
