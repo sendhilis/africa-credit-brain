@@ -448,7 +448,7 @@ If data is unclear or missing, omit optional fields rather than guessing. Set co
             role: "user",
             content: [
               { type: "text", text: userPrompt },
-              { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64}` } },
+              { type: "image_url", image_url: { url: `data:${resolvedMimeType};base64,${base64}` } },
             ],
           },
         ],
