@@ -330,7 +330,7 @@ If the document does NOT match the expected type, set is_valid=false and identif
             role: "user",
             content: [
               { type: "text", text: `Expected document type: "${docType.replace(/_/g, " ")}". Is this document valid?` },
-              { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64}` } },
+              { type: "image_url", image_url: { url: `data:${resolvedMimeType};base64,${base64}` } },
             ],
           },
         ],
