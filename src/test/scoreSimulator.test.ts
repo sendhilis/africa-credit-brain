@@ -11,9 +11,11 @@ import {
 // ── Replicate exact scoring formula from ScoreSimulator.tsx ──
 function computeScore(
   features: SimFeature[],
-  binSelections: Record<string, number>
+  binSelections: Record<string, number>,
+  segment: BorrowerSegment = "retail"
 ) {
-  const { baseScore, baseOdds, pdo, intercept } = SCORING_PARAMS;
+  const { baseScore, baseOdds, pdo } = SCORING_PARAMS;
+  const intercept = SCORING_PARAMS.intercept[segment] ?? SCORING_PARAMS.defaultIntercept;
   const factor = pdo / Math.LN2;
   const offset = baseScore - factor * Math.log(baseOdds);
 
@@ -32,8 +34,7 @@ function computeScore(
     const bin = f.bins[binIdx] ?? f.bins[0];
     const term = f.beta * bin.woe;
     logOdds += term;
-    // This is the current code's formula:
-    const points = -factor * term;
+    const points = factor * term;
     contributions.push({
       key: f.key,
       label: f.label,
