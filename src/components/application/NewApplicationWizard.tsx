@@ -1258,7 +1258,7 @@ const NewApplicationWizard = () => {
         { key: "financial_statement", icon: FileText, title: "Financial Statements / Receipts", desc: "P&L, balance sheet, or sales receipts.", formats: "PDF, XLSX", accept: ".pdf,.xlsx,.xls" },
       ] : []),
       ...(category === "sme" ? [
-        { key: "tax_clearance", icon: Shield, title: "ZIMRA Tax Clearance (ITF 263)", desc: "Valid tax clearance certificate.", formats: "PDF", accept: ".pdf" },
+        { key: "tax_clearance", icon: Shield, title: config?.taxClearanceDoc?.label || "Tax Clearance Certificate", desc: config?.taxClearanceDoc?.description || "Valid tax clearance certificate.", formats: "PDF", accept: ".pdf" },
         { key: "management_accounts", icon: BarChart3, title: "Management Accounts (latest)", desc: "Monthly management accounts for cash flow analysis.", formats: "PDF, XLSX", accept: ".pdf,.xlsx,.xls" },
       ] : []),
       ...(category === "farmer" ? [
