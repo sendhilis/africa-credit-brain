@@ -63,12 +63,30 @@ const ScoreSimulator = () => {
     setSelections((prev) => ({ ...prev, [featureKey]: binIndex }));
   };
 
-  const handleReset = () => setSelections({});
+  const handleReset = () => {
+    setSelections({});
+    setBetaOverrides({});
+  };
 
   const handleSegmentChange = (s: BorrowerSegment) => {
     setSegment(s);
     setSelections({});
+    setBetaOverrides({});
   };
+
+  const handleBetaChange = useCallback((key: string, value: number) => {
+    setBetaOverrides((prev) => ({ ...prev, [key]: value }));
+  }, []);
+
+  const handleBetaReset = useCallback((key: string) => {
+    setBetaOverrides((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }, []);
+
+  const modifiedCount = Object.keys(betaOverrides).length;
 
   const result = useMemo(() => {
     const { baseScore, baseOdds, pdo } = SCORING_PARAMS;
