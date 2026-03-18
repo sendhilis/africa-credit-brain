@@ -1130,6 +1130,28 @@ const NewApplicationWizard = () => {
           </>
         )}
 
+        {/* Farmer: simplified — detailed captured in farm steps */}
+        {category === "farmer" && (
+          <>
+            <FieldGroup label="Repayment Capacity">
+              <Field label="Number of Dependents">
+                <Input type="number" placeholder="5" className="bg-muted/50 border-border" value={formData.dependents || ""} onChange={e => updateField("dependents", e.target.value)} />
+              </Field>
+              <Field label="Existing Loan Obligations">
+                <Select value={formData.existing_loans || ""} onValueChange={v => updateField("existing_loans", v)}>
+                  <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No existing loans</SelectItem>
+                    <SelectItem value="1">1 active loan (MFI / AFC)</SelectItem>
+                    <SelectItem value="2">2 active loans</SelectItem>
+                    <SelectItem value="3_plus">3+ active loans</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+            </FieldGroup>
+          </>
+        )}
+
         <Field label="Notes (optional)" span2>
           <Textarea placeholder="Additional context for the underwriter…" className="bg-muted/50 border-border min-h-[60px]" value={formData.notes || ""} onChange={e => updateField("notes", e.target.value)} />
         </Field>
