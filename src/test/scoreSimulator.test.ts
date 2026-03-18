@@ -220,7 +220,7 @@ describe("Score Range Tests per Segment", () => {
           worstSelections[f.key] = worstIdx;
         });
 
-        const result = computeScore(features, worstSelections);
+        const result = computeScore(features, worstSelections, seg);
         console.log(`  ❌ ${seg} ALL-WORST: score=${result.finalScore}, PD=${(result.pd * 100).toFixed(2)}%, raw=${result.rawScore.toFixed(1)}`);
         expect(result.finalScore).toBeLessThanOrEqual(500);
       });
