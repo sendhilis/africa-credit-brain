@@ -200,7 +200,7 @@ describe("Score Range Tests per Segment", () => {
           bestSelections[f.key] = bestIdx;
         });
 
-        const result = computeScore(features, bestSelections);
+        const result = computeScore(features, bestSelections, seg);
         console.log(`  ✅ ${seg} ALL-BEST: score=${result.finalScore}, PD=${(result.pd * 100).toFixed(2)}%, raw=${result.rawScore.toFixed(1)}`);
         expect(result.finalScore).toBeGreaterThanOrEqual(740);
       });
