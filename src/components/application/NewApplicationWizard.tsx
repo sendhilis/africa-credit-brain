@@ -1572,7 +1572,7 @@ const NewApplicationWizard = () => {
         })()}
 
         {/* Bread Basket Summary */}
-        {country === "zimbabwe" && formData.monthly_food_basket && (
+        {formData.monthly_food_basket && (
           <div className="space-y-2">
             <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Bread Basket Margin</h4>
             {(() => {
