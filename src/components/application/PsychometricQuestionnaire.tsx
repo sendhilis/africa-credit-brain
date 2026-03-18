@@ -9,7 +9,7 @@ import {
   Wallet, Shield, Target, Compass, BarChart3
 } from "lucide-react";
 
-type ProductCategory = "retail" | "micro" | "sme";
+type ProductCategory = "retail" | "micro" | "sme" | "farmer";
 
 interface PsychometricQuestion {
   id: string;
