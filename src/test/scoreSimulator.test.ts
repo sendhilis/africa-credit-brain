@@ -314,7 +314,7 @@ describe("PD Validity", () => {
         Object.fromEntries(features.map((f) => [f.key, f.bins.length - 1])),
         Object.fromEntries(features.map((f) => [f.key, 0])),
       ].forEach((sel) => {
-        const result = computeScore(features, sel);
+        const result = computeScore(features, sel, seg);
         expect(result.pd).toBeGreaterThan(0);
         expect(result.pd).toBeLessThan(1);
       });
