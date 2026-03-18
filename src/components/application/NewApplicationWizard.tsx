@@ -683,7 +683,7 @@ const NewApplicationWizard = () => {
       <div className="space-y-5">
         <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
           <p className="text-xs text-muted-foreground">
-            <span className="font-semibold text-primary">Cash Flow & Savings Analysis</span> — Understanding cash flow volatility and informal savings mechanisms (Mukando, group lending) is critical for micro-enterprise scoring.
+            <span className="font-semibold text-primary">Cash Flow & Savings Analysis</span> — Understanding cash flow volatility and informal savings mechanisms is critical for micro-enterprise scoring.
           </p>
         </div>
 
@@ -706,12 +706,12 @@ const NewApplicationWizard = () => {
           ))}
         </FieldGroup>
 
-        {country === "zimbabwe" && (
+        {config?.microFields?.some(f => f.section === "Bread Basket") && (
           <>
-            <FieldGroup label="Bread Basket & Living Costs (Zimbabwe)">
+            <FieldGroup label="Bread Basket & Living Costs">
               <div className="col-span-2 p-3 rounded-lg bg-warning/5 border border-warning/20 mb-2">
                 <p className="text-xs text-muted-foreground">
-                  <span className="font-semibold text-warning">Bread Basket Assessment</span> — How much does the household spend on essentials? This determines if there's enough margin for loan repayment after inflation-impacted living costs.
+                  <span className="font-semibold text-warning">Bread Basket Assessment</span> — How much does the household spend on essentials? This determines if there's enough margin for loan repayment after living costs.
                 </p>
               </div>
               {renderConfigFields(microFields, "Bread Basket")}
@@ -747,20 +747,22 @@ const NewApplicationWizard = () => {
             <FieldGroup label="Balance Sheet Inputs">
               {renderConfigFields(microFields, "Balance Sheet")}
             </FieldGroup>
-
-            <FieldGroup label="Multi-Currency (Zimbabwe)">
-              <Field label="Primary Transaction Currency">
-                <Select value={formData.primary_currency || ""} onValueChange={v => updateField("primary_currency", v)}>
-                  <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="zwl">ZWL (Zimbabwe Dollar)</SelectItem>
-                    <SelectItem value="usd">USD</SelectItem>
-                    <SelectItem value="zar">ZAR (South African Rand)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-            </FieldGroup>
           </>
+        )}
+
+        {config?.multiCurrencyOptions && (
+          <FieldGroup label="Multi-Currency">
+            <Field label="Primary Transaction Currency">
+              <Select value={formData.primary_currency || ""} onValueChange={v => updateField("primary_currency", v)}>
+                <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
+                <SelectContent>
+                  {config.multiCurrencyOptions.map(o => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          </FieldGroup>
         )}
 
         <FieldGroup label="Credit Bureau Score (if available)">
@@ -871,16 +873,15 @@ const NewApplicationWizard = () => {
           </FieldGroup>
         )}
 
-        {country === "zimbabwe" && (
-          <FieldGroup label="Multi-Currency Exposure (Zimbabwe)">
+        {config?.multiCurrencyOptions && (
+          <FieldGroup label="Multi-Currency Exposure">
             <Field label="Primary Transaction Currency">
               <Select value={formData.primary_currency || ""} onValueChange={v => updateField("primary_currency", v)}>
                 <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="zwl">ZWL (Zimbabwe Dollar)</SelectItem>
-                  <SelectItem value="usd">USD</SelectItem>
-                  <SelectItem value="zar">ZAR (South African Rand)</SelectItem>
-                  <SelectItem value="mixed">Multi-Currency Mix</SelectItem>
+                  {config.multiCurrencyOptions.map(o => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </Field>
@@ -1003,12 +1004,12 @@ const NewApplicationWizard = () => {
               </Field>
             </FieldGroup>
 
-            {country === "zimbabwe" && (
+            {config.additionalRetailFields.some(f => f.key === "household_size") && (
               <>
-                <FieldGroup label="Bread Basket Margin (Zimbabwe)">
+                <FieldGroup label="Bread Basket Margin">
                   <div className="col-span-2 p-3 rounded-lg bg-warning/5 border border-warning/20 mb-2">
                     <p className="text-xs text-muted-foreground">
-                      <span className="font-semibold text-warning">Affordability Check</span> — Zimbabwe uses the bread basket approach to assess whether income covers essential living costs plus proposed loan repayment. This factors inflation impact on basic goods.
+                      <span className="font-semibold text-warning">Affordability Check</span> — The bread basket approach assesses whether income covers essential living costs plus proposed loan repayment, factoring in local cost-of-living pressures.
                     </p>
                   </div>
                   {config.additionalRetailFields.filter(f => ["household_size","monthly_food_basket","monthly_transport","monthly_school_fees","monthly_health"].includes(f.key)).map(f => (
@@ -1047,20 +1048,22 @@ const NewApplicationWizard = () => {
                     })()}
                   </div>
                 )}
-
-                <FieldGroup label="Multi-Currency Details (Zimbabwe)">
-                  <Field label="Primary Transaction Currency">
-                    <Select value={formData.primary_currency || ""} onValueChange={v => updateField("primary_currency", v)}>
-                      <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="zwl">ZWL (Zimbabwe Dollar)</SelectItem>
-                        <SelectItem value="usd">USD</SelectItem>
-                        <SelectItem value="zar">ZAR (South African Rand)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                </FieldGroup>
               </>
+            )}
+
+            {config?.multiCurrencyOptions && (
+              <FieldGroup label="Multi-Currency Details">
+                <Field label="Primary Transaction Currency">
+                  <Select value={formData.primary_currency || ""} onValueChange={v => updateField("primary_currency", v)}>
+                    <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      {config.multiCurrencyOptions.map(o => (
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </FieldGroup>
             )}
 
             <FieldGroup label="Credit Bureau Score (if available)">
@@ -1123,7 +1126,7 @@ const NewApplicationWizard = () => {
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label="Total Monthly Debt Service (ZWL)">
+              <Field label={`Total Monthly Debt Service (${config?.currency || ""})`}>
                 <Input type="number" placeholder="200000" className="bg-muted/50 border-border" value={formData.existing_repayments || ""} onChange={e => updateField("existing_repayments", e.target.value)} />
               </Field>
             </FieldGroup>
@@ -1142,7 +1145,7 @@ const NewApplicationWizard = () => {
                   <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">No existing loans</SelectItem>
-                    <SelectItem value="1">1 active loan (MFI / AFC)</SelectItem>
+                    <SelectItem value="1">1 active loan</SelectItem>
                     <SelectItem value="2">2 active loans</SelectItem>
                     <SelectItem value="3_plus">3+ active loans</SelectItem>
                   </SelectContent>
@@ -1255,7 +1258,7 @@ const NewApplicationWizard = () => {
         { key: "financial_statement", icon: FileText, title: "Financial Statements / Receipts", desc: "P&L, balance sheet, or sales receipts.", formats: "PDF, XLSX", accept: ".pdf,.xlsx,.xls" },
       ] : []),
       ...(category === "sme" ? [
-        { key: "tax_clearance", icon: Shield, title: "ZIMRA Tax Clearance (ITF 263)", desc: "Valid tax clearance certificate.", formats: "PDF", accept: ".pdf" },
+        { key: "tax_clearance", icon: Shield, title: config?.taxClearanceDoc?.label || "Tax Clearance Certificate", desc: config?.taxClearanceDoc?.description || "Valid tax clearance certificate.", formats: "PDF", accept: ".pdf" },
         { key: "management_accounts", icon: BarChart3, title: "Management Accounts (latest)", desc: "Monthly management accounts for cash flow analysis.", formats: "PDF, XLSX", accept: ".pdf,.xlsx,.xls" },
       ] : []),
       ...(category === "farmer" ? [
@@ -1392,7 +1395,7 @@ const NewApplicationWizard = () => {
       <div className="space-y-5">
         <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
           <p className="text-xs text-muted-foreground">
-            <span className="font-semibold text-primary">Behavioural Assessment</span> — 15 questions, ~5 minutes. Measures financial discipline, risk attitude, conscientiousness, and locus of control. Zimbabwe-contextualized with Mukando, multi-currency, and local scenarios.
+            <span className="font-semibold text-primary">Behavioural Assessment</span> — 15 questions, ~5 minutes. Measures financial discipline, risk attitude, conscientiousness, and locus of control. Contextualized with local savings practices, currency dynamics, and market scenarios.
           </p>
         </div>
 
@@ -1569,7 +1572,7 @@ const NewApplicationWizard = () => {
         })()}
 
         {/* Bread Basket Summary */}
-        {country === "zimbabwe" && formData.monthly_food_basket && (
+        {formData.monthly_food_basket && (
           <div className="space-y-2">
             <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Bread Basket Margin</h4>
             {(() => {
@@ -1617,7 +1620,7 @@ const NewApplicationWizard = () => {
           <p className="text-xs text-muted-foreground">
             On submit, AfricaOne will initiate: <span className="text-foreground font-medium">
               {category === "retail" && "Bureau checks → Alt-data pull → Document OCR → Psychometric score → Individual Scorecard"}
-              {category === "micro" && "Bureau checks → EcoCash/InnBucks pull → Cash flow analysis → Mukando verification → Micro Scorecard"}
+              {category === "micro" && "Bureau checks → Mobile wallet pull → Cash flow analysis → Savings group verification → Micro Scorecard"}
               {category === "sme" && "Bureau checks → Financial analysis → Cash flow volatility → Social media audit → Concentration risk → SME Scorecard"}
               {category === "farmer" && "Bureau checks → Land tenure verification → Season performance analysis → Contract farming validation → Agri Scorecard"}
             </span>
