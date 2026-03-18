@@ -100,10 +100,11 @@ const ScoreSimulator = () => {
     segmentFeatures.forEach((f) => {
       const binIdx = selections[f.key] ?? 0;
       const bin = f.bins[binIdx] ?? f.bins[0];
-      const term = f.beta * bin.woe;
+      const effectiveBeta = betaOverrides[f.key] ?? f.beta;
+      const term = effectiveBeta * bin.woe;
       logOdds += term;
       const points = factor * term;
-      contributions.push({ key: f.key, label: f.label, pillar: f.pillar, beta: f.beta, woe: bin.woe, term, points });
+      contributions.push({ key: f.key, label: f.label, pillar: f.pillar, beta: effectiveBeta, originalBeta: f.beta, woe: bin.woe, term, points });
     });
 
     const odds = Math.exp(logOdds);
@@ -112,7 +113,7 @@ const ScoreSimulator = () => {
     const finalScore = Math.round(Math.max(300, Math.min(900, rawScore)));
 
     return { logOdds, odds, pd, rawScore, finalScore, contributions, factor, offset, intercept };
-  }, [selections, segmentFeatures, segment]);
+  }, [selections, segmentFeatures, segment, betaOverrides]);
 
   const band = getScoreBand(result.finalScore);
 
