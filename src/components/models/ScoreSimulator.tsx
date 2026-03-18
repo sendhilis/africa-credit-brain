@@ -201,7 +201,7 @@ const ScoreSimulator = () => {
                   <span className="text-sm text-muted-foreground">{label}</span>
                   <span className="font-mono text-sm font-semibold text-foreground">{val}</span>
                 </div>
-                {i < 4 && <Separator className="bg-border/30 mt-3" />}
+                {i < 5 && <Separator className="bg-border/30 mt-3" />}
               </div>
             ))}
           </div>
