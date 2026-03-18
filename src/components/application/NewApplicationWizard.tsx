@@ -1004,12 +1004,12 @@ const NewApplicationWizard = () => {
               </Field>
             </FieldGroup>
 
-            {country === "zimbabwe" && (
+            {config.additionalRetailFields.some(f => f.key === "household_size") && (
               <>
-                <FieldGroup label="Bread Basket Margin (Zimbabwe)">
+                <FieldGroup label="Bread Basket Margin">
                   <div className="col-span-2 p-3 rounded-lg bg-warning/5 border border-warning/20 mb-2">
                     <p className="text-xs text-muted-foreground">
-                      <span className="font-semibold text-warning">Affordability Check</span> — Zimbabwe uses the bread basket approach to assess whether income covers essential living costs plus proposed loan repayment. This factors inflation impact on basic goods.
+                      <span className="font-semibold text-warning">Affordability Check</span> — The bread basket approach assesses whether income covers essential living costs plus proposed loan repayment, factoring in local cost-of-living pressures.
                     </p>
                   </div>
                   {config.additionalRetailFields.filter(f => ["household_size","monthly_food_basket","monthly_transport","monthly_school_fees","monthly_health"].includes(f.key)).map(f => (
@@ -1048,20 +1048,22 @@ const NewApplicationWizard = () => {
                     })()}
                   </div>
                 )}
-
-                <FieldGroup label="Multi-Currency Details (Zimbabwe)">
-                  <Field label="Primary Transaction Currency">
-                    <Select value={formData.primary_currency || ""} onValueChange={v => updateField("primary_currency", v)}>
-                      <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="zwl">ZWL (Zimbabwe Dollar)</SelectItem>
-                        <SelectItem value="usd">USD</SelectItem>
-                        <SelectItem value="zar">ZAR (South African Rand)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                </FieldGroup>
               </>
+            )}
+
+            {config?.multiCurrencyOptions && (
+              <FieldGroup label="Multi-Currency Details">
+                <Field label="Primary Transaction Currency">
+                  <Select value={formData.primary_currency || ""} onValueChange={v => updateField("primary_currency", v)}>
+                    <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      {config.multiCurrencyOptions.map(o => (
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </FieldGroup>
             )}
 
             <FieldGroup label="Credit Bureau Score (if available)">
