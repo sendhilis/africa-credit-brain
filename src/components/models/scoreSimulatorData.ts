@@ -4,7 +4,15 @@ export const SCORING_PARAMS = {
   baseScore: 600,
   baseOdds: 50,
   pdo: 20,
-  intercept: 4.80,
+  // Segment-specific intercepts calibrated so "first-bin defaults" → ~680 score
+  // Best-case all-optimal bins → ~800+, worst-case → <400
+  intercept: {
+    retail: -4.10,
+    micro: -6.15,
+    sme: -5.90,
+    farmer: -13.10,
+  } as Record<string, number>,
+  defaultIntercept: -4.10,
 };
 
 export type BorrowerSegment = "retail" | "micro" | "sme" | "farmer";

@@ -64,7 +64,8 @@ const ScoreSimulator = () => {
   };
 
   const result = useMemo(() => {
-    const { baseScore, baseOdds, pdo, intercept } = SCORING_PARAMS;
+    const { baseScore, baseOdds, pdo } = SCORING_PARAMS;
+    const intercept = SCORING_PARAMS.intercept[segment] ?? SCORING_PARAMS.defaultIntercept;
     const factor = pdo / Math.LN2;
     const offset = baseScore - factor * Math.log(baseOdds);
 
@@ -76,7 +77,7 @@ const ScoreSimulator = () => {
       const bin = f.bins[binIdx] ?? f.bins[0];
       const term = f.beta * bin.woe;
       logOdds += term;
-      const points = -factor * term;
+      const points = factor * term;
       contributions.push({ key: f.key, label: f.label, pillar: f.pillar, beta: f.beta, woe: bin.woe, term, points });
     });
 
@@ -85,8 +86,8 @@ const ScoreSimulator = () => {
     const rawScore = offset + factor * logOdds;
     const finalScore = Math.round(Math.max(300, Math.min(900, rawScore)));
 
-    return { logOdds, odds, pd, rawScore, finalScore, contributions, factor, offset };
-  }, [selections, segmentFeatures]);
+    return { logOdds, odds, pd, rawScore, finalScore, contributions, factor, offset, intercept };
+  }, [selections, segmentFeatures, segment]);
 
   const band = getScoreBand(result.finalScore);
 
@@ -192,6 +193,7 @@ const ScoreSimulator = () => {
               ["Odds (Good:Bad)", `${result.odds.toFixed(1)}:1`],
               ["Log-Odds", result.logOdds.toFixed(4)],
               ["Raw Score (unclipped)", result.rawScore.toFixed(1)],
+              ["Intercept", result.intercept.toFixed(2)],
               ["Active Features", String(segmentFeatures.length)],
             ].map(([label, val], i) => (
               <div key={i}>
@@ -199,7 +201,7 @@ const ScoreSimulator = () => {
                   <span className="text-sm text-muted-foreground">{label}</span>
                   <span className="font-mono text-sm font-semibold text-foreground">{val}</span>
                 </div>
-                {i < 4 && <Separator className="bg-border/30 mt-3" />}
+                {i < 5 && <Separator className="bg-border/30 mt-3" />}
               </div>
             ))}
           </div>
@@ -212,6 +214,7 @@ const ScoreSimulator = () => {
             <p><span className="text-muted-foreground">Offset</span> = Base − Factor × ln(BaseOdds)</p>
             <p className="pl-4">= {SCORING_PARAMS.baseScore} − {result.factor.toFixed(2)} × {Math.log(SCORING_PARAMS.baseOdds).toFixed(4)} = <span className="text-primary font-semibold">{result.offset.toFixed(2)}</span></p>
             <Separator className="bg-border/30 my-2" />
+            <p><span className="text-muted-foreground">Intercept</span> ({SEGMENT_LABELS[segment]}) = <span className="text-primary font-semibold">{result.intercept.toFixed(2)}</span></p>
             <p><span className="text-muted-foreground">Score</span> = Offset + Factor × log-odds</p>
             <p className="pl-4">= {result.offset.toFixed(2)} + {result.factor.toFixed(2)} × ({result.logOdds.toFixed(4)})</p>
             <p className="pl-4">= <span className="text-primary font-semibold">{result.rawScore.toFixed(1)}</span> → clamped to <span className="text-primary font-semibold">{result.finalScore}</span></p>
