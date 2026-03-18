@@ -95,7 +95,7 @@ const ScoreSimulator = () => {
     const offset = baseScore - factor * Math.log(baseOdds);
 
     let logOdds = intercept;
-    const contributions: { key: string; label: string; pillar: ScoringPillar; beta: number; woe: number; term: number; points: number }[] = [];
+    const contributions: { key: string; label: string; pillar: ScoringPillar; beta: number; originalBeta: number; woe: number; term: number; points: number }[] = [];
 
     segmentFeatures.forEach((f) => {
       const binIdx = selections[f.key] ?? 0;
