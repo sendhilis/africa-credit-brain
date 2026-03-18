@@ -193,6 +193,7 @@ const ScoreSimulator = () => {
               ["Odds (Good:Bad)", `${result.odds.toFixed(1)}:1`],
               ["Log-Odds", result.logOdds.toFixed(4)],
               ["Raw Score (unclipped)", result.rawScore.toFixed(1)],
+              ["Intercept", result.intercept.toFixed(2)],
               ["Active Features", String(segmentFeatures.length)],
             ].map(([label, val], i) => (
               <div key={i}>
