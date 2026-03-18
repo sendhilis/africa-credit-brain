@@ -1,13 +1,15 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import GlassCard from "@/components/GlassCard";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import {
   Calculator, RotateCcw, TrendingDown, TrendingUp, Minus,
-  ChevronDown, ChevronUp, User, Store, Building2, Wheat,
+  ChevronDown, ChevronUp, User, Store, Building2, Wheat, Sliders, FlaskConical,
 } from "lucide-react";
+import BetaSlider from "./BetaSlider";
 import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   ResponsiveContainer, Tooltip,
@@ -52,7 +54,8 @@ const ScoreSimulator = () => {
   const [segment, setSegment] = useState<BorrowerSegment>("retail");
   const [selections, setSelections] = useState<Record<string, number>>({});
   const [showFormula, setShowFormula] = useState(false);
-
+  const [sandboxMode, setSandboxMode] = useState(false);
+  const [betaOverrides, setBetaOverrides] = useState<Record<string, number>>({});
   const segmentFeatures = useMemo(() => getFeaturesForSegment(segment), [segment]);
   const pillarGroups = useMemo(() => getFeaturesByPillar(segment), [segment]);
 
@@ -60,12 +63,30 @@ const ScoreSimulator = () => {
     setSelections((prev) => ({ ...prev, [featureKey]: binIndex }));
   };
 
-  const handleReset = () => setSelections({});
+  const handleReset = () => {
+    setSelections({});
+    setBetaOverrides({});
+  };
 
   const handleSegmentChange = (s: BorrowerSegment) => {
     setSegment(s);
     setSelections({});
+    setBetaOverrides({});
   };
+
+  const handleBetaChange = useCallback((key: string, value: number) => {
+    setBetaOverrides((prev) => ({ ...prev, [key]: value }));
+  }, []);
+
+  const handleBetaReset = useCallback((key: string) => {
+    setBetaOverrides((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }, []);
+
+  const modifiedCount = Object.keys(betaOverrides).length;
 
   const result = useMemo(() => {
     const { baseScore, baseOdds, pdo } = SCORING_PARAMS;
@@ -74,15 +95,16 @@ const ScoreSimulator = () => {
     const offset = baseScore - factor * Math.log(baseOdds);
 
     let logOdds = intercept;
-    const contributions: { key: string; label: string; pillar: ScoringPillar; beta: number; woe: number; term: number; points: number }[] = [];
+    const contributions: { key: string; label: string; pillar: ScoringPillar; beta: number; originalBeta: number; woe: number; term: number; points: number }[] = [];
 
     segmentFeatures.forEach((f) => {
       const binIdx = selections[f.key] ?? 0;
       const bin = f.bins[binIdx] ?? f.bins[0];
-      const term = f.beta * bin.woe;
+      const effectiveBeta = betaOverrides[f.key] ?? f.beta;
+      const term = effectiveBeta * bin.woe;
       logOdds += term;
       const points = factor * term;
-      contributions.push({ key: f.key, label: f.label, pillar: f.pillar, beta: f.beta, woe: bin.woe, term, points });
+      contributions.push({ key: f.key, label: f.label, pillar: f.pillar, beta: effectiveBeta, originalBeta: f.beta, woe: bin.woe, term, points });
     });
 
     const odds = Math.exp(logOdds);
@@ -91,7 +113,7 @@ const ScoreSimulator = () => {
     const finalScore = Math.round(Math.max(300, Math.min(900, rawScore)));
 
     return { logOdds, odds, pd, rawScore, finalScore, contributions, factor, offset, intercept };
-  }, [selections, segmentFeatures, segment]);
+  }, [selections, segmentFeatures, segment, betaOverrides]);
 
   const band = getScoreBand(result.finalScore);
 
@@ -109,9 +131,18 @@ const ScoreSimulator = () => {
               <p className="text-xs text-muted-foreground">Select borrower segment, then adjust WoE bins to simulate a credit score</p>
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={handleReset} className="gap-1.5 text-xs">
-            <RotateCcw className="h-3.5 w-3.5" /> Reset
-          </Button>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <FlaskConical className={`h-3.5 w-3.5 ${sandboxMode ? "text-warning" : "text-muted-foreground"}`} />
+              <Switch checked={sandboxMode} onCheckedChange={setSandboxMode} />
+              <span className={`text-xs font-medium ${sandboxMode ? "text-warning" : "text-muted-foreground"}`}>
+                Sandbox {modifiedCount > 0 && `(${modifiedCount})`}
+              </span>
+            </div>
+            <Button variant="outline" size="sm" onClick={handleReset} className="gap-1.5 text-xs">
+              <RotateCcw className="h-3.5 w-3.5" /> Reset
+            </Button>
+          </div>
         </div>
 
         {/* Segment pills */}
@@ -138,6 +169,21 @@ const ScoreSimulator = () => {
         </p>
       </GlassCard>
 
+      {/* Sandbox Mode Banner */}
+      {sandboxMode && (
+        <div className="flex items-center gap-3 rounded-lg border border-warning/30 bg-warning/5 px-4 py-3">
+          <FlaskConical className="h-4 w-4 text-warning shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-warning">Sandbox Mode — What-If Analysis</p>
+            <p className="text-xs text-muted-foreground">
+              Adjust β coefficients with sliders to see how changing feature weights impacts the score.
+              {modifiedCount > 0 && <span className="text-warning font-medium"> {modifiedCount} coefficient{modifiedCount > 1 ? "s" : ""} modified.</span>}
+              {" "}These changes do not affect live scoring.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Feature Inputs — grouped by pillar */}
       {activePillars.map((pillar) => (
         <GlassCard key={pillar} hover={false} className={`border-l-4 ${PILLAR_COLORS[pillar]}`}>
@@ -149,9 +195,11 @@ const ScoreSimulator = () => {
               <div key={feature.key} className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground flex items-center justify-between">
                   {feature.label}
-                  <span className="font-mono text-[10px] text-muted-foreground/70">
-                    β={feature.beta > 0 ? "+" : ""}{feature.beta}
-                  </span>
+                  {!sandboxMode && (
+                    <span className="font-mono text-[10px] text-muted-foreground/70">
+                      β={feature.beta > 0 ? "+" : ""}{feature.beta}
+                    </span>
+                  )}
                 </label>
                 <Select
                   value={String(selections[feature.key] ?? 0)}
@@ -173,6 +221,16 @@ const ScoreSimulator = () => {
                     ))}
                   </SelectContent>
                 </Select>
+                {sandboxMode && (
+                  <BetaSlider
+                    featureKey={feature.key}
+                    label={feature.label}
+                    originalBeta={feature.beta}
+                    currentBeta={betaOverrides[feature.key] ?? feature.beta}
+                    onChange={handleBetaChange}
+                    onReset={handleBetaReset}
+                  />
+                )}
               </div>
             ))}
           </div>
@@ -337,7 +395,14 @@ const ScoreSimulator = () => {
                         <Badge variant="outline" className="text-[10px] font-normal">{PILLAR_LABELS[c.pillar].split(" ")[0]}</Badge>
                       </td>
                       <td className="py-2.5 font-medium text-foreground">{c.label}</td>
-                      <td className="py-2.5 font-mono text-xs text-muted-foreground">{c.beta > 0 ? "+" : ""}{c.beta.toFixed(2)}</td>
+                      <td className="py-2.5 font-mono text-xs">
+                        <span className={Math.abs(c.beta - c.originalBeta) > 0.001 ? "text-warning font-semibold" : "text-muted-foreground"}>
+                          {c.beta > 0 ? "+" : ""}{c.beta.toFixed(2)}
+                        </span>
+                        {Math.abs(c.beta - c.originalBeta) > 0.001 && (
+                          <span className="text-[9px] text-muted-foreground ml-1">(was {c.originalBeta > 0 ? "+" : ""}{c.originalBeta.toFixed(2)})</span>
+                        )}
+                      </td>
                       <td className="py-2.5 font-mono text-xs">
                         <span className={c.woe < 0 ? "text-success" : c.woe > 0 ? "text-destructive" : "text-muted-foreground"}>
                           {c.woe > 0 ? "+" : ""}{c.woe.toFixed(2)}
