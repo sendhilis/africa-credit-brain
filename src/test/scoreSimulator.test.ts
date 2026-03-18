@@ -283,8 +283,8 @@ describe("Individual Feature Impact", () => {
 
         const bestSel: Record<string, number> = { [f.key]: bestIdx };
         const worstSel: Record<string, number> = { [f.key]: worstIdx };
-        const bestResult = computeScore(features, bestSel);
-        const worstResult = computeScore(features, worstSel);
+        const bestResult = computeScore(features, bestSel, seg);
+        const worstResult = computeScore(features, worstSel, seg);
         const impact = Math.abs(bestResult.finalScore - worstResult.finalScore);
 
         if (impact < 1) {
