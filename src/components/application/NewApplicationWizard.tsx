@@ -300,10 +300,11 @@ const NewApplicationWizard = () => {
         avg_balance: formData.avg_balance,
       };
 
-      // Capture all micro/sme specific fields into extra_data
+      // Capture all micro/sme/farmer specific fields into extra_data
       const specialKeys = [
         ...(config.microFields?.map(f => f.key) || []),
         ...(config.smeFields?.map(f => f.key) || []),
+        ...(config.farmerFields?.map(f => f.key) || []),
         ...(config.socialMediaFields?.map(f => f.key) || []),
         ...(config.cashFlowFields?.map(f => f.key) || []),
         ...(config.businessStabilityFields?.map(f => f.key) || []),
