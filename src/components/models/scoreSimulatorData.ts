@@ -611,6 +611,139 @@ export const SIM_FEATURES: SimFeature[] = [
       { label: "No utility data", woe: 0.05 },
     ],
   },
+
+  // ════════════════════════════════════════════════════════════
+  // MISSING CRITICAL FEATURES — Added for completeness
+  // ════════════════════════════════════════════════════════════
+
+  // BREAD BASKET MARGIN — Household affordability indicator
+  {
+    key: "bread_basket_margin",
+    label: "Bread Basket Margin",
+    beta: -0.78,
+    pillar: "financial",
+    applicableTo: ["retail", "micro", "sme", "farmer"],
+    bins: [
+      { label: "Comfortable (>40% surplus after essentials)", woe: -1.15 },
+      { label: "Adequate (20-40% surplus)", woe: -0.55 },
+      { label: "Tight (5-20% surplus)", woe: 0.12 },
+      { label: "Stretched (0-5% surplus)", woe: 0.65 },
+      { label: "Deficit (expenses > income)", woe: 1.35 },
+    ],
+  },
+
+  // DSCR — Debt Service Coverage Ratio
+  {
+    key: "dscr",
+    label: "Debt Service Coverage Ratio (DSCR)",
+    beta: -0.82,
+    pillar: "financial",
+    applicableTo: ["sme", "farmer"],
+    bins: [
+      { label: "> 2.0x (strong coverage)", woe: -1.05 },
+      { label: "1.5-2.0x (adequate)", woe: -0.55 },
+      { label: "1.2-1.5x (marginal)", woe: 0.08 },
+      { label: "1.0-1.2x (tight)", woe: 0.52 },
+      { label: "< 1.0x (insufficient)", woe: 1.25 },
+    ],
+  },
+
+  // Employment Stability — Retail segment
+  {
+    key: "employment_stability",
+    label: "Employment Stability",
+    beta: -0.58,
+    pillar: "identity",
+    applicableTo: ["retail"],
+    bins: [
+      { label: "Permanent / civil service (5+ years)", woe: -0.95 },
+      { label: "Permanent employment (1-5 years)", woe: -0.55 },
+      { label: "Contract employment (renewable)", woe: -0.12 },
+      { label: "Casual / piece work", woe: 0.48 },
+      { label: "Self-employed informal", woe: 0.25 },
+      { label: "Unemployed / dependent", woe: 0.88 },
+    ],
+  },
+
+  // Cashflow Volatility — POS / Till data
+  {
+    key: "cashflow_volatility",
+    label: "Cashflow Volatility (POS/Till)",
+    beta: -0.62,
+    pillar: "financial",
+    applicableTo: ["micro", "sme"],
+    bins: [
+      { label: "Very stable (CV <15%, 6+ months data)", woe: -0.92 },
+      { label: "Stable (CV 15-30%)", woe: -0.42 },
+      { label: "Moderate (CV 30-50%)", woe: 0.10 },
+      { label: "Volatile (CV >50%)", woe: 0.62 },
+      { label: "Insufficient POS data (<30 days)", woe: 0.25 },
+    ],
+  },
+
+  // EcoCash Income Triangulation
+  {
+    key: "ecocash_triangulation",
+    label: "EcoCash Income Triangulation",
+    beta: -0.58,
+    pillar: "financial",
+    applicableTo: ["retail", "micro", "sme", "farmer"],
+    bins: [
+      { label: "Bank + POS + EcoCash aligned (>90% match)", woe: -1.05 },
+      { label: "Mostly aligned (70-90% match)", woe: -0.52 },
+      { label: "Partial alignment (50-70%)", woe: 0.05 },
+      { label: "Significant discrepancy (<50%)", woe: 0.58 },
+      { label: "Single source only — no triangulation", woe: 0.25 },
+    ],
+  },
+
+  // Concentration Risk — Customer/revenue dependency
+  {
+    key: "concentration_risk",
+    label: "Revenue Concentration Risk",
+    beta: -0.48,
+    pillar: "business",
+    applicableTo: ["sme", "farmer"],
+    bins: [
+      { label: "Diversified (no client >20% of revenue)", woe: -0.82 },
+      { label: "Moderate (top client 20-40%)", woe: -0.28 },
+      { label: "Concentrated (top client 40-60%)", woe: 0.22 },
+      { label: "Highly concentrated (>60% single buyer)", woe: 0.72 },
+    ],
+  },
+
+  // Revenue Seasonality
+  {
+    key: "revenue_seasonality",
+    label: "Revenue Seasonality Index",
+    beta: -0.45,
+    pillar: "financial",
+    applicableTo: ["micro", "sme", "farmer"],
+    bins: [
+      { label: "Year-round consistent (<20% seasonal swing)", woe: -0.75 },
+      { label: "Mild seasonality (20-40% swing)", woe: -0.28 },
+      { label: "Moderate seasonality (40-60% swing)", woe: 0.15 },
+      { label: "Highly seasonal (>60% swing, e.g. harvest-dependent)", woe: 0.58 },
+      { label: "Single season income (one harvest/year)", woe: 0.85 },
+    ],
+  },
+
+  // Loan Purpose Risk
+  {
+    key: "loan_purpose_risk",
+    label: "Loan Purpose Risk",
+    beta: -0.35,
+    pillar: "financial",
+    applicableTo: ["retail", "micro", "sme", "farmer"],
+    bins: [
+      { label: "Productive asset (equipment, machinery)", woe: -0.72 },
+      { label: "Working capital / stock replenishment", woe: -0.35 },
+      { label: "Seasonal input financing (seed, fertilizer)", woe: -0.22 },
+      { label: "Education / medical (human capital)", woe: 0.05 },
+      { label: "Consumption / lifestyle", woe: 0.55 },
+      { label: "Debt consolidation / refinancing", woe: 0.42 },
+    ],
+  },
 ];
 
 /** Get features applicable to a specific borrower segment */
