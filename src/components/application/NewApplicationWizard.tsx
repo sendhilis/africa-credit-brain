@@ -1583,6 +1583,7 @@ const NewApplicationWizard = () => {
               {category === "retail" && "Bureau checks → Alt-data pull → Document OCR → Psychometric score → Individual Scorecard"}
               {category === "micro" && "Bureau checks → EcoCash/InnBucks pull → Cash flow analysis → Mukando verification → Micro Scorecard"}
               {category === "sme" && "Bureau checks → Financial analysis → Cash flow volatility → Social media audit → Concentration risk → SME Scorecard"}
+              {category === "farmer" && "Bureau checks → Land tenure verification → Season performance analysis → Contract farming validation → Agri Scorecard"}
             </span>
           </p>
         </div>
