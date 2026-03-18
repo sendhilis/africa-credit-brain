@@ -975,7 +975,7 @@ export type Database = {
         | "approved"
         | "declined"
         | "disbursed"
-      product_category: "retail" | "micro" | "sme"
+      product_category: "retail" | "micro" | "sme" | "farmer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1112,7 +1112,7 @@ export const Constants = {
         "declined",
         "disbursed",
       ],
-      product_category: ["retail", "micro", "sme"],
+      product_category: ["retail", "micro", "sme", "farmer"],
     },
   },
 } as const
