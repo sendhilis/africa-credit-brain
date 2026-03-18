@@ -1635,10 +1635,11 @@ const NewApplicationWizard = () => {
 
           {/* Product Category Tabs */}
           <Tabs value={category} onValueChange={handleCategoryChange} className="mt-2">
-            <TabsList className="grid w-full grid-cols-3 bg-muted">
+            <TabsList className="grid w-full grid-cols-4 bg-muted">
               <TabsTrigger value="retail" className="gap-1.5 text-xs"><User className="h-3.5 w-3.5" /> Individual</TabsTrigger>
               <TabsTrigger value="micro" className="gap-1.5 text-xs"><Store className="h-3.5 w-3.5" /> Micro</TabsTrigger>
               <TabsTrigger value="sme" className="gap-1.5 text-xs"><Landmark className="h-3.5 w-3.5" /> SME</TabsTrigger>
+              <TabsTrigger value="farmer" className="gap-1.5 text-xs"><Sprout className="h-3.5 w-3.5" /> Farmer</TabsTrigger>
             </TabsList>
           </Tabs>
 
