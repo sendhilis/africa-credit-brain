@@ -131,9 +131,18 @@ const ScoreSimulator = () => {
               <p className="text-xs text-muted-foreground">Select borrower segment, then adjust WoE bins to simulate a credit score</p>
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={handleReset} className="gap-1.5 text-xs">
-            <RotateCcw className="h-3.5 w-3.5" /> Reset
-          </Button>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <FlaskConical className={`h-3.5 w-3.5 ${sandboxMode ? "text-warning" : "text-muted-foreground"}`} />
+              <Switch checked={sandboxMode} onCheckedChange={setSandboxMode} />
+              <span className={`text-xs font-medium ${sandboxMode ? "text-warning" : "text-muted-foreground"}`}>
+                Sandbox {modifiedCount > 0 && `(${modifiedCount})`}
+              </span>
+            </div>
+            <Button variant="outline" size="sm" onClick={handleReset} className="gap-1.5 text-xs">
+              <RotateCcw className="h-3.5 w-3.5" /> Reset
+            </Button>
+          </div>
         </div>
 
         {/* Segment pills */}
