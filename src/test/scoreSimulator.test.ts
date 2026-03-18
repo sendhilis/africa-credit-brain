@@ -248,9 +248,9 @@ describe("Score Range Tests per Segment", () => {
           worstSel[f.key] = worstIdx;
         });
 
-        const best = computeScore(features, bestSel);
-        const def = computeScore(features, {});
-        const worst = computeScore(features, worstSel);
+        const best = computeScore(features, bestSel, seg);
+        const def = computeScore(features, {}, seg);
+        const worst = computeScore(features, worstSel, seg);
 
         expect(best.finalScore).toBeGreaterThanOrEqual(def.finalScore);
         expect(def.finalScore).toBeGreaterThanOrEqual(worst.finalScore);
