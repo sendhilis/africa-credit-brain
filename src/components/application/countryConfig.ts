@@ -318,6 +318,134 @@ export const countryConfigs: Record<string, CountryConfig> = {
       { key: "insurance_coverage", label: "Business Insurance Coverage", placeholder: "Fire, Theft, None…", type: "text" },
       { key: "succession_plan", label: "Succession Plan in Place?", placeholder: "Yes / No", type: "text" },
     ],
+    // Farmer / Agricultural specific fields — Zimbabwe
+    farmerFields: [
+      // Land & Tenure
+      { key: "land_tenure", label: "Land Tenure Type", placeholder: "", type: "select", section: "Land & Tenure", options: [
+        { value: "title_deed", label: "Title Deed (Freehold)" },
+        { value: "99_year_lease", label: "99-Year Lease (A2 Farm)" },
+        { value: "offer_letter", label: "Offer Letter (A1 Resettlement)" },
+        { value: "communal", label: "Communal Land (Chief Allocation)" },
+        { value: "leased", label: "Leased / Rented Land" },
+        { value: "no_formal", label: "No Formal Tenure" },
+      ]},
+      { key: "hectarage", label: "Hectarage Under Cultivation", placeholder: "10", type: "number", section: "Land & Tenure" },
+      { key: "total_land_ha", label: "Total Land Holding (ha)", placeholder: "25", type: "number", section: "Land & Tenure" },
+      { key: "natural_region", label: "Natural Region (Climate Zone)", placeholder: "", type: "select", section: "Land & Tenure", options: [
+        { value: "nr_1", label: "NR I — Eastern Highlands (>1000mm)" },
+        { value: "nr_2", label: "NR II — Mashonaland (750-1000mm)" },
+        { value: "nr_3", label: "NR III — Midlands (650-800mm)" },
+        { value: "nr_4", label: "NR IV — Masvingo / Lowveld (450-650mm)" },
+        { value: "nr_5", label: "NR V — Matabeleland South (<450mm)" },
+      ]},
+      { key: "farm_district", label: "District / Ward", placeholder: "e.g. Mazowe, Chinhoyi, Chiredzi", type: "text", section: "Land & Tenure" },
+      // Farming Operations
+      { key: "farming_system", label: "Farming System", placeholder: "", type: "select", section: "Farming Operations", options: [
+        { value: "irrigated_pivot", label: "Irrigated — Centre Pivot / Sprinkler" },
+        { value: "irrigated_drip", label: "Irrigated — Drip" },
+        { value: "irrigated_flood", label: "Irrigated — Flood / Furrow" },
+        { value: "mixed", label: "Mixed (Irrigated + Rainfed)" },
+        { value: "rainfed", label: "Rainfed Only" },
+        { value: "greenhouse", label: "Greenhouse / Controlled Environment" },
+      ]},
+      { key: "primary_crop", label: "Primary Crop / Enterprise", placeholder: "e.g. Tobacco, Maize, Soya, Horticulture", type: "text", section: "Farming Operations" },
+      { key: "secondary_enterprises", label: "Secondary Enterprises", placeholder: "e.g. Cattle, Poultry, Horticulture", type: "text", section: "Farming Operations" },
+      { key: "crop_diversification", label: "Crop & Enterprise Diversification", placeholder: "", type: "select", section: "Farming Operations", options: [
+        { value: "diversified", label: "Diversified (Crop + Livestock + Horticulture)" },
+        { value: "mixed_2_3", label: "Mixed (2-3 Enterprises)" },
+        { value: "dual_crop", label: "Dual Crop (e.g. Maize + Soya)" },
+        { value: "monocrop", label: "Monocrop Only" },
+      ]},
+      { key: "farming_experience_years", label: "Years of Farming Experience", placeholder: "8", type: "number", section: "Farming Operations" },
+      // Contract Farming & Market Access
+      { key: "contract_farming", label: "Contract Farming Status", placeholder: "", type: "select", section: "Market & Contracts", options: [
+        { value: "tobacco_active", label: "Active — Tobacco (Mashonaland Tobacco / BAT)" },
+        { value: "cotton_sugar_active", label: "Active — Cotton (Cottco) / Sugar (Hippo Valley)" },
+        { value: "hort_export_active", label: "Active — Horticulture Export" },
+        { value: "expired", label: "Expired / Lapsed Contract" },
+        { value: "none", label: "No Contract — Open Market" },
+      ]},
+      { key: "contractor_name", label: "Contractor / Off-taker Name", placeholder: "e.g. Mashonaland Tobacco Co., Cottco", type: "text", section: "Market & Contracts" },
+      { key: "market_access", label: "Primary Market Channel", placeholder: "", type: "select", section: "Market & Contracts", options: [
+        { value: "formal_export", label: "Formal Off-taker / Export Market" },
+        { value: "gmb", label: "GMB / Commodity Exchange" },
+        { value: "private_buyers", label: "Established Private Buyers (Repeat)" },
+        { value: "local_market", label: "Local Market / Mbare Musika" },
+        { value: "farm_gate", label: "Farm-gate / Informal Only" },
+      ]},
+      // Irrigation & Infrastructure
+      { key: "irrigation_infrastructure", label: "Irrigation Infrastructure", placeholder: "", type: "select", section: "Infrastructure", options: [
+        { value: "centre_pivot", label: "Centre Pivot / Sprinkler (Functional)" },
+        { value: "drip", label: "Drip Irrigation (Functional)" },
+        { value: "flood_canal", label: "Flood / Canal (Seasonal Water)" },
+        { value: "borehole_manual", label: "Borehole + Manual Watering" },
+        { value: "none", label: "None — Fully Rainfed" },
+      ]},
+      { key: "water_source", label: "Primary Water Source", placeholder: "e.g. Dam, Borehole, River, Canal", type: "text", section: "Infrastructure" },
+      { key: "post_harvest_storage", label: "Post-Harvest Storage", placeholder: "", type: "select", section: "Infrastructure", options: [
+        { value: "commercial_silo", label: "Commercial Silo / Cold Chain" },
+        { value: "warehouse", label: "Warehouse / Covered Storage" },
+        { value: "basic_shed", label: "Basic Covered Shed" },
+        { value: "open_air", label: "Open-Air / No Storage" },
+      ]},
+      { key: "mechanisation_level", label: "Mechanisation Level", placeholder: "", type: "select", section: "Infrastructure", options: [
+        { value: "fully_mechanised", label: "Fully Mechanised (Own Tractors / Combine)" },
+        { value: "partly_mechanised", label: "Partly Mechanised (Hired Equipment)" },
+        { value: "animal_draught", label: "Animal Draught Power" },
+        { value: "manual", label: "Manual Labour Only" },
+      ]},
+      // Previous Season & Financial
+      { key: "prev_season_yield", label: "Previous Season Yield (tonnes)", placeholder: "25", type: "number", section: "Season Performance" },
+      { key: "prev_season_revenue_usd", label: "Previous Season Revenue (USD)", placeholder: "15000", type: "number", section: "Season Performance" },
+      { key: "prev_season_performance", label: "Previous Season Result", placeholder: "", type: "select", section: "Season Performance", options: [
+        { value: "strong_surplus", label: "Strong Surplus — >30% Above Breakeven" },
+        { value: "moderate_surplus", label: "Moderate Surplus — 10-30% Above Breakeven" },
+        { value: "breakeven", label: "Break-even" },
+        { value: "loss", label: "Loss-Making Season" },
+        { value: "first_season", label: "First Season — No Track Record" },
+      ]},
+      { key: "input_cost_estimate", label: "Estimated Input Costs This Season (USD)", placeholder: "5000", type: "number", section: "Season Performance" },
+      // Livestock Assets
+      { key: "cattle_count", label: "Cattle Head Count", placeholder: "12", type: "number", section: "Livestock & Assets" },
+      { key: "small_stock_count", label: "Small Stock (Goats / Sheep)", placeholder: "20", type: "number", section: "Livestock & Assets" },
+      { key: "poultry_count", label: "Poultry Count", placeholder: "100", type: "number", section: "Livestock & Assets" },
+      { key: "equipment_value_usd", label: "Farm Equipment Value (USD)", placeholder: "8000", type: "number", section: "Livestock & Assets" },
+      // Input Access & Insurance
+      { key: "input_access", label: "Input Access & Financing", placeholder: "", type: "select", section: "Inputs & Insurance", options: [
+        { value: "self_funded", label: "Self-Funded (Cash Reserves)" },
+        { value: "govt_scheme", label: "Government Scheme (Pfumvudza / Presidential Input)" },
+        { value: "agro_dealer_credit", label: "Agro-Dealer Credit (Established)" },
+        { value: "shared_borrowed", label: "Shared / Borrowed Inputs" },
+        { value: "needs_full_financing", label: "No Input Access — Needs Full Financing" },
+      ]},
+      { key: "agri_insurance", label: "Agricultural Insurance", placeholder: "", type: "select", section: "Inputs & Insurance", options: [
+        { value: "crop_livestock", label: "Active Crop + Livestock Policy" },
+        { value: "crop_only", label: "Active Crop-Only Policy" },
+        { value: "index_weather", label: "Index-Based / Weather Insurance" },
+        { value: "lapsed", label: "Lapsed Policy" },
+        { value: "never", label: "Never Insured" },
+      ]},
+      // Cooperative & Community
+      { key: "cooperative_membership", label: "Cooperative / Farmer Union", placeholder: "", type: "select", section: "Community & Support", options: [
+        { value: "registered_coop", label: "Active Member — Registered Cooperative" },
+        { value: "informal_group", label: "Active Member — Informal Buying Group" },
+        { value: "lapsed", label: "Lapsed Membership" },
+        { value: "none", label: "No Cooperative Affiliation" },
+      ]},
+      { key: "extension_services", label: "Access to Extension Services", placeholder: "", type: "select", section: "Community & Support", options: [
+        { value: "agritex_regular", label: "AGRITEX — Regular Visits" },
+        { value: "private_agronomist", label: "Private Agronomist / Consultant" },
+        { value: "ngo_programme", label: "NGO Programme (e.g. FAO, USAID)" },
+        { value: "occasional", label: "Occasional / Sporadic" },
+        { value: "none", label: "No Extension Access" },
+      ]},
+      { key: "community_references", label: "Community Standing", placeholder: "", type: "select", section: "Community & Support", options: [
+        { value: "chief_endorsement", label: "Chief / Headman Endorsement + 2 References" },
+        { value: "employer_landlord", label: "Employer / Landlord Reference" },
+        { value: "peer_only", label: "Peer References Only" },
+        { value: "none", label: "No References Available" },
+      ]},
+    ],
   },
 
   senegal: {
