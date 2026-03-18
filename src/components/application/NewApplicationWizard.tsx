@@ -16,13 +16,13 @@ import {
   Plus, ChevronRight, ChevronLeft, User, Building2, FileText,
   Smartphone, Upload, Brain, CheckCircle2, ArrowRight, Globe, CreditCard,
   Banknote, Shield, Wifi, Send, Clock, Loader2, TrendingUp, Share2,
-  BarChart3, Store, Landmark, Users
+  BarChart3, Store, Landmark, Users, Tractor, Sprout, Mountain, Wheat
 } from "lucide-react";
 import { countryConfigs, productTypes, type CountryConfig } from "./countryConfig";
 import { useAuth } from "@/contexts/AuthContext";
 import PsychometricQuestionnaire, { type PsychometricResult } from "./PsychometricQuestionnaire";
 
-type ProductCategory = "retail" | "micro" | "sme";
+type ProductCategory = "retail" | "micro" | "sme" | "farmer";
 type PsychometricStatus = "not_started" | "link_sent" | "in_progress" | "completed" | "expired";
 
 const STORAGE_KEY = "africaone_wizard_draft";
@@ -50,6 +50,20 @@ const getSteps = (category: ProductCategory) => {
       { id: "business", label: "Business Profile", icon: Store },
       { id: "cashflow", label: "Cash Flow & Savings", icon: TrendingUp },
       { id: "financial", label: "Loan & Repayment", icon: Banknote },
+      { id: "altdata", label: "Alt-Data Consent", icon: Wifi },
+      { id: "documents", label: "Documents", icon: FileText },
+      { id: "psychometric", label: "Psychometric", icon: Brain },
+      { id: "review", label: "Review & Submit", icon: CheckCircle2 },
+    ];
+  }
+  
+  if (category === "farmer") {
+    return [
+      ...base,
+      { id: "farm_profile", label: "Farm Profile", icon: Tractor },
+      { id: "farm_operations", label: "Operations & Crops", icon: Wheat },
+      { id: "farm_financial", label: "Season & Finance", icon: TrendingUp },
+      { id: "financial", label: "Loan Request", icon: Banknote },
       { id: "altdata", label: "Alt-Data Consent", icon: Wifi },
       { id: "documents", label: "Documents", icon: FileText },
       { id: "psychometric", label: "Psychometric", icon: Brain },
@@ -286,10 +300,11 @@ const NewApplicationWizard = () => {
         avg_balance: formData.avg_balance,
       };
 
-      // Capture all micro/sme specific fields into extra_data
+      // Capture all micro/sme/farmer specific fields into extra_data
       const specialKeys = [
         ...(config.microFields?.map(f => f.key) || []),
         ...(config.smeFields?.map(f => f.key) || []),
+        ...(config.farmerFields?.map(f => f.key) || []),
         ...(config.socialMediaFields?.map(f => f.key) || []),
         ...(config.cashFlowFields?.map(f => f.key) || []),
         ...(config.businessStabilityFields?.map(f => f.key) || []),
@@ -1115,6 +1130,28 @@ const NewApplicationWizard = () => {
           </>
         )}
 
+        {/* Farmer: simplified — detailed captured in farm steps */}
+        {category === "farmer" && (
+          <>
+            <FieldGroup label="Repayment Capacity">
+              <Field label="Number of Dependents">
+                <Input type="number" placeholder="5" className="bg-muted/50 border-border" value={formData.dependents || ""} onChange={e => updateField("dependents", e.target.value)} />
+              </Field>
+              <Field label="Existing Loan Obligations">
+                <Select value={formData.existing_loans || ""} onValueChange={v => updateField("existing_loans", v)}>
+                  <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No existing loans</SelectItem>
+                    <SelectItem value="1">1 active loan (MFI / AFC)</SelectItem>
+                    <SelectItem value="2">2 active loans</SelectItem>
+                    <SelectItem value="3_plus">3+ active loans</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+            </FieldGroup>
+          </>
+        )}
+
         <Field label="Notes (optional)" span2>
           <Textarea placeholder="Additional context for the underwriter…" className="bg-muted/50 border-border min-h-[60px]" value={formData.notes || ""} onChange={e => updateField("notes", e.target.value)} />
         </Field>
@@ -1220,6 +1257,12 @@ const NewApplicationWizard = () => {
       ...(category === "sme" ? [
         { key: "tax_clearance", icon: Shield, title: "ZIMRA Tax Clearance (ITF 263)", desc: "Valid tax clearance certificate.", formats: "PDF", accept: ".pdf" },
         { key: "management_accounts", icon: BarChart3, title: "Management Accounts (latest)", desc: "Monthly management accounts for cash flow analysis.", formats: "PDF, XLSX", accept: ".pdf,.xlsx,.xls" },
+      ] : []),
+      ...(category === "farmer" ? [
+        { key: "land_document", icon: Mountain, title: "Land Tenure Document", desc: "Title deed, 99-year lease, offer letter, or chief allocation letter.", formats: "PDF, JPEG, PNG", accept: ".pdf,.jpg,.jpeg,.png" },
+        { key: "contract_farming_doc", icon: FileText, title: "Contract Farming Agreement", desc: "Active contract with off-taker (tobacco, cotton, horticulture).", formats: "PDF, JPEG", accept: ".pdf,.jpg,.jpeg" },
+        { key: "prev_season_records", icon: Wheat, title: "Previous Season Records / Delivery Notes", desc: "GMB delivery notes, tobacco auction results, or crop receipts.", formats: "PDF, JPEG, PNG", accept: ".pdf,.jpg,.jpeg,.png" },
+        { key: "agri_insurance_doc", icon: Shield, title: "Agricultural Insurance Policy", desc: "Crop / livestock insurance certificate (if applicable).", formats: "PDF", accept: ".pdf" },
       ] : []),
       { key: "id_copy", icon: Shield, title: "ID Document Copy", desc: "Clear photo of the selected ID.", formats: "JPEG, PNG", accept: ".jpg,.jpeg,.png" },
     ];
@@ -1444,15 +1487,22 @@ const NewApplicationWizard = () => {
       <div className="space-y-5">
         <div className="space-y-3">
           {[
-            { label: "Category", value: category === "retail" ? "Individual" : category === "micro" ? "Micro-enterprise" : "SME" },
+            { label: "Category", value: category === "retail" ? "Individual" : category === "micro" ? "Micro-enterprise" : category === "farmer" ? "Farmer / Agri" : "SME" },
             { label: "Country", value: config.label },
             { label: "Product", value: productTypes.find(p => p.value === formData.product)?.label || "—" },
             { label: "Borrower", value: formData.name || "—" },
             { label: "ID", value: `${config.idTypes.find(i => i.value === formData.id_type)?.label || "—"}: ${formData.id_number || "—"}` },
             { label: "Phone", value: formData.phone || "—" },
-            ...(category !== "retail" ? [{ label: "Business", value: formData.business_name || "—" }] : []),
+            ...(category !== "retail" ? [{ label: category === "farmer" ? "Farm" : "Business", value: formData.business_name || "—" }] : []),
             { label: "Amount", value: formData.amount ? `${config.currencySymbol} ${Number(formData.amount).toLocaleString()}` : "—" },
             { label: "Tenor", value: formData.tenor ? `${formData.tenor} months` : "—" },
+            ...(category === "farmer" ? [
+              { label: "Land Tenure", value: formData.land_tenure?.replace(/_/g, " ") || "—" },
+              { label: "Hectarage", value: formData.hectarage ? `${formData.hectarage} ha` : "—" },
+              { label: "Primary Crop", value: formData.primary_crop || "—" },
+              { label: "Contract Farming", value: formData.contract_farming?.replace(/_/g, " ") || "—" },
+              { label: "Prev Season", value: formData.prev_season_performance?.replace(/_/g, " ") || "—" },
+            ] : []),
             ...(category === "sme" ? [
               { label: "Annual Turnover", value: formData.annual_turnover_zwl ? `${config.currencySymbol} ${Number(formData.annual_turnover_zwl).toLocaleString()}` : "—" },
               { label: "Revenue Volatility", value: formData.revenue_volatility ? `${formData.revenue_volatility}%` : "—" },
@@ -1569,9 +1619,119 @@ const NewApplicationWizard = () => {
               {category === "retail" && "Bureau checks → Alt-data pull → Document OCR → Psychometric score → Individual Scorecard"}
               {category === "micro" && "Bureau checks → EcoCash/InnBucks pull → Cash flow analysis → Mukando verification → Micro Scorecard"}
               {category === "sme" && "Bureau checks → Financial analysis → Cash flow volatility → Social media audit → Concentration risk → SME Scorecard"}
+              {category === "farmer" && "Bureau checks → Land tenure verification → Season performance analysis → Contract farming validation → Agri Scorecard"}
             </span>
           </p>
         </div>
+      </div>
+    );
+  };
+
+  // ── FARMER: Farm Profile Step ──
+  const renderFarmProfileStep = () => {
+    if (!config) return null;
+    const farmerFields = config.farmerFields || [];
+    return (
+      <div className="space-y-5">
+        <div className="p-3 rounded-lg bg-success/5 border border-success/20">
+          <p className="text-xs text-muted-foreground">
+            <span className="font-semibold text-success">Farm Profile</span> — Land tenure type is the strongest predictor in agricultural lending. Title deeds and 99-year leases carry significantly more weight than communal allocations.
+          </p>
+        </div>
+        <FieldGroup label="Farm Identity">
+          <Field label="Farm / Enterprise Name">
+            <Input placeholder="e.g. Moyo Farm, Sunrise Horticulture" className="bg-muted/50 border-border" value={formData.business_name || ""} onChange={e => updateField("business_name", e.target.value)} />
+          </Field>
+          <Field label="Farmer Registration (if any)">
+            <Input placeholder={config.businessRegistration.placeholder} className="bg-muted/50 border-border" value={formData.business_reg || ""} onChange={e => updateField("business_reg", e.target.value)} />
+          </Field>
+        </FieldGroup>
+        <FieldGroup label="Land & Tenure">
+          {renderConfigFields(farmerFields, "Land & Tenure")}
+        </FieldGroup>
+        <FieldGroup label="Infrastructure">
+          {renderConfigFields(farmerFields, "Infrastructure")}
+        </FieldGroup>
+      </div>
+    );
+  };
+
+  // ── FARMER: Operations & Crops Step ──
+  const renderFarmOperationsStep = () => {
+    if (!config) return null;
+    const farmerFields = config.farmerFields || [];
+    return (
+      <div className="space-y-5">
+        <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+          <p className="text-xs text-muted-foreground">
+            <span className="font-semibold text-primary">Farming Operations</span> — Diversified enterprises with contract farming and formal market access reduce default risk by 40-60% compared to monocrop farm-gate sellers.
+          </p>
+        </div>
+        <FieldGroup label="Farming Operations">
+          {renderConfigFields(farmerFields, "Farming Operations")}
+        </FieldGroup>
+        <FieldGroup label="Market & Contracts">
+          {renderConfigFields(farmerFields, "Market & Contracts")}
+        </FieldGroup>
+        <FieldGroup label="Community & Support">
+          {renderConfigFields(farmerFields, "Community & Support")}
+        </FieldGroup>
+      </div>
+    );
+  };
+
+  // ── FARMER: Season Performance & Finance Step ──
+  const renderFarmFinancialStep = () => {
+    if (!config) return null;
+    const farmerFields = config.farmerFields || [];
+    return (
+      <div className="space-y-5">
+        <div className="p-3 rounded-lg bg-warning/5 border border-warning/20">
+          <p className="text-xs text-muted-foreground">
+            <span className="font-semibold text-warning">Season Performance & Assets</span> — Previous season results, livestock holdings, and input financing capacity are critical for assessing repayment ability on agricultural loans.
+          </p>
+        </div>
+        <FieldGroup label="Previous Season Performance">
+          {renderConfigFields(farmerFields, "Season Performance")}
+        </FieldGroup>
+        <FieldGroup label="Livestock & Farm Assets">
+          {renderConfigFields(farmerFields, "Livestock & Assets")}
+        </FieldGroup>
+        <FieldGroup label="Input Access & Insurance">
+          {renderConfigFields(farmerFields, "Inputs & Insurance")}
+        </FieldGroup>
+
+        {/* Livestock asset valuation */}
+        {(formData.cattle_count || formData.small_stock_count) && (
+          <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Livestock Asset Estimate</h4>
+            {(() => {
+              const cattle = parseInt(formData.cattle_count || "0");
+              const smallStock = parseInt(formData.small_stock_count || "0");
+              const poultry = parseInt(formData.poultry_count || "0");
+              const cattleValue = cattle * 800; // ~USD 800/head avg
+              const smallStockValue = smallStock * 50; // ~USD 50/head
+              const poultryValue = poultry * 8; // ~USD 8/bird
+              const totalLivestock = cattleValue + smallStockValue + poultryValue;
+              const equipmentValue = parseInt(formData.equipment_value_usd || "0");
+              return (
+                <div className="space-y-1.5 text-xs">
+                  {cattle > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Cattle ({cattle} head × $800)</span><span className="font-medium">USD {cattleValue.toLocaleString()}</span></div>}
+                  {smallStock > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Small stock ({smallStock} × $50)</span><span className="font-medium">USD {smallStockValue.toLocaleString()}</span></div>}
+                  {poultry > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Poultry ({poultry} × $8)</span><span className="font-medium">USD {poultryValue.toLocaleString()}</span></div>}
+                  {equipmentValue > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Farm Equipment</span><span className="font-medium">USD {equipmentValue.toLocaleString()}</span></div>}
+                  <div className="flex justify-between border-t border-border/30 pt-1 font-semibold"><span>Total Farm Assets</span><span className="text-success">USD {(totalLivestock + equipmentValue).toLocaleString()}</span></div>
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
+        <FieldGroup label="Credit Bureau Score (if available)">
+          <Field label="Bureau Score (300-900)" span2>
+            <Input type="number" placeholder="e.g. 720 — leave blank if not available" className="bg-muted/50 border-border" min={300} max={900} value={formData.bureau_score || ""} onChange={e => updateField("bureau_score", e.target.value)} />
+          </Field>
+        </FieldGroup>
       </div>
     );
   };
@@ -1585,6 +1745,9 @@ const NewApplicationWizard = () => {
       case "financials": return renderSMEFinancialsStep();
       case "cashflow": return category === "micro" ? renderMicroCashFlowStep() : renderSMECashFlowStep();
       case "social": return renderSocialMediaStep();
+      case "farm_profile": return renderFarmProfileStep();
+      case "farm_operations": return renderFarmOperationsStep();
+      case "farm_financial": return renderFarmFinancialStep();
       case "financial": return renderFinancialStep();
       case "altdata": return renderAltDataStep();
       case "documents": return renderDocumentsStep();
@@ -1621,10 +1784,11 @@ const NewApplicationWizard = () => {
 
           {/* Product Category Tabs */}
           <Tabs value={category} onValueChange={handleCategoryChange} className="mt-2">
-            <TabsList className="grid w-full grid-cols-3 bg-muted">
+            <TabsList className="grid w-full grid-cols-4 bg-muted">
               <TabsTrigger value="retail" className="gap-1.5 text-xs"><User className="h-3.5 w-3.5" /> Individual</TabsTrigger>
               <TabsTrigger value="micro" className="gap-1.5 text-xs"><Store className="h-3.5 w-3.5" /> Micro</TabsTrigger>
               <TabsTrigger value="sme" className="gap-1.5 text-xs"><Landmark className="h-3.5 w-3.5" /> SME</TabsTrigger>
+              <TabsTrigger value="farmer" className="gap-1.5 text-xs"><Sprout className="h-3.5 w-3.5" /> Farmer</TabsTrigger>
             </TabsList>
           </Tabs>
 
@@ -1632,11 +1796,13 @@ const NewApplicationWizard = () => {
           <div className={`p-2.5 rounded-lg text-xs ${
             category === "retail" ? "bg-primary/5 border border-primary/15 text-primary" :
             category === "micro" ? "bg-accent/5 border border-accent/15 text-accent" :
+            category === "farmer" ? "bg-success/5 border border-success/15 text-success" :
             "bg-success/5 border border-success/15 text-success"
           }`}>
             {category === "retail" && "Individual — Salaried employees, civil servants, personal loans. Focus: income stability, DTI, employment."}
             {category === "micro" && "Micro — Informal traders, market vendors, cross-border traders. Focus: daily sales, cash flow, Mukando savings."}
             {category === "sme" && "SME — Registered businesses with formal financials. Focus: turnover, margins, cash flow volatility, social media presence."}
+            {category === "farmer" && "Farmer / Agri — Smallholder to commercial farmers. Focus: land tenure, crop diversification, irrigation, contract farming, season performance."}
           </div>
 
           <StepIndicator currentStep={step} steps={steps} />
