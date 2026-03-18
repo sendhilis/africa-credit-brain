@@ -9,6 +9,10 @@ import {
   ChevronDown, ChevronUp, User, Store, Building2, Wheat,
 } from "lucide-react";
 import {
+  Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+  ResponsiveContainer, Tooltip,
+} from "recharts";
+import {
   type BorrowerSegment,
   SCORING_PARAMS, SEGMENT_LABELS, PILLAR_LABELS,
   getFeaturesByPillar, getFeaturesForSegment,
@@ -221,6 +225,91 @@ const ScoreSimulator = () => {
           </div>
         </GlassCard>
       </div>
+
+      {/* Pillar Weight Radar Chart */}
+      {(() => {
+        const pillarPoints: Record<string, number> = {};
+        const pillarAbsMax: Record<string, number> = {};
+        result.contributions.forEach((c) => {
+          const pillarName = PILLAR_LABELS[c.pillar].split("&")[0].trim();
+          pillarPoints[pillarName] = (pillarPoints[pillarName] ?? 0) + Math.abs(c.points);
+        });
+        // Also compute max possible points per pillar for normalization
+        const totalAbs = Object.values(pillarPoints).reduce((s, v) => s + v, 0) || 1;
+        const radarData = Object.entries(pillarPoints)
+          .map(([pillar, absPoints]) => ({
+            pillar,
+            weight: Math.round((absPoints / totalAbs) * 100),
+            points: Math.round(absPoints * 10) / 10,
+          }))
+          .sort((a, b) => b.weight - a.weight);
+
+        return (
+          <GlassCard hover={false}>
+            <h3 className="font-display font-semibold text-foreground mb-1">Pillar Weight Distribution</h3>
+            <p className="text-[11px] text-muted-foreground mb-4">
+              Relative contribution of each scoring pillar for <span className="font-semibold text-foreground">{SEGMENT_LABELS[segment]}</span>
+            </p>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
+              <div className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="75%">
+                    <PolarGrid stroke="hsl(var(--border))" strokeOpacity={0.5} />
+                    <PolarAngleAxis
+                      dataKey="pillar"
+                      tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                    />
+                    <PolarRadiusAxis
+                      angle={90}
+                      domain={[0, Math.max(...radarData.map((d) => d.weight), 40)]}
+                      tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 9 }}
+                      tickFormatter={(v: number) => `${v}%`}
+                    />
+                    <Radar
+                      name="Weight %"
+                      dataKey="weight"
+                      stroke="hsl(var(--primary))"
+                      fill="hsl(var(--primary))"
+                      fillOpacity={0.25}
+                      strokeWidth={2}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        background: "hsl(var(--popover))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: 8,
+                        fontSize: 12,
+                      }}
+                      formatter={(value: number, _name: string, props: any) => [
+                        `${value}% (${props.payload.points} pts)`,
+                        "Weight",
+                      ]}
+                    />
+                  </RadarChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="space-y-3">
+                {radarData.map((d) => (
+                  <div key={d.pillar}>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-sm font-medium text-foreground">{d.pillar}</span>
+                      <span className="font-mono text-sm text-primary font-semibold">{d.weight}%</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-primary transition-all duration-500"
+                        style={{ width: `${d.weight}%` }}
+                      />
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{d.points} total absolute points</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </GlassCard>
+        );
+      })()}
 
       {/* Feature Contribution Breakdown */}
       <GlassCard hover={false}>
