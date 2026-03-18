@@ -1,13 +1,15 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import GlassCard from "@/components/GlassCard";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import {
   Calculator, RotateCcw, TrendingDown, TrendingUp, Minus,
-  ChevronDown, ChevronUp, User, Store, Building2, Wheat,
+  ChevronDown, ChevronUp, User, Store, Building2, Wheat, Sliders, FlaskConical,
 } from "lucide-react";
+import BetaSlider from "./BetaSlider";
 import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   ResponsiveContainer, Tooltip,
