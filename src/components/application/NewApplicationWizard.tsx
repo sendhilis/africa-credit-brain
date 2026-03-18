@@ -1145,7 +1145,7 @@ const NewApplicationWizard = () => {
                   <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">No existing loans</SelectItem>
-                    <SelectItem value="1">1 active loan (MFI / AFC)</SelectItem>
+                    <SelectItem value="1">1 active loan</SelectItem>
                     <SelectItem value="2">2 active loans</SelectItem>
                     <SelectItem value="3_plus">3+ active loans</SelectItem>
                   </SelectContent>
