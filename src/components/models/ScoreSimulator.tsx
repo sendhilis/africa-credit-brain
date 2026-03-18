@@ -169,6 +169,21 @@ const ScoreSimulator = () => {
         </p>
       </GlassCard>
 
+      {/* Sandbox Mode Banner */}
+      {sandboxMode && (
+        <div className="flex items-center gap-3 rounded-lg border border-warning/30 bg-warning/5 px-4 py-3">
+          <FlaskConical className="h-4 w-4 text-warning shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-warning">Sandbox Mode — What-If Analysis</p>
+            <p className="text-xs text-muted-foreground">
+              Adjust β coefficients with sliders to see how changing feature weights impacts the score.
+              {modifiedCount > 0 && <span className="text-warning font-medium"> {modifiedCount} coefficient{modifiedCount > 1 ? "s" : ""} modified.</span>}
+              {" "}These changes do not affect live scoring.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Feature Inputs — grouped by pillar */}
       {activePillars.map((pillar) => (
         <GlassCard key={pillar} hover={false} className={`border-l-4 ${PILLAR_COLORS[pillar]}`}>
