@@ -9,6 +9,10 @@ import {
   ChevronDown, ChevronUp, User, Store, Building2, Wheat,
 } from "lucide-react";
 import {
+  Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+  ResponsiveContainer, Tooltip,
+} from "recharts";
+import {
   type BorrowerSegment,
   SCORING_PARAMS, SEGMENT_LABELS, PILLAR_LABELS,
   getFeaturesByPillar, getFeaturesForSegment,
