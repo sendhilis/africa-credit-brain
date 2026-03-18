@@ -1236,6 +1236,12 @@ const NewApplicationWizard = () => {
         { key: "tax_clearance", icon: Shield, title: "ZIMRA Tax Clearance (ITF 263)", desc: "Valid tax clearance certificate.", formats: "PDF", accept: ".pdf" },
         { key: "management_accounts", icon: BarChart3, title: "Management Accounts (latest)", desc: "Monthly management accounts for cash flow analysis.", formats: "PDF, XLSX", accept: ".pdf,.xlsx,.xls" },
       ] : []),
+      ...(category === "farmer" ? [
+        { key: "land_document", icon: Mountain, title: "Land Tenure Document", desc: "Title deed, 99-year lease, offer letter, or chief allocation letter.", formats: "PDF, JPEG, PNG", accept: ".pdf,.jpg,.jpeg,.png" },
+        { key: "contract_farming_doc", icon: FileText, title: "Contract Farming Agreement", desc: "Active contract with off-taker (tobacco, cotton, horticulture).", formats: "PDF, JPEG", accept: ".pdf,.jpg,.jpeg" },
+        { key: "prev_season_records", icon: Wheat, title: "Previous Season Records / Delivery Notes", desc: "GMB delivery notes, tobacco auction results, or crop receipts.", formats: "PDF, JPEG, PNG", accept: ".pdf,.jpg,.jpeg,.png" },
+        { key: "agri_insurance_doc", icon: Shield, title: "Agricultural Insurance Policy", desc: "Crop / livestock insurance certificate (if applicable).", formats: "PDF", accept: ".pdf" },
+      ] : []),
       { key: "id_copy", icon: Shield, title: "ID Document Copy", desc: "Clear photo of the selected ID.", formats: "JPEG, PNG", accept: ".jpg,.jpeg,.png" },
     ];
 
