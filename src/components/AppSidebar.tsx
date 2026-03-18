@@ -17,6 +17,7 @@ import {
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import africaOneLogo from "@/assets/AfricaOne.png";
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
