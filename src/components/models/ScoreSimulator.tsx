@@ -395,7 +395,14 @@ const ScoreSimulator = () => {
                         <Badge variant="outline" className="text-[10px] font-normal">{PILLAR_LABELS[c.pillar].split(" ")[0]}</Badge>
                       </td>
                       <td className="py-2.5 font-medium text-foreground">{c.label}</td>
-                      <td className="py-2.5 font-mono text-xs text-muted-foreground">{c.beta > 0 ? "+" : ""}{c.beta.toFixed(2)}</td>
+                      <td className="py-2.5 font-mono text-xs">
+                        <span className={Math.abs(c.beta - c.originalBeta) > 0.001 ? "text-warning font-semibold" : "text-muted-foreground"}>
+                          {c.beta > 0 ? "+" : ""}{c.beta.toFixed(2)}
+                        </span>
+                        {Math.abs(c.beta - c.originalBeta) > 0.001 && (
+                          <span className="text-[9px] text-muted-foreground ml-1">(was {c.originalBeta > 0 ? "+" : ""}{c.originalBeta.toFixed(2)})</span>
+                        )}
+                      </td>
                       <td className="py-2.5 font-mono text-xs">
                         <span className={c.woe < 0 ? "text-success" : c.woe > 0 ? "text-destructive" : "text-muted-foreground"}>
                           {c.woe > 0 ? "+" : ""}{c.woe.toFixed(2)}
