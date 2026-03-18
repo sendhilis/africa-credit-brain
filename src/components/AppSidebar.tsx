@@ -45,11 +45,11 @@ const AppSidebar = () => {
       )}
     >
       {/* Logo */}
-      <div className="flex h-16 items-center gap-3 border-b border-sidebar-border px-4">
-        <img src={africaOneLogo} alt="AfricaOne" className={cn("shrink-0 object-contain", collapsed ? "h-9 w-9" : "h-10")} />
+      <div className="flex h-20 items-center gap-3 border-b border-sidebar-border px-4">
+        <img src={africaOneLogo} alt="AfricaOne" className={cn("shrink-0 object-contain", collapsed ? "h-10 w-10" : "h-14")} />
         {!collapsed && (
           <div className="flex flex-col">
-            <span className="font-display text-base font-bold text-foreground">AfricaOne</span>
+            <span className="font-display text-lg font-bold text-foreground tracking-tight">AfricaOne</span>
             <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Credit Brain</span>
           </div>
         )}
