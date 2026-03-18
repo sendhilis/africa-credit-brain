@@ -54,7 +54,8 @@ const ScoreSimulator = () => {
   const [segment, setSegment] = useState<BorrowerSegment>("retail");
   const [selections, setSelections] = useState<Record<string, number>>({});
   const [showFormula, setShowFormula] = useState(false);
-
+  const [sandboxMode, setSandboxMode] = useState(false);
+  const [betaOverrides, setBetaOverrides] = useState<Record<string, number>>({});
   const segmentFeatures = useMemo(() => getFeaturesForSegment(segment), [segment]);
   const pillarGroups = useMemo(() => getFeaturesByPillar(segment), [segment]);
 
