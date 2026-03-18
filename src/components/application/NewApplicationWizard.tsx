@@ -1395,7 +1395,7 @@ const NewApplicationWizard = () => {
       <div className="space-y-5">
         <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
           <p className="text-xs text-muted-foreground">
-            <span className="font-semibold text-primary">Behavioural Assessment</span> — 15 questions, ~5 minutes. Measures financial discipline, risk attitude, conscientiousness, and locus of control. Zimbabwe-contextualized with Mukando, multi-currency, and local scenarios.
+            <span className="font-semibold text-primary">Behavioural Assessment</span> — 15 questions, ~5 minutes. Measures financial discipline, risk attitude, conscientiousness, and locus of control. Contextualized with local savings practices, currency dynamics, and market scenarios.
           </p>
         </div>
 
