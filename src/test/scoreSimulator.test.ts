@@ -226,7 +226,7 @@ describe("Score Range Tests per Segment", () => {
       });
 
       it("all-default (first bins) should produce a reasonable mid-range score (400-800)", () => {
-        const result = computeScore(features, {});
+        const result = computeScore(features, {}, seg);
         console.log(`  🔘 ${seg} ALL-DEFAULT: score=${result.finalScore}, PD=${(result.pd * 100).toFixed(2)}%, raw=${result.rawScore.toFixed(1)}`);
         expect(result.finalScore).toBeGreaterThanOrEqual(400);
         expect(result.finalScore).toBeLessThanOrEqual(800);
