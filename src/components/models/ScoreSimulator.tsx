@@ -180,9 +180,11 @@ const ScoreSimulator = () => {
               <div key={feature.key} className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground flex items-center justify-between">
                   {feature.label}
-                  <span className="font-mono text-[10px] text-muted-foreground/70">
-                    β={feature.beta > 0 ? "+" : ""}{feature.beta}
-                  </span>
+                  {!sandboxMode && (
+                    <span className="font-mono text-[10px] text-muted-foreground/70">
+                      β={feature.beta > 0 ? "+" : ""}{feature.beta}
+                    </span>
+                  )}
                 </label>
                 <Select
                   value={String(selections[feature.key] ?? 0)}
@@ -204,6 +206,16 @@ const ScoreSimulator = () => {
                     ))}
                   </SelectContent>
                 </Select>
+                {sandboxMode && (
+                  <BetaSlider
+                    featureKey={feature.key}
+                    label={feature.label}
+                    originalBeta={feature.beta}
+                    currentBeta={betaOverrides[feature.key] ?? feature.beta}
+                    onChange={handleBetaChange}
+                    onReset={handleBetaReset}
+                  />
+                )}
               </div>
             ))}
           </div>
