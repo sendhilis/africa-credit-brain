@@ -16,7 +16,7 @@ import {
   Plus, ChevronRight, ChevronLeft, User, Building2, FileText,
   Smartphone, Upload, Brain, CheckCircle2, ArrowRight, Globe, CreditCard,
   Banknote, Shield, Wifi, Send, Clock, Loader2, TrendingUp, Share2,
-  BarChart3, Store, Landmark, Users
+  BarChart3, Store, Landmark, Users, Tractor, Sprout, Mountain, Wheat
 } from "lucide-react";
 import { countryConfigs, productTypes, type CountryConfig } from "./countryConfig";
 import { useAuth } from "@/contexts/AuthContext";
