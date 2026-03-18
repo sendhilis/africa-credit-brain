@@ -683,7 +683,7 @@ const NewApplicationWizard = () => {
       <div className="space-y-5">
         <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
           <p className="text-xs text-muted-foreground">
-            <span className="font-semibold text-primary">Cash Flow & Savings Analysis</span> — Understanding cash flow volatility and informal savings mechanisms (Mukando, group lending) is critical for micro-enterprise scoring.
+            <span className="font-semibold text-primary">Cash Flow & Savings Analysis</span> — Understanding cash flow volatility and informal savings mechanisms is critical for micro-enterprise scoring.
           </p>
         </div>
 
