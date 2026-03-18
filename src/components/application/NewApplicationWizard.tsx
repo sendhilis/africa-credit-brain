@@ -22,7 +22,7 @@ import { countryConfigs, productTypes, type CountryConfig } from "./countryConfi
 import { useAuth } from "@/contexts/AuthContext";
 import PsychometricQuestionnaire, { type PsychometricResult } from "./PsychometricQuestionnaire";
 
-type ProductCategory = "retail" | "micro" | "sme";
+type ProductCategory = "retail" | "micro" | "sme" | "farmer";
 type PsychometricStatus = "not_started" | "link_sent" | "in_progress" | "completed" | "expired";
 
 const STORAGE_KEY = "africaone_wizard_draft";
