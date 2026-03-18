@@ -1647,11 +1647,13 @@ const NewApplicationWizard = () => {
           <div className={`p-2.5 rounded-lg text-xs ${
             category === "retail" ? "bg-primary/5 border border-primary/15 text-primary" :
             category === "micro" ? "bg-accent/5 border border-accent/15 text-accent" :
+            category === "farmer" ? "bg-success/5 border border-success/15 text-success" :
             "bg-success/5 border border-success/15 text-success"
           }`}>
             {category === "retail" && "Individual — Salaried employees, civil servants, personal loans. Focus: income stability, DTI, employment."}
             {category === "micro" && "Micro — Informal traders, market vendors, cross-border traders. Focus: daily sales, cash flow, Mukando savings."}
             {category === "sme" && "SME — Registered businesses with formal financials. Focus: turnover, margins, cash flow volatility, social media presence."}
+            {category === "farmer" && "Farmer / Agri — Smallholder to commercial farmers. Focus: land tenure, crop diversification, irrigation, contract farming, season performance."}
           </div>
 
           <StepIndicator currentStep={step} steps={steps} />
