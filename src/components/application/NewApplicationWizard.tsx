@@ -706,12 +706,12 @@ const NewApplicationWizard = () => {
           ))}
         </FieldGroup>
 
-        {country === "zimbabwe" && (
+        {config?.microFields?.some(f => f.section === "Bread Basket") && (
           <>
-            <FieldGroup label="Bread Basket & Living Costs (Zimbabwe)">
+            <FieldGroup label="Bread Basket & Living Costs">
               <div className="col-span-2 p-3 rounded-lg bg-warning/5 border border-warning/20 mb-2">
                 <p className="text-xs text-muted-foreground">
-                  <span className="font-semibold text-warning">Bread Basket Assessment</span> — How much does the household spend on essentials? This determines if there's enough margin for loan repayment after inflation-impacted living costs.
+                  <span className="font-semibold text-warning">Bread Basket Assessment</span> — How much does the household spend on essentials? This determines if there's enough margin for loan repayment after living costs.
                 </p>
               </div>
               {renderConfigFields(microFields, "Bread Basket")}
@@ -747,20 +747,22 @@ const NewApplicationWizard = () => {
             <FieldGroup label="Balance Sheet Inputs">
               {renderConfigFields(microFields, "Balance Sheet")}
             </FieldGroup>
-
-            <FieldGroup label="Multi-Currency (Zimbabwe)">
-              <Field label="Primary Transaction Currency">
-                <Select value={formData.primary_currency || ""} onValueChange={v => updateField("primary_currency", v)}>
-                  <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="zwl">ZWL (Zimbabwe Dollar)</SelectItem>
-                    <SelectItem value="usd">USD</SelectItem>
-                    <SelectItem value="zar">ZAR (South African Rand)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-            </FieldGroup>
           </>
+        )}
+
+        {config?.multiCurrencyOptions && (
+          <FieldGroup label="Multi-Currency">
+            <Field label="Primary Transaction Currency">
+              <Select value={formData.primary_currency || ""} onValueChange={v => updateField("primary_currency", v)}>
+                <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
+                <SelectContent>
+                  {config.multiCurrencyOptions.map(o => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          </FieldGroup>
         )}
 
         <FieldGroup label="Credit Bureau Score (if available)">
