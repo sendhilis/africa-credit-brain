@@ -1458,15 +1458,22 @@ const NewApplicationWizard = () => {
       <div className="space-y-5">
         <div className="space-y-3">
           {[
-            { label: "Category", value: category === "retail" ? "Individual" : category === "micro" ? "Micro-enterprise" : "SME" },
+            { label: "Category", value: category === "retail" ? "Individual" : category === "micro" ? "Micro-enterprise" : category === "farmer" ? "Farmer / Agri" : "SME" },
             { label: "Country", value: config.label },
             { label: "Product", value: productTypes.find(p => p.value === formData.product)?.label || "—" },
             { label: "Borrower", value: formData.name || "—" },
             { label: "ID", value: `${config.idTypes.find(i => i.value === formData.id_type)?.label || "—"}: ${formData.id_number || "—"}` },
             { label: "Phone", value: formData.phone || "—" },
-            ...(category !== "retail" ? [{ label: "Business", value: formData.business_name || "—" }] : []),
+            ...(category !== "retail" ? [{ label: category === "farmer" ? "Farm" : "Business", value: formData.business_name || "—" }] : []),
             { label: "Amount", value: formData.amount ? `${config.currencySymbol} ${Number(formData.amount).toLocaleString()}` : "—" },
             { label: "Tenor", value: formData.tenor ? `${formData.tenor} months` : "—" },
+            ...(category === "farmer" ? [
+              { label: "Land Tenure", value: formData.land_tenure?.replace(/_/g, " ") || "—" },
+              { label: "Hectarage", value: formData.hectarage ? `${formData.hectarage} ha` : "—" },
+              { label: "Primary Crop", value: formData.primary_crop || "—" },
+              { label: "Contract Farming", value: formData.contract_farming?.replace(/_/g, " ") || "—" },
+              { label: "Prev Season", value: formData.prev_season_performance?.replace(/_/g, " ") || "—" },
+            ] : []),
             ...(category === "sme" ? [
               { label: "Annual Turnover", value: formData.annual_turnover_zwl ? `${config.currencySymbol} ${Number(formData.annual_turnover_zwl).toLocaleString()}` : "—" },
               { label: "Revenue Volatility", value: formData.revenue_volatility ? `${formData.revenue_volatility}%` : "—" },
