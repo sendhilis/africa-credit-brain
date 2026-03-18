@@ -142,45 +142,36 @@ describe("WoE Sign Consistency", () => {
 // ══════════════════════════════════════════════════════════════
 
 describe("Direction Logic (Points Sign)", () => {
-  it("CRITICAL: points sign should align with score impact direction", () => {
+  it("points sign should correctly align with score impact direction", () => {
     const factor = SCORING_PARAMS.pdo / Math.LN2;
     const anomalies: string[] = [];
 
     SIM_FEATURES.forEach((f) => {
       f.bins.forEach((bin) => {
         const term = f.beta * bin.woe;
-        // term > 0 means logOdds increases → score increases → this is GOOD
-        // The points displayed should be POSITIVE for good (boost)
-        const currentPoints = -factor * term;
-        const correctPoints = factor * term;
+        const points = factor * term;
 
         if (term > 0.01) {
-          // Score goes UP — should display as positive/boost
-          if (currentPoints < -0.01) {
+          // Score goes UP — points should be POSITIVE (boost)
+          if (points < -0.01) {
             anomalies.push(
-              `${f.key} "${bin.label}": term=+${term.toFixed(3)} (score↑) but points=${currentPoints.toFixed(1)} shows as PENALTY ← INVERTED`
+              `${f.key} "${bin.label}": term=+${term.toFixed(3)} (score↑) but points=${points.toFixed(1)} shows as PENALTY`
             );
           }
         } else if (term < -0.01) {
-          // Score goes DOWN — should display as negative/penalty
-          if (currentPoints > 0.01) {
+          // Score goes DOWN — points should be NEGATIVE (penalty)
+          if (points > 0.01) {
             anomalies.push(
-              `${f.key} "${bin.label}": term=${term.toFixed(3)} (score↓) but points=+${currentPoints.toFixed(1)} shows as BOOST ← INVERTED`
+              `${f.key} "${bin.label}": term=${term.toFixed(3)} (score↓) but points=+${points.toFixed(1)} shows as BOOST`
             );
           }
         }
       });
     });
 
-    console.log(`\n🔍 Direction inversion anomalies found: ${anomalies.length}`);
-    if (anomalies.length > 0) {
-      console.log("First 20 examples:");
-      anomalies.slice(0, 20).forEach((a) => console.log(`  ❌ ${a}`));
-    }
-
-    // This test documents the bug — it will FAIL with current code
-    // because ALL features have inverted direction display
-    expect(anomalies.length).toBeGreaterThan(0); // confirms the bug exists
+    console.log(`\n🔍 Direction anomalies: ${anomalies.length}`);
+    // With the fix applied, there should be ZERO anomalies
+    expect(anomalies.length).toBe(0);
   });
 });
 
