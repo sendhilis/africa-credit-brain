@@ -873,16 +873,15 @@ const NewApplicationWizard = () => {
           </FieldGroup>
         )}
 
-        {country === "zimbabwe" && (
-          <FieldGroup label="Multi-Currency Exposure (Zimbabwe)">
+        {config?.multiCurrencyOptions && (
+          <FieldGroup label="Multi-Currency Exposure">
             <Field label="Primary Transaction Currency">
               <Select value={formData.primary_currency || ""} onValueChange={v => updateField("primary_currency", v)}>
                 <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="zwl">ZWL (Zimbabwe Dollar)</SelectItem>
-                  <SelectItem value="usd">USD</SelectItem>
-                  <SelectItem value="zar">ZAR (South African Rand)</SelectItem>
-                  <SelectItem value="mixed">Multi-Currency Mix</SelectItem>
+                  {config.multiCurrencyOptions.map(o => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </Field>
