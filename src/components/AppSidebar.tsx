@@ -46,9 +46,7 @@ const AppSidebar = () => {
     >
       {/* Logo */}
       <div className="flex h-16 items-center gap-3 border-b border-sidebar-border px-4">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary font-display text-sm font-bold text-primary-foreground">
-          A1
-        </div>
+        <img src={africaOneLogo} alt="AfricaOne" className={cn("shrink-0 object-contain", collapsed ? "h-9 w-9" : "h-10")} />
         {!collapsed && (
           <div className="flex flex-col">
             <span className="font-display text-base font-bold text-foreground">AfricaOne</span>
