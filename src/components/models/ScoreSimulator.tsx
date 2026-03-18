@@ -214,6 +214,7 @@ const ScoreSimulator = () => {
             <p><span className="text-muted-foreground">Offset</span> = Base − Factor × ln(BaseOdds)</p>
             <p className="pl-4">= {SCORING_PARAMS.baseScore} − {result.factor.toFixed(2)} × {Math.log(SCORING_PARAMS.baseOdds).toFixed(4)} = <span className="text-primary font-semibold">{result.offset.toFixed(2)}</span></p>
             <Separator className="bg-border/30 my-2" />
+            <p><span className="text-muted-foreground">Intercept</span> ({SEGMENT_LABELS[segment]}) = <span className="text-primary font-semibold">{result.intercept.toFixed(2)}</span></p>
             <p><span className="text-muted-foreground">Score</span> = Offset + Factor × log-odds</p>
             <p className="pl-4">= {result.offset.toFixed(2)} + {result.factor.toFixed(2)} × ({result.logOdds.toFixed(4)})</p>
             <p className="pl-4">= <span className="text-primary font-semibold">{result.rawScore.toFixed(1)}</span> → clamped to <span className="text-primary font-semibold">{result.finalScore}</span></p>
