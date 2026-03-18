@@ -1591,6 +1591,115 @@ const NewApplicationWizard = () => {
     );
   };
 
+  // ── FARMER: Farm Profile Step ──
+  const renderFarmProfileStep = () => {
+    if (!config) return null;
+    const farmerFields = config.farmerFields || [];
+    return (
+      <div className="space-y-5">
+        <div className="p-3 rounded-lg bg-success/5 border border-success/20">
+          <p className="text-xs text-muted-foreground">
+            <span className="font-semibold text-success">Farm Profile</span> — Land tenure type is the strongest predictor in agricultural lending. Title deeds and 99-year leases carry significantly more weight than communal allocations.
+          </p>
+        </div>
+        <FieldGroup label="Farm Identity">
+          <Field label="Farm / Enterprise Name">
+            <Input placeholder="e.g. Moyo Farm, Sunrise Horticulture" className="bg-muted/50 border-border" value={formData.business_name || ""} onChange={e => updateField("business_name", e.target.value)} />
+          </Field>
+          <Field label="Farmer Registration (if any)">
+            <Input placeholder={config.businessRegistration.placeholder} className="bg-muted/50 border-border" value={formData.business_reg || ""} onChange={e => updateField("business_reg", e.target.value)} />
+          </Field>
+        </FieldGroup>
+        <FieldGroup label="Land & Tenure">
+          {renderConfigFields(farmerFields, "Land & Tenure")}
+        </FieldGroup>
+        <FieldGroup label="Infrastructure">
+          {renderConfigFields(farmerFields, "Infrastructure")}
+        </FieldGroup>
+      </div>
+    );
+  };
+
+  // ── FARMER: Operations & Crops Step ──
+  const renderFarmOperationsStep = () => {
+    if (!config) return null;
+    const farmerFields = config.farmerFields || [];
+    return (
+      <div className="space-y-5">
+        <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+          <p className="text-xs text-muted-foreground">
+            <span className="font-semibold text-primary">Farming Operations</span> — Diversified enterprises with contract farming and formal market access reduce default risk by 40-60% compared to monocrop farm-gate sellers.
+          </p>
+        </div>
+        <FieldGroup label="Farming Operations">
+          {renderConfigFields(farmerFields, "Farming Operations")}
+        </FieldGroup>
+        <FieldGroup label="Market & Contracts">
+          {renderConfigFields(farmerFields, "Market & Contracts")}
+        </FieldGroup>
+        <FieldGroup label="Community & Support">
+          {renderConfigFields(farmerFields, "Community & Support")}
+        </FieldGroup>
+      </div>
+    );
+  };
+
+  // ── FARMER: Season Performance & Finance Step ──
+  const renderFarmFinancialStep = () => {
+    if (!config) return null;
+    const farmerFields = config.farmerFields || [];
+    return (
+      <div className="space-y-5">
+        <div className="p-3 rounded-lg bg-warning/5 border border-warning/20">
+          <p className="text-xs text-muted-foreground">
+            <span className="font-semibold text-warning">Season Performance & Assets</span> — Previous season results, livestock holdings, and input financing capacity are critical for assessing repayment ability on agricultural loans.
+          </p>
+        </div>
+        <FieldGroup label="Previous Season Performance">
+          {renderConfigFields(farmerFields, "Season Performance")}
+        </FieldGroup>
+        <FieldGroup label="Livestock & Farm Assets">
+          {renderConfigFields(farmerFields, "Livestock & Assets")}
+        </FieldGroup>
+        <FieldGroup label="Input Access & Insurance">
+          {renderConfigFields(farmerFields, "Inputs & Insurance")}
+        </FieldGroup>
+
+        {/* Livestock asset valuation */}
+        {(formData.cattle_count || formData.small_stock_count) && (
+          <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Livestock Asset Estimate</h4>
+            {(() => {
+              const cattle = parseInt(formData.cattle_count || "0");
+              const smallStock = parseInt(formData.small_stock_count || "0");
+              const poultry = parseInt(formData.poultry_count || "0");
+              const cattleValue = cattle * 800; // ~USD 800/head avg
+              const smallStockValue = smallStock * 50; // ~USD 50/head
+              const poultryValue = poultry * 8; // ~USD 8/bird
+              const totalLivestock = cattleValue + smallStockValue + poultryValue;
+              const equipmentValue = parseInt(formData.equipment_value_usd || "0");
+              return (
+                <div className="space-y-1.5 text-xs">
+                  {cattle > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Cattle ({cattle} head × $800)</span><span className="font-medium">USD {cattleValue.toLocaleString()}</span></div>}
+                  {smallStock > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Small stock ({smallStock} × $50)</span><span className="font-medium">USD {smallStockValue.toLocaleString()}</span></div>}
+                  {poultry > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Poultry ({poultry} × $8)</span><span className="font-medium">USD {poultryValue.toLocaleString()}</span></div>}
+                  {equipmentValue > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Farm Equipment</span><span className="font-medium">USD {equipmentValue.toLocaleString()}</span></div>}
+                  <div className="flex justify-between border-t border-border/30 pt-1 font-semibold"><span>Total Farm Assets</span><span className="text-success">USD {(totalLivestock + equipmentValue).toLocaleString()}</span></div>
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
+        <FieldGroup label="Credit Bureau Score (if available)">
+          <Field label="Bureau Score (300-900)" span2>
+            <Input type="number" placeholder="e.g. 720 — leave blank if not available" className="bg-muted/50 border-border" min={300} max={900} value={formData.bureau_score || ""} onChange={e => updateField("bureau_score", e.target.value)} />
+          </Field>
+        </FieldGroup>
+      </div>
+    );
+  };
+
   // ── Step Router ──
   const renderCurrentStep = () => {
     switch (currentStepId) {
@@ -1600,6 +1709,9 @@ const NewApplicationWizard = () => {
       case "financials": return renderSMEFinancialsStep();
       case "cashflow": return category === "micro" ? renderMicroCashFlowStep() : renderSMECashFlowStep();
       case "social": return renderSocialMediaStep();
+      case "farm_profile": return renderFarmProfileStep();
+      case "farm_operations": return renderFarmOperationsStep();
+      case "farm_financial": return renderFarmFinancialStep();
       case "financial": return renderFinancialStep();
       case "altdata": return renderAltDataStep();
       case "documents": return renderDocumentsStep();
