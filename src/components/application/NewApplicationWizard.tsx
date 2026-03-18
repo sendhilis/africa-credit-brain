@@ -57,6 +57,20 @@ const getSteps = (category: ProductCategory) => {
     ];
   }
   
+  if (category === "farmer") {
+    return [
+      ...base,
+      { id: "farm_profile", label: "Farm Profile", icon: Tractor },
+      { id: "farm_operations", label: "Operations & Crops", icon: Wheat },
+      { id: "farm_financial", label: "Season & Finance", icon: TrendingUp },
+      { id: "financial", label: "Loan Request", icon: Banknote },
+      { id: "altdata", label: "Alt-Data Consent", icon: Wifi },
+      { id: "documents", label: "Documents", icon: FileText },
+      { id: "psychometric", label: "Psychometric", icon: Brain },
+      { id: "review", label: "Review & Submit", icon: CheckCircle2 },
+    ];
+  }
+  
   // SME
   return [
     ...base,
