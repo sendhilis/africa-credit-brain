@@ -1126,7 +1126,7 @@ const NewApplicationWizard = () => {
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label="Total Monthly Debt Service (ZWL)">
+              <Field label={`Total Monthly Debt Service (${config?.currency || ""})`}>
                 <Input type="number" placeholder="200000" className="bg-muted/50 border-border" value={formData.existing_repayments || ""} onChange={e => updateField("existing_repayments", e.target.value)} />
               </Field>
             </FieldGroup>
