@@ -68,9 +68,15 @@ const Admin = () => {
           <h1 className="font-display text-3xl font-bold text-foreground">Admin</h1>
           <p className="mt-1 text-sm text-muted-foreground">Manage institutions, users, and platform settings</p>
         </div>
-        <Button className="gap-2" onClick={() => setDialogOpen(true)}>
-          <Building2 className="h-4 w-4" /> Onboard Institution
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" className="gap-2" onClick={handleDumpDatabase} disabled={dumping}>
+            {dumping ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            Download SQL Dump
+          </Button>
+          <Button className="gap-2" onClick={() => setDialogOpen(true)}>
+            <Building2 className="h-4 w-4" /> Onboard Institution
+          </Button>
+        </div>
       </div>
 
       <GlassCard hover={false}>
