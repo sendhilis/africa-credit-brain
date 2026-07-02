@@ -24,6 +24,33 @@ const Admin = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedInstitution, setSelectedInstitution] = useState<Institution | null>(null);
+  const [dumping, setDumping] = useState(false);
+
+  const handleDumpDatabase = async () => {
+    setDumping(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const url = `https://vbzyihhaqtqpozrxvggr.supabase.co/functions/v1/db-dump`;
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
+      });
+      if (!res.ok) throw new Error(`Dump failed (${res.status})`);
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      const href = URL.createObjectURL(blob);
+      a.href = href;
+      a.download = `africaone-dump-${new Date().toISOString().slice(0,10)}.sql`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(href);
+      toast.success("SQL dump downloaded");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setDumping(false);
+    }
+  };
 
   const fetchInstitutions = useCallback(async () => {
     setLoading(true);
