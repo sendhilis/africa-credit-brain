@@ -3,6 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { assessGabonAffordability, isGabon } from "../_shared/gabon-credit.ts";
 import { reviewGabonEvidence } from "../_shared/gabon-documents.ts";
 
+import { describeModelForGrace } from "../_shared/scorecard.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
@@ -26,20 +28,7 @@ You are a world-class expert in:
 6. **Income Triangulation** — Cross-referencing bank statements, POS data, EcoCash flows, and declared income to detect inconsistencies and estimate true income.
 7. **Data Sanity & Fraud Detection** — Identifying data inconsistencies between declared values and documentary evidence, deviation analysis, consistency scoring.
 
-## Scoring Model Details (v2.0)
-The platform uses a **category-aware WoE Logistic Regression** model with these key components:
-
-### Weight Schemes by Category:
-- **Retail**: Income stability (25%), Payment history (20%), Bureau score (20%), Employment (15%), DTI ratio (10%), Demographics (10%)
-- **Micro**: Business cash flow (25%), EcoCash/Mobile Money patterns (20%), Market location score (15%), Stock turnover (15%), Bread basket margin (15%), Psychometrics (10%)
-- **SME**: Financial statements (25%), Business tenure (15%), Revenue stability (15%), Collateral coverage (15%), Bureau score (15%), Export income (15%)
-
-### Score Interpretation:
-- **750-900**: Excellent — Low risk, recommend approval
-- **650-749**: Good — Moderate risk, standard terms
-- **550-649**: Fair — Elevated risk, may need collateral or guarantor
-- **400-549**: Poor — High risk, consider declining or restructuring
-- **Below 400**: Very Poor — Recommend decline
+${describeModelForGrace()}
 
 ### Key Features Scored:
 - Debt-to-Income (DTI) ratio with WoE binning
@@ -52,7 +41,7 @@ The platform uses a **category-aware WoE Logistic Regression** model with these 
 - POS/Till daily sales normalization
 
 ### Reason Codes:
-Each score includes adverse action reason codes (e.g., R001-High DTI, R002-Limited payment history, R003-Income instability) that explain the key factors affecting the score.
+Reason codes RC01–RC08 name factors with the largest negative and positive point contributions. Read the actual codes on the case rather than assigning fixed meanings.
 
 ### AI Insights Layer:
 An AI overlay provides narrative analysis, risk flags with severity ratings, mitigating factors, and data gap identification on top of the statistical model.

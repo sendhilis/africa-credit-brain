@@ -234,7 +234,7 @@ const ApplicationDetail = () => {
     score: app.score!,
     score_band: app.score_band || "N/A",
     probability_of_default: app.probability_of_default || 0,
-    recommendation: app.status === "approved" ? "approve" : app.status === "declined" ? "decline" : "review",
+    recommendation: scorecardDetail?.recommendation ?? (app.status === "approved" ? "approve" : app.status === "declined" ? "decline" : "review"),
     reason_codes: Array.isArray(app.reason_codes) ? app.reason_codes : [],
     factors: scorecardDetail?.feature_contributions || [],
     summary: scorecardDetail?.summary || "",
@@ -373,6 +373,12 @@ const ApplicationDetail = () => {
           </section>}
         </div>
       )}
+      {!gabon && displayScore?.model_version?.startsWith("v2.0-") && (
+        <p role="status" className="mb-4 text-sm font-medium text-warning">
+          This score used a model with incorrect factor directions. Re-score before relying on it; prior results and lending decisions are unchanged.
+        </p>
+      )}
+
       {/* Score Justification */}
       {!gabon && displayScore && displayScore.factors?.length > 0 && (
         <div className="mb-6">

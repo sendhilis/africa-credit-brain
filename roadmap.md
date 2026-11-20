@@ -4,3 +4,5 @@
 - [ ] Validate OCR on representative Gabon documents and calibrate the score against local repayment outcomes when lender data is available.
 - [ ] Connect live providers when approved agreements, endpoints, and credentials are available.
 - [x] Restore Grace and expose Gabon document gaps on the officer dashboard.
+- [x] Correct score direction, missing household data, income flags, and business tenure in the standard scorecard; align Grace and redact analyst inputs.
+- [ ] Have credit officers review affected v2.0 cases and authorize any historical re-scoring; retain prior results and do not change lending decisions automatically.
