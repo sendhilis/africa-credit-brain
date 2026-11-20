@@ -23,7 +23,7 @@ interface ReasonCode {
 
 interface WoEDetail {
   feature: string;
-  raw_value: number;
+  raw_value: number | null;
   bin: string;
   woe: number;
   event_rate: number;
@@ -260,7 +260,7 @@ const ScoreJustification = ({
 
       {/* Tabbed detail view */}
       <Tabs defaultValue="factors" className="w-full">
-        <TabsList className="bg-muted/50">
+        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-muted/50 sm:inline-flex sm:w-auto">
           <TabsTrigger value="factors">Factor Breakdown</TabsTrigger>
           {woeDetails && woeDetails.length > 0 && (
             <TabsTrigger value="woe">WoE Details</TabsTrigger>
@@ -349,7 +349,7 @@ const ScoreJustification = ({
                                 ? (Math.abs(w.raw_value) < 1 && w.raw_value !== 0
                                   ? (w.raw_value * 100).toFixed(1) + "%"
                                   : w.raw_value.toFixed(1))
-                                : w.raw_value}
+                                : "—"}
                             </td>
                             <td className="py-2 px-2">
                               <Badge variant="outline" className="text-xs">{w.bin}</Badge>
@@ -407,7 +407,7 @@ const ScoreJustification = ({
                   <h3 className="font-display text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
                     <Sparkles className="h-5 w-5 text-accent" /> AI Score Assessment
                   </h3>
-                  <div className="flex items-start gap-4 mb-3">
+                  <div className="flex flex-col items-start gap-4 mb-3 sm:flex-row">
                     <div className={`px-4 py-3 rounded-lg border text-center min-w-[120px] ${
                       aiInsights.score_adjustment.direction === "increase"
                         ? "bg-success/10 border-success/20"
@@ -514,7 +514,7 @@ const ScoreJustification = ({
             <div className="space-y-4">
               {/* Consistency Score Header */}
               <GlassCard hover={false}>
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                   <h3 className="font-display text-lg font-semibold text-foreground flex items-center gap-2">
                     <SearchCheck className="h-5 w-5 text-primary" /> Data Consistency Analysis
                   </h3>
@@ -593,7 +593,7 @@ const ScoreJustification = ({
                           <div className="flex items-start gap-3">
                             <FlagIcon className={`h-5 w-5 mt-0.5 flex-shrink-0 ${config.iconColor}`} />
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
+                              <div className="flex flex-wrap items-center gap-2 mb-1">
                                 <span className="font-medium text-sm text-foreground">{flag.check}</span>
                                 <Badge className={`text-[10px] px-1.5 py-0 ${config.labelColor}`}>
                                   {config.label}
