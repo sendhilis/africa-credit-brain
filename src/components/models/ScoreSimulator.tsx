@@ -20,6 +20,8 @@ import {
   getFeaturesByPillar, getFeaturesForSegment,
   type ScoringPillar,
 } from "./scoreSimulatorData";
+import { localizeFeatures, SIMULATOR_COUNTRIES } from "./simulatorLocalization";
+import { Globe } from "lucide-react";
 
 const SEGMENT_ICONS: Record<BorrowerSegment, React.ReactNode> = {
   retail: <User className="h-4 w-4" />,
@@ -56,8 +58,14 @@ const ScoreSimulator = () => {
   const [showFormula, setShowFormula] = useState(false);
   const [sandboxMode, setSandboxMode] = useState(false);
   const [betaOverrides, setBetaOverrides] = useState<Record<string, number>>({});
-  const segmentFeatures = useMemo(() => getFeaturesForSegment(segment), [segment]);
-  const pillarGroups = useMemo(() => getFeaturesByPillar(segment), [segment]);
+  const [country, setCountry] = useState("zimbabwe");
+  const countryInfo = SIMULATOR_COUNTRIES.find((c) => c.value === country);
+  const segmentFeatures = useMemo(() => localizeFeatures(getFeaturesForSegment(segment), country), [segment, country]);
+  const pillarGroups = useMemo(() => {
+    const g = {} as Record<ScoringPillar, typeof segmentFeatures>;
+    segmentFeatures.forEach((f) => { (g[f.pillar] ??= []).push(f); });
+    return g;
+  }, [segmentFeatures]);
 
   const handleSelect = (featureKey: string, binIndex: number) => {
     setSelections((prev) => ({ ...prev, [featureKey]: binIndex }));
@@ -123,7 +131,7 @@ const ScoreSimulator = () => {
     <div className="space-y-6">
       {/* Segment Selector */}
       <GlassCard hover={false}>
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-3">
             <Calculator className="h-5 w-5 text-primary" />
             <div>
@@ -131,7 +139,18 @@ const ScoreSimulator = () => {
               <p className="text-xs text-muted-foreground">Select borrower segment, then adjust WoE bins to simulate a credit score</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Globe className="h-3.5 w-3.5 text-muted-foreground" />
+              <Select value={country} onValueChange={(v) => { setCountry(v); setSelections({}); }}>
+                <SelectTrigger className="h-8 w-[160px] text-xs" aria-label="Country"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {SIMULATOR_COUNTRIES.map((c) => (
+                    <SelectItem key={c.value} value={c.value} className="text-xs">{c.label} ({c.currency})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex items-center gap-2">
               <FlaskConical className={`h-3.5 w-3.5 ${sandboxMode ? "text-warning" : "text-muted-foreground"}`} />
               <Switch checked={sandboxMode} onCheckedChange={setSandboxMode} />
@@ -165,7 +184,8 @@ const ScoreSimulator = () => {
         <p className="text-[11px] text-muted-foreground mt-2">
           Showing <span className="font-semibold text-foreground">{segmentFeatures.length}</span> features across{" "}
           <span className="font-semibold text-foreground">{activePillars.length}</span> scoring pillars for{" "}
-          <span className="font-semibold text-foreground">{SEGMENT_LABELS[segment]}</span>
+          <span className="font-semibold text-foreground">{SEGMENT_LABELS[segment]}</span> in{" "}
+          <span className="font-semibold text-foreground">{countryInfo?.label}</span> — same standard model and weights; labels reflect local IDs, wallets and utilities.
         </p>
       </GlassCard>
 
@@ -240,7 +260,7 @@ const ScoreSimulator = () => {
       {/* Score Output */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <GlassCard hover={false} className="flex flex-col items-center justify-center py-8">
-          <p className="text-xs text-muted-foreground mb-2">Final Score — {SEGMENT_LABELS[segment]}</p>
+          <p className="text-xs text-muted-foreground mb-2">Final Score — {SEGMENT_LABELS[segment]} · {countryInfo?.label}</p>
           <span className="font-display text-6xl font-bold text-foreground">{result.finalScore}</span>
           <Badge variant="outline" className={`mt-3 ${band.color}`}>
             {band.band} — {band.action}
