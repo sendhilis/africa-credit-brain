@@ -3,7 +3,7 @@ export const isGabon = (country: unknown) => typeof country === "string" && ["ga
 export type GabonCategory = "retail" | "micro" | "sme" | "farmer";
 type FinancialField = readonly [key: string, label: string];
 export const gabonFinancialFields: Record<GabonCategory, readonly FinancialField[]> = {
-  retail: [["monthly_income", "Net recurring monthly income"], ["monthly_expenses", "Monthly household costs excluding housing and debt"], ["rent", "Monthly housing costs"]],
+  retail: [["monthly_income", "Net monthly salary / recurring income"], ["monthly_expenses", "Monthly household costs excluding housing and debt"], ["rent", "Monthly housing costs"]],
   micro: [["monthly_revenue", "Average monthly business sales"], ["monthly_operating_costs", "Monthly stock and operating costs"], ["monthly_income", "Other recurring monthly household income"], ["monthly_household_costs", "Monthly household costs including housing"]],
   sme: [["avg_monthly_revenue_6m", "Average monthly revenue (last six months)"], ["monthly_operating_costs", "Monthly operating costs including stock, payroll and taxes"]],
   farmer: [["farm_cycle_months", "Months in the financed production cycle"], ["farm_projected_sales", "Expected cash sales this cycle"], ["farm_cycle_costs", "All production, transport and selling costs this cycle"], ["farm_other_income", "Other recurring monthly household income"], ["monthly_household_costs", "Monthly household costs including housing"], ["farm_cash_receipt", "Expected first cash receipt"], ["first_installment", "First proposed payment due"]],

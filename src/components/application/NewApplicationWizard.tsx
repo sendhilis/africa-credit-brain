@@ -1033,6 +1033,9 @@ const NewApplicationWizard = () => {
                   <Input type={f.type} placeholder={f.placeholder} className="bg-muted/50 border-border" value={formData[f.key] || ""} onChange={e => updateField(f.key, e.target.value)} />
                 </Field>
               ))}
+              {gabon && <Field label="Net monthly salary / recurring income (XAF)">
+                <Input type="number" placeholder="Take-home pay after tax and CNSS" className="bg-muted/50 border-border" value={formData.monthly_income || ""} onChange={e => updateField("monthly_income", e.target.value)} />
+              </Field>}
               {!gabon && <Field label={`Monthly Expenses (${config.currency})`}>
                 <Input type="number" placeholder="20000" className="bg-muted/50 border-border" value={formData.monthly_expenses || ""} onChange={e => updateField("monthly_expenses", e.target.value)} />
               </Field>}
@@ -1210,7 +1213,7 @@ const NewApplicationWizard = () => {
           <>
             <FieldGroup label="Gabon affordability inputs">
               {renderConfigFields([
-                ...gabonFinancialFields[category].map(([key, label]) => ({ key, label: ["farm_cash_receipt", "farm_cycle_months", "first_installment"].includes(key) ? label : `${label} (XAF)`, placeholder: "", type: key === "farm_cash_receipt" || key === "first_installment" ? "date" : "number" })),
+                ...gabonFinancialFields[category].filter(([key]) => !(category === "retail" && key === "monthly_income")).map(([key, label]) => ({ key, label: ["farm_cash_receipt", "farm_cycle_months", "first_installment"].includes(key) ? label : `${label} (XAF)`, placeholder: "", type: key === "farm_cash_receipt" || key === "first_installment" ? "date" : "number" })),
                 { key: "existing_repayments", label: "Existing monthly debt payments (XAF)", placeholder: "Enter 0 if none", type: "number" },
                 { key: "proposed_repayment", label: category === "farmer" ? "Proposed loan payments due within this cycle (XAF)" : "Proposed monthly payment (XAF)", placeholder: "Include interest and fees", type: "number" },
                 ...(category === "retail" ? [
