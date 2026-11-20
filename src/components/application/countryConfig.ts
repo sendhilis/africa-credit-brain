@@ -1,10 +1,11 @@
 // Country-specific configuration for application forms
 // Maps to scoring model feature inputs per market
 
-type FieldDef = { key: string; label: string; placeholder: string; type: string; section?: string; options?: { value: string; label: string }[] };
+export type FieldDef = { key: string; label: string; placeholder: string; type: string; section?: string; options?: { value: string; label: string }[] };
 
 export interface CountryConfig {
   label: string;
+  locationFields?: FieldDef[];
   currency: string;
   currencySymbol: string;
   phonePrefix: string;
@@ -221,7 +222,74 @@ const farmerBase = (opts: {
 
 // ── Country Configurations ──
 
+const options = (...pairs: [string, string][]) => pairs.map(([value, label]) => ({ value, label }));
+const gaField = (key: string, label: string, section?: string, placeholder = "", type = "text"): FieldDef => ({ key, label, section, placeholder, type });
+const gaChoice = (key: string, label: string, section: string | undefined, ...pairs: [string, string][]): FieldDef => ({ ...gaField(key, label, section, "", "select"), options: options(...pairs) });
+
+const gabon: CountryConfig = {
+  label: "Gabon", currency: "XAF", currencySymbol: "FCFA", phonePrefix: "+241", phonePlaceholder: "+241 6X XX XX XX",
+  idTypes: [
+    { value: "cnie", label: "Carte nationale d’identité électronique (CNIE)", placeholder: "Numéro figurant sur la CNIE" },
+    { value: "nip_attestation", label: "Attestation du NIP (supporting evidence)", placeholder: "14 caractères alphanumériques" },
+    { value: "passport", label: "Passeport", placeholder: "Numéro du passeport" },
+    { value: "residence_card", label: "Carte de séjour", placeholder: "Numéro de la carte" },
+  ],
+  taxId: { label: "NIF (DGI, if applicable)", placeholder: "Numéro d’identification fiscale" },
+  socialId: null,
+  locationFields: [
+    gaChoice("province", "Province", undefined, ...["Estuaire", "Haut-Ogooué", "Moyen-Ogooué", "Ngounié", "Nyanga", "Ogooué-Ivindo", "Ogooué-Lolo", "Ogooué-Maritime", "Woleu-Ntem"].map((name): [string, string] => [name, name])),
+    gaField("gabon_locality", "Département / commune / village", undefined, "Ntoum, Franceville, Mouila…"),
+    gaField("gabon_landmark", "Quartier / repère (if no street address)", undefined, "Quartier, marché ou point de repère"),
+  ],
+  bureaus: [], wallets: ["Airtel Money", "Moov Money"], telcos: ["Airtel Gabon", "Moov Africa Gabon Telecom"], utilities: ["SEEG"],
+  businessRegistration: { label: "RCCM / ANPI-Gabon (if applicable)", placeholder: "Numéro RCCM" },
+  additionalRetailFields: [gaField("employer", "Employer / income source", undefined, "Administration, entreprise, pension…"), ...breadBasketRetail("XAF")],
+  additionalBusinessFields: [],
+  collateralOptions: defaultCollateral,
+  loanPurposes: defaultLoanPurposes,
+  taxClearanceDoc: { label: "Attestation de régularité fiscale (DGI)", description: "Current tax compliance evidence, if applicable." },
+  microFields: [
+    ...microBase({ currency: "XAF", locationExamples: "Marché Mont-Bouët, marché de Nkembo, Port-Gentil…", dailySalesPlaceholder: "25000", walletLabel: "Daily Airtel Money / Moov Money sales (XAF)", walletPlaceholder: "10000", stockSourceExamples: "Grossiste local, producteur, importateur", savingsGroupLabel: "Tontine / savings group", savingsAmountLabel: "Monthly tontine contribution (XAF)" }),
+    gaChoice("formalization", "Registration status", "Business Profile", ["registered", "Registered (RCCM)"], ["informal", "Informal / no RCCM"], ["pending", "Registration in progress"]),
+    gaField("gabon_market_permit", "Market authorization / stall fee reference (if available)", "Business Profile"),
+    gaField("trading_days", "Trading days per month", "Cash Flow", "24", "number"),
+  ],
+  smeFields: [
+    ...smeBase("XAF", "BGFIBank Gabon, UGB, BICIG, Orabank Gabon").filter(f => f.key !== "legal_structure" && f.key !== "avg_monthly_revenue_6m"),
+    gaChoice("legal_structure", "Forme juridique (OHADA)", "Corporate Profile", ["sarl", "SARL"], ["sas", "SAS"], ["sa", "SA"], ["ei", "Entreprise individuelle"], ["coop", "Coopérative"], ["other", "Autre"]),
+    gaField("gabon_signatory_capacity", "Signatory role / authorization reference", "Governance"),
+    gaField("gabon_customer_contracts", "Major customer contracts / order book", "Concentration Risk"),
+  ],
+  cashFlowFields: defaultCashFlow.filter(f => f.key !== "dscr"), businessStabilityFields: defaultStability,
+  socialMediaFields: defaultSocialMedia("+241 6X XX XX XX"),
+  farmerFields: [
+    ...farmerBase({ currency: "XAF",
+      landTenure: options(["title_deed", "Titre foncier"], ["leased", "Bail écrit"], ["use_agreement", "Convention de mise à disposition"], ["family_use", "Usage familial / coutumier"], ["undocumented", "No written evidence"]),
+      zones: options(["coastal", "Littoral / bas-fonds"], ["forest", "Forêt / zone de transition"], ["savanna", "Savane / plateau"], ["unknown", "Not assessed"]),
+      locLabel: "Farm province / département / village", locPlaceholder: "Ngounié, Mouila, village ou repère",
+      cropExamples: "Manioc, banane plantain, maraîchage, cacao, aviculture, pisciculture…",
+      contracts: options(["written", "Signed buyer agreement"], ["purchase_order", "Bon de commande"], ["verbal", "Verbal commitment"], ["none", "No commitment / open market"]),
+      markets: options(["urban", "Urban market / wholesaler"], ["coop", "Cooperative / aggregation"], ["processor", "Processor / institutional buyer"], ["farm_gate", "Farm-gate / local market"]),
+      extensions: options(["provincial", "Provincial agriculture service"], ["igad", "IGAD / field support"], ["coop", "Cooperative / private adviser"], ["none", "None"]),
+      inputPrograms: options(["self_funded", "Self-funded"], ["supplier", "Supplier / buyer advance"], ["emf", "Bank / EMF"], ["program", "Documented support program"], ["needs_full_financing", "Finance not yet secured"]),
+    }).filter(f => !["equipment_value_usd", "prev_season_yield", "input_cost_estimate"].includes(f.key)),
+    gaField("gabon_land_evidence", "Parcel reference / evidence of use / lease end date", "Land & Tenure"),
+    gaField("gabon_water_source", "Water source, irrigation and dry-season reliability", "Infrastructure"),
+    gaField("gabon_storage", "Storage, cold chain and rainy-season road access", "Infrastructure"),
+    gaField("gabon_farm_risks", "Flooding, dry spells, pest or livestock disease controls", "Farming Operations"),
+    gaField("gabon_production_date", "Planned planting / stocking date", "Farming Operations", "", "date"),
+    gaField("gabon_harvest_date", "Expected harvest / sale readiness date", "Farming Operations", "", "date"),
+    gaField("gabon_buyer_terms", "Buyer, committed volume, price and payment terms", "Market & Contracts"),
+    gaField("gabon_prior_output", "Previous cycle output and unit (kg, crates, birds, etc.)", "Season Performance"),
+    gaField("gabon_prior_costs", "Previous cycle costs (XAF)", "Season Performance", "", "number"),
+    gaField("pig_count", "Pigs", "Livestock & Assets", "", "number"),
+    gaField("gabon_asset_value", "Documented livestock and equipment value (XAF)", "Livestock & Assets", "", "number"),
+    gaField("gabon_insurance", "Insurance coverage or contingency plan", "Inputs & Insurance"),
+  ],
+};
+
 export const countryConfigs: Record<string, CountryConfig> = {
+  gabon,
   kenya: {
     label: "Kenya",
     currency: "KES",

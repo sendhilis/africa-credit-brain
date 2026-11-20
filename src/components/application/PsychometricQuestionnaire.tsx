@@ -238,15 +238,19 @@ export interface PsychometricResult {
 
 interface Props {
   category: ProductCategory;
+  market?: "gabon";
   onComplete: (result: PsychometricResult) => void;
   initialAnswers?: Record<string, string>;
 }
 
-export default function PsychometricQuestionnaire({ category, onComplete, initialAnswers = {} }: Props) {
-  const questions = useMemo(() =>
-    ALL_QUESTIONS.filter(q =>
-      !q.categories || q.categories.includes(category)
-    ), [category]);
+export default function PsychometricQuestionnaire({ category, market, onComplete, initialAnswers = {} }: Props) {
+  const questions = useMemo(() => ALL_QUESTIONS
+    .filter(q => (!q.categories || q.categories.includes(category)) && !(market === "gabon" && q.id === "ra_2"))
+    .map(q => market !== "gabon" ? q : {
+      ...q,
+      text: q.text.replace("Mukando, Round, Stokvel", "tontine"),
+      options: q.options.map(option => ({ ...option, label: option.label.replace("a Mukando group", "a tontine").replace("USD reserves", "reserves in the currency we owe") })),
+    }), [category, market]);
 
   const [currentQ, setCurrentQ] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>(initialAnswers);

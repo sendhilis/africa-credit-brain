@@ -3,6 +3,10 @@ import { useParams, useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/DashboardLayout";
 import GlassCard from "@/components/GlassCard";
 import ScoreJustification from "@/components/application/ScoreJustification";
+import GabonAffordability from "@/components/application/GabonAffordability";
+import { getGabonDocuments } from "@/components/application/gabonDocuments";
+import { countryConfigs } from "@/components/application/countryConfig";
+import { isGabon } from "../../supabase/functions/_shared/gabon-credit";
 import BalanceSheet from "@/components/application/BalanceSheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -54,6 +58,8 @@ interface FullApplication {
   updated_at: string;
   borrower: {
     full_name: string;
+    tax_id: string | null;
+    business_registration: string | null;
     gender: string | null;
     date_of_birth: string | null;
     marital_status: string | null;
@@ -150,7 +156,8 @@ const ApplicationDetail = () => {
       toast({ title: "Scoring complete", description: `Score: ${data.score} (${data.score_band})` });
       await fetchApp(); // This also fetches scorecard_results
     } catch (err: any) {
-      toast({ title: "Scoring failed", description: err.message, variant: "destructive" });
+      const failure = err.context instanceof Response ? await err.context.json().catch(() => null) : null;
+      toast({ title: "Scoring failed", description: failure?.error || err.message, variant: "destructive" });
     } finally {
       setScoring(false);
     }
@@ -198,6 +205,23 @@ const ApplicationDetail = () => {
     );
   }
 
+  const gabon = isGabon(app.country);
+  const localDocuments = gabon ? getGabonDocuments(app.product_category) : [];
+  const localConfig = countryConfigs.gabon;
+  const extra = app.borrower?.extra_data || {};
+  const localFields = gabon ? [...(localConfig.locationFields || []), ...(
+    app.product_category === "farmer" ? localConfig.farmerFields || [] : app.product_category === "sme" ? localConfig.smeFields || [] : app.product_category === "micro" ? localConfig.microFields || [] : [
+      { key: "employment_type", label: "Income arrangement" }, { key: "employment_years", label: "Years at current income source" },
+    ]),
+  ].filter(field => extra[field.key] != null && extra[field.key] !== "") : [];
+  const openEvidence = async (path: string) => {
+    const { data, error } = await supabase.storage.from("application-documents").createSignedUrl(path, 60);
+    if (error || !data?.signedUrl) {
+      toast({ title: "Could not open document", description: "Check that the file is still available to your institution.", variant: "destructive" });
+      return;
+    }
+    window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+  };
   const sc = statusConfig[app.status] || statusConfig.draft;
   const hasScore = app.score !== null;
   const displayScore = scoreResult || (hasScore ? {
@@ -226,7 +250,7 @@ const ApplicationDetail = () => {
           <div>
             <h1 className="font-display text-2xl font-bold text-foreground">{app.app_code}</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {app.borrower?.full_name || "Unknown Borrower"} · {app.country} · {app.product_type || app.product_category}
+              {app.borrower?.full_name || "Unknown Borrower"} · {gabon ? "Gabon" : app.country} · {app.product_type || app.product_category}
             </p>
           </div>
           <Badge variant="outline" className={`text-sm ${sc.color}`}>{sc.label}</Badge>
@@ -309,8 +333,26 @@ const ApplicationDetail = () => {
         </div>
       </GlassCard>
 
+      {gabon && (
+        <div className="mb-6 space-y-4">
+          <GabonAffordability category={app.product_category} values={{ monthly_income: app.monthly_income, monthly_expenses: app.monthly_expenses, rent: app.monthly_rent, monthly_revenue: app.monthly_revenue, avg_monthly_revenue_6m: app.monthly_revenue, ...extra }} />
+          {hasScore && <section className="rounded-lg border border-border p-4 space-y-2" aria-label="Gabon score result">
+            <h2 className="font-display text-lg font-semibold">Indicative Gabon score: {app.score}</h2>
+            <Badge variant="outline" className="text-warning">Manual review</Badge>
+            <p className="text-sm text-muted-foreground">This affordability score is not calibrated on Gabon repayment outcomes and does not estimate default probability.</p>
+            {Array.isArray(app.reason_codes) && <ul className="text-sm space-y-1">{app.reason_codes.map(reason => <li key={reason.code}>{reason.description}</li>)}</ul>}
+          </section>}
+          {localFields.length > 0 && <section className="rounded-lg border border-border p-4" aria-label="Gabon evidence">
+            <h2 className="font-display text-lg font-semibold mb-2">Gabon application evidence</h2>
+            <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">{localFields.map(field => <div key={field.key} className="min-w-0">
+              <dt className="text-xs text-muted-foreground">{field.label}</dt>
+              <dd className="break-words">{("options" in field ? field.options?.find(option => option.value === extra[field.key])?.label : null) || String(extra[field.key])}</dd>
+            </div>)}</dl>
+          </section>}
+        </div>
+      )}
       {/* Score Justification */}
-      {displayScore && displayScore.factors?.length > 0 && (
+      {!gabon && displayScore && displayScore.factors?.length > 0 && (
         <div className="mb-6">
           <h2 className="font-display text-xl font-semibold text-foreground mb-4 flex items-center gap-2">
             <Shield className="h-5 w-5 text-primary" /> Score Justification
@@ -334,7 +376,7 @@ const ApplicationDetail = () => {
       )}
 
       {/* Balance Sheet */}
-      {app.borrower?.extra_data && (
+      {!gabon && app.borrower?.extra_data && (
         <div className="mb-6">
         <BalanceSheet
             extraData={app.borrower.extra_data}
@@ -362,8 +404,9 @@ const ApplicationDetail = () => {
           <InfoRow label="Gender" value={app.borrower?.gender} />
           <InfoRow label="Date of Birth" value={app.borrower?.date_of_birth} />
           <InfoRow label="Marital Status" value={app.borrower?.marital_status} />
-          <InfoRow label="ID Type" value={app.borrower?.id_type} />
+          <InfoRow label="ID Type" value={(gabon ? localConfig.idTypes.find(item => item.value === app.borrower?.id_type)?.label : null) || app.borrower?.id_type} />
           <InfoRow label="ID Number" value={app.borrower?.id_number} />
+          {gabon && <InfoRow label="NIF (DGI)" value={app.borrower?.tax_id} />}
           <InfoRow label="Phone" value={app.borrower?.phone} />
           <InfoRow label="Email" value={app.borrower?.email} />
           <InfoRow label="Address" value={app.borrower?.address} />
@@ -380,8 +423,8 @@ const ApplicationDetail = () => {
           <InfoRow label="Purpose" value={app.purpose} />
           <InfoRow label="Collateral" value={app.collateral} />
           <InfoRow label="Product" value={app.product_type || app.product_category} />
-          <InfoRow label="Country" value={app.country} />
-          <InfoRow label="Bureau Score" value={(app as any).bureau_score ? `${(app as any).bureau_score} / 900` : "Not available"} />
+          <InfoRow label="Country" value={gabon ? "Gabon" : app.country} />
+          {!gabon && <InfoRow label="Bureau Score" value={(app as any).bureau_score ? `${(app as any).bureau_score} / 900` : "Not available"} />}
           <InfoRow label="Created" value={new Date(app.created_at).toLocaleDateString()} />
         </GlassCard>
 
@@ -411,6 +454,7 @@ const ApplicationDetail = () => {
               <Building2 className="h-4 w-4 text-primary" /> Business Info
             </h3>
             <InfoRow label="Business Name" value={app.borrower.business_name} />
+            {gabon && <InfoRow label="RCCM / ANPI-Gabon" value={app.borrower.business_registration} />}
             <InfoRow label="Type" value={app.borrower.business_type} />
             <InfoRow label="Sector" value={app.borrower.sector} />
             <InfoRow label="Years Operating" value={app.borrower.years_in_operation} />
@@ -425,12 +469,13 @@ const ApplicationDetail = () => {
           </h3>
           {Array.isArray(app.documents) && app.documents.length > 0 ? (
             app.documents.map((doc: any, i: number) => {
-              const extraction = documentExtractions.find(e => e.document_type === doc.type);
+              const extraction = documentExtractions.find(e => gabon ? e.storage_path === doc.storage_path : e.document_type === doc.type);
               return (
                 <div key={i} className="py-2.5 border-b border-border/30 last:border-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-sm text-foreground capitalize">{(doc.type || "").replace(/_/g, " ")}</span>
+                    <span className="text-sm text-foreground capitalize">{localDocuments.find(item => item.key === doc.type)?.title || (doc.type || "").replace(/_/g, " ")}</span>
+                    {gabon && doc.storage_path && <Button size="sm" variant="ghost" aria-label={`Open ${localDocuments.find(item => item.key === doc.type)?.title || doc.type}`} onClick={() => openEvidence(doc.storage_path)}>Open</Button>}
                     {extraction ? (
                       <Badge variant="outline" className={`text-xs ml-auto ${
                         extraction.extraction_status === "completed" ? "bg-success/10 text-success border-success/20" :
@@ -442,11 +487,11 @@ const ApplicationDetail = () => {
                         {extraction.extraction_status === "completed" ? `OCR ✓ (${Math.round((extraction.confidence_score || 0) * 100)}%)` :
                          extraction.extraction_status === "invalid" ? "⚠ Invalid Document" :
                          extraction.extraction_status === "processing" ? "Extracting…" :
-                         extraction.extraction_status === "failed" ? "OCR Failed" : "Pending"}
+                         extraction.extraction_status === "failed" ? "OCR Failed" : extraction.extraction_status === "manual_review" ? "Officer review" : "Pending"}
                       </Badge>
                     ) : (
                       <Badge variant="outline" className="text-xs ml-auto">
-                        {doc.storage_path ? "Uploaded" : "Mock"}
+                        {doc.storage_path ? (gabon ? "Officer review" : "Uploaded") : "Mock"}
                       </Badge>
                     )}
                   </div>
@@ -476,7 +521,7 @@ const ApplicationDetail = () => {
                   {/* Show extracted data summary */}
                   {extraction?.extraction_status === "completed" && extraction.extracted_data && (
                     <div className="mt-2 ml-5.5 p-2.5 rounded-md bg-muted/20 border border-border/30">
-                      {doc.type === "bank_statement" && (
+                      {["bank_statement", "mobile_money_statement"].includes(doc.type) && (
                         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                           {extraction.extracted_data.bank_name && <div><span className="text-muted-foreground">Bank:</span> <span className="text-foreground">{extraction.extracted_data.bank_name}</span></div>}
                           {extraction.extracted_data.average_monthly_income != null && <div><span className="text-muted-foreground">Avg. Monthly Income:</span> <span className="text-success font-medium">{extraction.extracted_data.currency} {extraction.extracted_data.average_monthly_income?.toLocaleString()}</span></div>}
@@ -555,6 +600,7 @@ const ApplicationDetail = () => {
           {/* Additional Document Upload */}
           <AdditionalDocumentUpload
             applicationId={app.id}
+            gabonCategory={gabon ? app.product_category : undefined}
             institutionId={(app as any).institution_id}
             existingDocuments={Array.isArray(app.documents) ? app.documents : []}
             onDocumentAdded={fetchApp}
@@ -592,7 +638,7 @@ const ApplicationDetail = () => {
         </GlassCard>
       )}
       {/* Grace AI Assistant */}
-      {displayScore && (
+      {!gabon && displayScore && (
         <GraceChat
           applicationId={app.id}
           applicationContext={{

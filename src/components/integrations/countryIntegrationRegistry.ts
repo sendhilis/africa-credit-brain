@@ -545,6 +545,7 @@ const ugandaRegistry: CountryRegistry = {
 
 export const countryRegistries: Record<string, CountryRegistry> = {
   ZW: zimbabweRegistry,
+  GA: { code: "GA", name: "Gabon", currency: "XAF", entities: [] },
   KE: kenyaRegistry,
   GH: ghanaRegistry,
   NG: nigeriaRegistry,

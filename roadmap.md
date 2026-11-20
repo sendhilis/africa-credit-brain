@@ -1,0 +1,5 @@
+- [x] Add Gabon-specific intake and evidence for Individual, Micro, SME, and Farmer applications.
+- [x] Save an indicative affordability score and repayment reasons for officer review.
+- [x] Verify four application paths, a saved farm case, private supporting evidence, and the scoring rules.
+- [ ] Validate OCR on representative Gabon documents and calibrate the score against local repayment outcomes when lender data is available.
+- [ ] Connect live providers when approved agreements, endpoints, and credentials are available.

@@ -19,6 +19,9 @@ import {
   BarChart3, Store, Landmark, Users, Tractor, Sprout, Mountain, Wheat
 } from "lucide-react";
 import { countryConfigs, productTypes, type CountryConfig } from "./countryConfig";
+import GabonAffordability from "./GabonAffordability";
+import { getGabonDocuments, requiresGabonOcr } from "./gabonDocuments";
+import { gabonFinancialFields, gabonNumber } from "../../../supabase/functions/_shared/gabon-credit";
 import { useAuth } from "@/contexts/AuthContext";
 import PsychometricQuestionnaire, { type PsychometricResult } from "./PsychometricQuestionnaire";
 
@@ -188,6 +191,8 @@ const NewApplicationWizard = () => {
   const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
   const [psychometricResult, setPsychometricResult] = useState<PsychometricResult | null>(null);
   const config = useMemo(() => country ? countryConfigs[country] : null, [country]);
+  const gabon = country === "gabon";
+  const navigate = useNavigate();
   const steps = useMemo(() => getSteps(category), [category]);
 
   useEffect(() => {
@@ -205,6 +210,18 @@ const NewApplicationWizard = () => {
 
   const updateField = (key: string, value: string) =>
     setFormData(prev => ({ ...prev, [key]: value }));
+
+  const changeCountry = (value: string) => {
+    if (value === country) return;
+    setCountry(value);
+    if (!country) return;
+    setFormData(({ name, dob, gender, marital }) => ({ name: name || "", dob: dob || "", gender: gender || "", marital: marital || "" }));
+    setAltDataConsents({});
+    setDocuments({});
+    setPsychometricStatus("not_started");
+    setPsychometricMethod(null);
+    setPsychometricResult(null);
+  };
 
   const toggleConsent = (key: string) =>
     setAltDataConsents(prev => ({ ...prev, [key]: !prev[key] }));
@@ -243,6 +260,15 @@ const NewApplicationWizard = () => {
 
   // Reset step to 0 when category changes
   const handleCategoryChange = (v: string) => {
+    if (gabon && v !== category) {
+      const keep = new Set(["name", "dob", "gender", "marital", "id_type", "id_number", "tax_id", "phone", "email", "address", "province", "gabon_locality", "gabon_landmark"]);
+      setFormData(previous => Object.fromEntries(Object.entries(previous).filter(([key]) => keep.has(key))));
+      setDocuments(previous => Object.fromEntries(Object.entries(previous).filter(([key]) => getGabonDocuments(v).some(doc => doc.key === key))));
+      setAltDataConsents({});
+      setPsychometricStatus("not_started");
+      setPsychometricMethod(null);
+      setPsychometricResult(null);
+    }
     setCategory(v as ProductCategory);
     setStep(0);
   };
@@ -290,6 +316,18 @@ const NewApplicationWizard = () => {
       return;
     }
 
+    if (gabon) {
+      const issue = !formData.name?.trim() || !formData.product || !formData.province || !formData.gabon_locality?.trim()
+        ? "Enter the applicant name, product, province and locality."
+        : formData.id_type === "nip_attestation" && !/^[a-z0-9]{14}$/i.test(formData.id_number?.trim() || "")
+          ? "An attestation du NIP must have 14 alphanumeric characters."
+          : (gabonNumber(formData.amount) ?? 0) <= 0 || !Number.isInteger(Number(formData.tenor)) || Number(formData.tenor) < 1
+            ? "Enter a positive loan amount and a whole number of months." : null;
+      if (issue) {
+        toast({ title: "Check the Gabon application", description: issue, variant: "destructive" });
+        return;
+      }
+    }
     setSubmitting(true);
     try {
       // Build extra_data with all category-specific fields
@@ -339,6 +377,9 @@ const NewApplicationWizard = () => {
         "google_maps_listing", "google_reviews_count", "google_reviews_avg", "online_marketplace",
       ];
 
+      if (gabon) {
+        specialKeys.push(...(config.locationFields || []).map(field => field.key), ...gabonFinancialFields[category].map(([key]) => key), "existing_repayments", "proposed_repayment", "employment_type", "employment_years");
+      }
       specialKeys.forEach(key => {
         if (formData[key]) extraData[key] = formData[key];
       });
@@ -368,7 +409,7 @@ const NewApplicationWizard = () => {
         business_name: category !== "retail" ? (formData.business_name || null) : null,
         business_registration: category !== "retail" ? (formData.business_reg || formData.cr_number || null) : null,
         business_type: category !== "retail" ? (formData.business_type || formData.legal_structure || null) : null,
-        years_in_operation: category !== "retail" && (formData.years_operation || formData.years_trading) ? parseInt(formData.years_operation || formData.years_trading) : null,
+        years_in_operation: category !== "retail" && (formData.years_operation || formData.years_trading || formData.farming_experience_years) ? parseInt(formData.years_operation || formData.years_trading || formData.farming_experience_years) : null,
         sector: formData.sector || null,
         employees: formData.employees ? parseInt(formData.employees) : null,
         extra_data: extraData,
@@ -401,7 +442,7 @@ const NewApplicationWizard = () => {
         dependents: formData.dependents ? parseInt(formData.dependents) : null,
         existing_loans: formData.existing_loans || null,
         employer: formData.employer || null,
-        monthly_revenue: formData.monthly_revenue ? parseFloat(formData.monthly_revenue) : null,
+        monthly_revenue: gabon && category === "sme" ? gabonNumber(formData.avg_monthly_revenue_6m) : formData.monthly_revenue ? parseFloat(formData.monthly_revenue) : null,
         usd_income: formData.usd_income ? parseFloat(formData.usd_income) : null,
         usd_revenue: formData.usd_revenue ? parseFloat(formData.usd_revenue) : null,
         export_income_pct: formData.export_income ? parseFloat(formData.export_income) : null,
@@ -425,13 +466,14 @@ const NewApplicationWizard = () => {
       const docEntries = Object.entries(documents);
       if (docEntries.length > 0 && appResult?.id) {
         for (const [docType, storagePath] of docEntries) {
-          const newPath = `${institutionId}/${appResult.id}/${storagePath.split('/').pop()}`;
-          const { error: moveErr } = await supabase.storage
-            .from("application-documents")
-            .move(storagePath, newPath);
-
-          const finalPath = moveErr ? storagePath : newPath;
-          if (moveErr) console.warn("File move failed, using original path:", moveErr.message);
+          if (gabon && !requiresGabonOcr(docType)) continue;
+          // Gabon application and extraction rows refer to the same immutable storage path.
+          let finalPath = storagePath;
+          if (!gabon) {
+            const newPath = `${institutionId}/${appResult.id}/${storagePath.split('/').pop()}`;
+            const { error: moveErr } = await supabase.storage.from("application-documents").move(storagePath, newPath);
+            if (!moveErr) finalPath = newPath;
+          }
 
           const { data: extractionRecord } = await supabase
             .from("document_extractions")
@@ -453,6 +495,13 @@ const NewApplicationWizard = () => {
         }
       }
 
+      if (gabon) {
+        toast({ title: "Application submitted", description: "The Gabon application is ready for officer review." });
+        resetForm();
+        setOpen(false);
+        navigate(`/applications/${appResult.id}`);
+        return;
+      }
       toast({ title: "Application submitted", description: `Application for ${formData.name} has been created. ${docEntries.length > 0 ? "Document OCR extraction is running in the background." : "Queued for scoring."}` });
       resetForm();
       setOpen(false);
@@ -517,7 +566,7 @@ const NewApplicationWizard = () => {
     <div className="space-y-5">
       <FieldGroup label="Country & Product">
         <Field label="Country">
-          <Select value={country} onValueChange={setCountry}>
+          <Select value={country} onValueChange={changeCountry}>
             <SelectTrigger className="bg-muted/50 border-border">
               <SelectValue placeholder="Select country" />
             </SelectTrigger>
@@ -576,7 +625,7 @@ const NewApplicationWizard = () => {
         <>
           <FieldGroup label="Identification">
             <Field label="ID Type">
-              <Select value={formData.id_type || ""} onValueChange={v => updateField("id_type", v)}>
+              <Select value={formData.id_type || ""} onValueChange={v => { updateField("id_type", v); if (gabon) updateField("id_number", ""); }}>
                 <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select ID type" /></SelectTrigger>
                 <SelectContent>
                   {config.idTypes.map(id => (
@@ -617,6 +666,7 @@ const NewApplicationWizard = () => {
             </Field>
           </FieldGroup>
 
+          {config.locationFields && <FieldGroup label="Location Details">{renderConfigFields(config.locationFields)}</FieldGroup>}
           {config.additionalRetailFields.filter(f => ["county","state","region","province","district","suburb"].includes(f.key)).map(f => (
             <FieldGroup key={f.key} label="Location Details">
               <Field label={f.label}>
@@ -656,7 +706,7 @@ const NewApplicationWizard = () => {
               <SelectContent>
                 <SelectItem value="sole_proprietor">Sole Proprietor</SelectItem>
                 <SelectItem value="partnership">Partnership</SelectItem>
-                <SelectItem value="cooperative">Cooperative / SACCO</SelectItem>
+                <SelectItem value="cooperative">{gabon ? "Coopérative" : "Cooperative / SACCO"}</SelectItem>
                 <SelectItem value="vendor">Market Vendor / Trader</SelectItem>
                 <SelectItem value="cross_border">Cross-Border Trader</SelectItem>
                 <SelectItem value="artisan">Artisan / Skilled Trade</SelectItem>
@@ -665,7 +715,7 @@ const NewApplicationWizard = () => {
           </Field>
         </FieldGroup>
 
-        {sections.map(section => (
+        {sections.filter(section => !gabon || !["Bread Basket", "Balance Sheet"].includes(section || "")).map(section => (
           <FieldGroup key={section!} label={section!}>
             {renderConfigFields(microFields, section)}
           </FieldGroup>
@@ -687,7 +737,7 @@ const NewApplicationWizard = () => {
           </p>
         </div>
 
-        <FieldGroup label="Revenue & Expenses">
+        {!gabon && <FieldGroup label="Revenue & Expenses">
           {config.additionalBusinessFields.map(f => (
             <Field key={f.key} label={f.label}>
               <Input type={f.type} placeholder={f.placeholder} className="bg-muted/50 border-border" value={formData[f.key] || ""} onChange={e => updateField(f.key, e.target.value)} />
@@ -696,15 +746,15 @@ const NewApplicationWizard = () => {
           <Field label={`Monthly Expenses (${config.currency})`}>
             <Input type="number" placeholder="20000" className="bg-muted/50 border-border" value={formData.monthly_expenses || ""} onChange={e => updateField("monthly_expenses", e.target.value)} />
           </Field>
-        </FieldGroup>
+        </FieldGroup>}
 
-        <FieldGroup label="Income & Employment">
+        {!gabon && <FieldGroup label="Income & Employment">
           {config.additionalRetailFields.filter(f => ["monthly_income","employer","usd_income"].includes(f.key)).map(f => (
             <Field key={f.key} label={f.label}>
               <Input type={f.type} placeholder={f.placeholder} className="bg-muted/50 border-border" value={formData[f.key] || ""} onChange={e => updateField(f.key, e.target.value)} />
             </Field>
           ))}
-        </FieldGroup>
+        </FieldGroup>}
 
         {config?.microFields?.some(f => f.section === "Bread Basket") && (
           <>
@@ -718,7 +768,7 @@ const NewApplicationWizard = () => {
             </FieldGroup>
 
             {/* Live bread basket computation */}
-            {(formData.monthly_income || formData.monthly_revenue) && formData.monthly_food_basket && (
+            {!gabon && (formData.monthly_income || formData.monthly_revenue) && formData.monthly_food_basket && (
               <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
                 <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Bread Basket Analysis</h4>
                 {(() => {
@@ -765,11 +815,11 @@ const NewApplicationWizard = () => {
           </FieldGroup>
         )}
 
-        <FieldGroup label="Credit Bureau Score (if available)">
+        {!gabon && <FieldGroup label="Credit Bureau Score (if available)">
           <Field label="Bureau Score (300-900)" span2>
             <Input type="number" placeholder="e.g. 720 — leave blank if not available" className="bg-muted/50 border-border" min={300} max={900} value={formData.bureau_score || ""} onChange={e => updateField("bureau_score", e.target.value)} />
           </Field>
-        </FieldGroup>
+        </FieldGroup>}
       </div>
     );
   };
@@ -791,6 +841,7 @@ const NewApplicationWizard = () => {
           <Field label="Business Name">
             <Input placeholder="Registered company name" className="bg-muted/50 border-border" value={formData.business_name || ""} onChange={e => updateField("business_name", e.target.value)} />
           </Field>
+          {gabon && renderConfigFields([{ key: "business_reg", label: config.businessRegistration.label, placeholder: config.businessRegistration.placeholder, type: "text" }])}
           {renderConfigFields(smeFields, "Corporate Profile")}
           <Field label="Years in Operation">
             <Input type="number" placeholder="5" className="bg-muted/50 border-border" value={formData.years_operation || ""} onChange={e => updateField("years_operation", e.target.value)} />
@@ -841,11 +892,11 @@ const NewApplicationWizard = () => {
           {renderConfigFields(smeFields, "Concentration Risk")}
         </FieldGroup>
 
-        <FieldGroup label="Credit Bureau Score (if available)">
+        {!gabon && <FieldGroup label="Credit Bureau Score (if available)">
           <Field label="Bureau Score (300-900)" span2>
             <Input type="number" placeholder="e.g. 720 — leave blank if not available" className="bg-muted/50 border-border" min={300} max={900} value={formData.bureau_score || ""} onChange={e => updateField("bureau_score", e.target.value)} />
           </Field>
-        </FieldGroup>
+        </FieldGroup>}
       </div>
     );
   };
@@ -982,15 +1033,15 @@ const NewApplicationWizard = () => {
                   <Input type={f.type} placeholder={f.placeholder} className="bg-muted/50 border-border" value={formData[f.key] || ""} onChange={e => updateField(f.key, e.target.value)} />
                 </Field>
               ))}
-              <Field label={`Monthly Expenses (${config.currency})`}>
+              {!gabon && <Field label={`Monthly Expenses (${config.currency})`}>
                 <Input type="number" placeholder="20000" className="bg-muted/50 border-border" value={formData.monthly_expenses || ""} onChange={e => updateField("monthly_expenses", e.target.value)} />
-              </Field>
+              </Field>}
               <Field label="Number of Dependents">
                 <Input type="number" placeholder="3" className="bg-muted/50 border-border" value={formData.dependents || ""} onChange={e => updateField("dependents", e.target.value)} />
               </Field>
-              <Field label={`Monthly Rent / Housing (${config.currency})`}>
+              {!gabon && <Field label={`Monthly Rent / Housing (${config.currency})`}>
                 <Input type="number" placeholder="5000" className="bg-muted/50 border-border" value={formData.rent || ""} onChange={e => updateField("rent", e.target.value)} />
-              </Field>
+              </Field>}
               <Field label="Existing Loan Obligations">
                 <Select value={formData.existing_loans || ""} onValueChange={v => updateField("existing_loans", v)}>
                   <SelectTrigger className="bg-muted/50 border-border"><SelectValue placeholder="Select" /></SelectTrigger>
@@ -1020,7 +1071,7 @@ const NewApplicationWizard = () => {
                 </FieldGroup>
 
                 {/* Auto-computed bread basket margin */}
-                {(formData.monthly_income || formData.payslip_net) && formData.monthly_food_basket && (
+                {!gabon && (formData.monthly_income || formData.payslip_net) && formData.monthly_food_basket && (
                   <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
                     <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Bread Basket Analysis</h4>
                     {(() => {
@@ -1066,11 +1117,11 @@ const NewApplicationWizard = () => {
               </FieldGroup>
             )}
 
-            <FieldGroup label="Credit Bureau Score (if available)">
+            {!gabon && <FieldGroup label="Credit Bureau Score (if available)">
               <Field label="Bureau Score (300-900)" span2>
                 <Input type="number" placeholder="e.g. 720 — leave blank if not available" className="bg-muted/50 border-border" min={300} max={900} value={formData.bureau_score || ""} onChange={e => updateField("bureau_score", e.target.value)} />
               </Field>
-            </FieldGroup>
+            </FieldGroup>}
 
             <FieldGroup label="Banking Details">
               <Field label="Primary Bank">
@@ -1126,9 +1177,9 @@ const NewApplicationWizard = () => {
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label={`Total Monthly Debt Service (${config?.currency || ""})`}>
+              {!gabon && <Field label={`Total Monthly Debt Service (${config?.currency || ""})`}>
                 <Input type="number" placeholder="200000" className="bg-muted/50 border-border" value={formData.existing_repayments || ""} onChange={e => updateField("existing_repayments", e.target.value)} />
-              </Field>
+              </Field>}
             </FieldGroup>
           </>
         )}
@@ -1155,6 +1206,22 @@ const NewApplicationWizard = () => {
           </>
         )}
 
+        {gabon && (
+          <>
+            <FieldGroup label="Gabon affordability inputs">
+              {renderConfigFields([
+                ...gabonFinancialFields[category].map(([key, label]) => ({ key, label: ["farm_cash_receipt", "farm_cycle_months", "first_installment"].includes(key) ? label : `${label} (XAF)`, placeholder: "", type: key === "farm_cash_receipt" || key === "first_installment" ? "date" : "number" })),
+                { key: "existing_repayments", label: "Existing monthly debt payments (XAF)", placeholder: "Enter 0 if none", type: "number" },
+                { key: "proposed_repayment", label: category === "farmer" ? "Proposed loan payments due within this cycle (XAF)" : "Proposed monthly payment (XAF)", placeholder: "Include interest and fees", type: "number" },
+                ...(category === "retail" ? [
+                  { key: "employment_type", label: "Income arrangement", placeholder: "CDI, CDD, fonction publique, pension, indépendant…", type: "text" },
+                  { key: "employment_years", label: "Years at current income source", placeholder: "", type: "number" },
+                ] : []),
+              ])}
+            </FieldGroup>
+            <GabonAffordability category={category} values={formData} />
+          </>
+        )}
         <Field label="Notes (optional)" span2>
           <Textarea placeholder="Additional context for the underwriter…" className="bg-muted/50 border-border min-h-[60px]" value={formData.notes || ""} onChange={e => updateField("notes", e.target.value)} />
         </Field>
@@ -1168,10 +1235,10 @@ const NewApplicationWizard = () => {
     return (
       <div className="space-y-5">
         <p className="text-sm text-muted-foreground">
-          Select which alternative data sources the borrower consents to share. Each source improves scoring accuracy.
+          {gabon ? "Record the borrower’s consent for sources the lender is authorized to request. Consent does not trigger a live data pull." : "Select which alternative data sources the borrower consents to share. Each source improves scoring accuracy."}
         </p>
 
-        <FieldGroup label={`Credit Bureaus (${config.label})`}>
+        {config.bureaus.length > 0 && <FieldGroup label={`Credit Bureaus (${config.label})`}>
           <div className="col-span-2 space-y-2">
             {config.bureaus.map(bureau => (
               <label key={bureau} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border/50 hover:bg-muted/50 cursor-pointer transition-colors">
@@ -1184,7 +1251,7 @@ const NewApplicationWizard = () => {
               </label>
             ))}
           </div>
-        </FieldGroup>
+        </FieldGroup>}
 
         <FieldGroup label="Mobile Wallet Data">
           <div className="col-span-2 space-y-2">
@@ -1247,7 +1314,7 @@ const NewApplicationWizard = () => {
   // ── Documents Step ──
   const renderDocumentsStep = () => {
     if (!config) return null;
-    const docTypes = [
+    const docTypes = gabon ? getGabonDocuments(category).map(doc => ({ ...doc, icon: FileText, formats: "PDF, JPEG, PNG, WEBP", accept: ".pdf,.jpg,.jpeg,.png,.webp" })) : [
       { key: "bank_statement", icon: CreditCard, title: "Bank Statements (min. 3 months)", desc: "Must cover at least 3 consecutive months. Extracts: income flows, variability.", formats: "PDF, JPEG, PNG", accept: ".pdf,.jpg,.jpeg,.png" },
       ...(category !== "retail" ? [
         { key: "pos_statement", icon: Store, title: "POS / Till Statements", desc: "Point-of-sale transaction records for cash-based businesses without bank traces.", formats: "PDF, JPEG, PNG", accept: ".pdf,.jpg,.jpeg,.png" },
@@ -1273,7 +1340,7 @@ const NewApplicationWizard = () => {
     return (
       <div className="space-y-5">
         <p className="text-sm text-muted-foreground">
-          Upload supporting documents for OCR extraction. {category !== "retail" ? "No bank statement? Upload POS / Till statements instead — they work just as well for cash-based businesses." : "Extracted data feeds directly into the scoring model."}
+          {gabon ? "Attach available lender evidence. Documents marked for officer review are not used as automatic verification." : <>Upload supporting documents for OCR extraction. {category !== "retail" ? "No bank statement? Upload POS / Till statements instead — they work just as well for cash-based businesses." : "Extracted data feeds directly into the scoring model."}</>}
         </p>
         {docTypes.map(doc => (
           <div key={doc.key} className="p-4 rounded-lg bg-muted/30 border border-border/50 border-dashed hover:border-primary/30 transition-colors">
@@ -1301,13 +1368,18 @@ const NewApplicationWizard = () => {
                       onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (!file || !institutionId) return;
+                        if (gabon && !/\.(pdf|jpe?g|png|webp)$/i.test(file.name)) {
+                          toast({ title: "Unsupported file", description: "Upload a PDF, JPEG, PNG or WEBP document.", variant: "destructive" });
+                          e.target.value = "";
+                          return;
+                        }
                         setUploadingDoc(doc.key);
                         try {
                           const filePath = `${institutionId}/pending/${doc.key}_${Date.now()}_${file.name}`;
                           const { error: uploadErr } = await supabase.storage.from("application-documents").upload(filePath, file);
                           if (uploadErr) throw uploadErr;
                           setDocuments(prev => ({ ...prev, [doc.key]: filePath }));
-                          toast({ title: "Document uploaded", description: `${doc.title} uploaded. OCR will run after submission.` });
+                          toast({ title: "Document uploaded", description: `${doc.title} uploaded. ${gabon && !requiresGabonOcr(doc.key) ? "Available for officer review after submission." : "OCR will run after submission."}` });
                         } catch (err: any) {
                           toast({ title: "Upload failed", description: err.message, variant: "destructive" });
                         } finally { setUploadingDoc(null); e.target.value = ""; }
@@ -1375,6 +1447,7 @@ const NewApplicationWizard = () => {
       return (
         <PsychometricQuestionnaire
           category={category}
+          market={gabon ? "gabon" : undefined}
           initialAnswers={psychometricResult?.answers || {}}
           onComplete={(result) => {
             setPsychometricResult(result);
@@ -1424,14 +1497,14 @@ const NewApplicationWizard = () => {
 
         {(psychometricStatus === "not_started" || psychometricStatus === "expired") && (
           <>
-            <FieldGroup label="Send Assessment">
+            {!gabon && <FieldGroup label="Send Assessment">
               <Field label="Phone for Assessment" span2>
                 <Input placeholder={config?.phonePlaceholder || "+XXX XXX XXX XXXX"} className="bg-muted/50 border-border"
                   value={formData.psychometric_phone || formData.phone || ""} onChange={e => updateField("psychometric_phone", e.target.value)} />
               </Field>
-            </FieldGroup>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-4 rounded-lg bg-muted/30 border border-border/50 hover:border-primary/30 cursor-pointer transition-colors text-center space-y-3">
+            </FieldGroup>}
+            <div className={`grid gap-3 ${gabon ? "grid-cols-1" : "grid-cols-2"}`}>
+              {!gabon && <div className="p-4 rounded-lg bg-muted/30 border border-border/50 hover:border-primary/30 cursor-pointer transition-colors text-center space-y-3">
                 <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
                   <Smartphone className="h-6 w-6 text-primary" />
                 </div>
@@ -1441,7 +1514,7 @@ const NewApplicationWizard = () => {
                   {sendingLink ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
                   {sendingLink ? "Sending…" : "Send Link"}
                 </Button>
-              </div>
+              </div>}
               <div className="p-4 rounded-lg bg-muted/30 border border-border/50 hover:border-success/30 cursor-pointer transition-colors text-center space-y-3">
                 <div className="mx-auto w-12 h-12 rounded-full bg-success/10 flex items-center justify-center">
                   <Brain className="h-6 w-6 text-success" />
@@ -1507,7 +1580,7 @@ const NewApplicationWizard = () => {
               { label: "Prev Season", value: formData.prev_season_performance?.replace(/_/g, " ") || "—" },
             ] : []),
             ...(category === "sme" ? [
-              { label: "Annual Turnover", value: formData.annual_turnover_zwl ? `${config.currencySymbol} ${Number(formData.annual_turnover_zwl).toLocaleString()}` : "—" },
+              { label: "Annual Turnover", value: (formData.annual_turnover || formData.annual_turnover_zwl) ? `${config.currencySymbol} ${Number(formData.annual_turnover || formData.annual_turnover_zwl).toLocaleString()}` : "—" },
               { label: "Revenue Volatility", value: formData.revenue_volatility ? `${formData.revenue_volatility}%` : "—" },
             ] : []),
             ...(category !== "sme" ? [{ label: "Psychometric", value: psychometricResult?.completed ? `${psychometricResult.overall_score}/100` : PSYCHOMETRIC_STATUS_CONFIG[psychometricStatus].label }] : []),
@@ -1519,8 +1592,9 @@ const NewApplicationWizard = () => {
           ))}
         </div>
 
+        {gabon && <GabonAffordability category={category} values={formData} />}
         {/* Auto-generated Balance Sheet */}
-        {(() => {
+        {!gabon && (() => {
           const savings = parseFloat(formData.total_savings || formData.avg_balance || "0");
           const stock = parseFloat(formData.stock_value_estimate || "0");
           const equipment = parseFloat(formData.equipment_tools_value || "0");
@@ -1619,10 +1693,11 @@ const NewApplicationWizard = () => {
         <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
           <p className="text-xs text-muted-foreground">
             On submit, AfricaOne will initiate: <span className="text-foreground font-medium">
-              {category === "retail" && "Bureau checks → Alt-data pull → Document OCR → Psychometric score → Individual Scorecard"}
-              {category === "micro" && "Bureau checks → Mobile wallet pull → Cash flow analysis → Savings group verification → Micro Scorecard"}
-              {category === "sme" && "Bureau checks → Financial analysis → Cash flow volatility → Social media audit → Concentration risk → SME Scorecard"}
-              {category === "farmer" && "Bureau checks → Land tenure verification → Season performance analysis → Contract farming validation → Agri Scorecard"}
+              {gabon && "Document review → Gabon affordability assessment → Manual decision"}
+              {!gabon && category === "retail" && "Bureau checks → Alt-data pull → Document OCR → Psychometric score → Individual Scorecard"}
+              {!gabon && category === "micro" && "Bureau checks → Mobile wallet pull → Cash flow analysis → Savings group verification → Micro Scorecard"}
+              {!gabon && category === "sme" && "Bureau checks → Financial analysis → Cash flow volatility → Social media audit → Concentration risk → SME Scorecard"}
+              {!gabon && category === "farmer" && "Bureau checks → Land tenure verification → Season performance analysis → Contract farming validation → Agri Scorecard"}
             </span>
           </p>
         </div>
@@ -1638,12 +1713,12 @@ const NewApplicationWizard = () => {
       <div className="space-y-5">
         <div className="p-3 rounded-lg bg-success/5 border border-success/20">
           <p className="text-xs text-muted-foreground">
-            <span className="font-semibold text-success">Farm Profile</span> — Land tenure type is the strongest predictor in agricultural lending. Title deeds and 99-year leases carry significantly more weight than communal allocations.
+            <span className="font-semibold text-success">Farm Profile</span> — {gabon ? "Record the parcel, evidence of access and how long it covers the financed activity." : "Record land tenure and any supporting evidence for the financed activity."}
           </p>
         </div>
         <FieldGroup label="Farm Identity">
           <Field label="Farm / Enterprise Name">
-            <Input placeholder="e.g. Moyo Farm, Sunrise Horticulture" className="bg-muted/50 border-border" value={formData.business_name || ""} onChange={e => updateField("business_name", e.target.value)} />
+            <Input placeholder={gabon ? "Exploitation de Ntoum, coopérative de Mouila…" : "e.g. Moyo Farm, Sunrise Horticulture"} className="bg-muted/50 border-border" value={formData.business_name || ""} onChange={e => updateField("business_name", e.target.value)} />
           </Field>
           <Field label="Farmer Registration (if any)">
             <Input placeholder={config.businessRegistration.placeholder} className="bg-muted/50 border-border" value={formData.business_reg || ""} onChange={e => updateField("business_reg", e.target.value)} />
@@ -1667,7 +1742,7 @@ const NewApplicationWizard = () => {
       <div className="space-y-5">
         <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
           <p className="text-xs text-muted-foreground">
-            <span className="font-semibold text-primary">Farming Operations</span> — Diversified enterprises with contract farming and formal market access reduce default risk by 40-60% compared to monocrop farm-gate sellers.
+            <span className="font-semibold text-primary">Farming Operations</span> — Capture how production will be sold, when payment is expected, and what could interrupt delivery.
           </p>
         </div>
         <FieldGroup label="Farming Operations">
@@ -1705,7 +1780,7 @@ const NewApplicationWizard = () => {
         </FieldGroup>
 
         {/* Livestock asset valuation */}
-        {(formData.cattle_count || formData.small_stock_count) && (
+        {!gabon && (formData.cattle_count || formData.small_stock_count) && (
           <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
             <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Livestock Asset Estimate</h4>
             {(() => {
@@ -1730,11 +1805,11 @@ const NewApplicationWizard = () => {
           </div>
         )}
 
-        <FieldGroup label="Credit Bureau Score (if available)">
+        {!gabon && <FieldGroup label="Credit Bureau Score (if available)">
           <Field label="Bureau Score (300-900)" span2>
             <Input type="number" placeholder="e.g. 720 — leave blank if not available" className="bg-muted/50 border-border" min={300} max={900} value={formData.bureau_score || ""} onChange={e => updateField("bureau_score", e.target.value)} />
           </Field>
-        </FieldGroup>
+        </FieldGroup>}
       </div>
     );
   };
@@ -1803,7 +1878,7 @@ const NewApplicationWizard = () => {
             "bg-success/5 border border-success/15 text-success"
           }`}>
             {category === "retail" && "Individual — Salaried employees, civil servants, personal loans. Focus: income stability, DTI, employment."}
-            {category === "micro" && "Micro — Informal traders, market vendors, cross-border traders. Focus: daily sales, cash flow, Mukando savings."}
+            {category === "micro" && "Micro — Informal traders, market vendors, cross-border traders. Focus: daily sales, cash flow, and savings groups."}
             {category === "sme" && "SME — Registered businesses with formal financials. Focus: turnover, margins, cash flow volatility, social media presence."}
             {category === "farmer" && "Farmer / Agri — Smallholder to commercial farmers. Focus: land tenure, crop diversification, irrigation, contract farming, season performance."}
           </div>
@@ -1827,7 +1902,7 @@ const NewApplicationWizard = () => {
               <ChevronLeft className="h-4 w-4" /> Back
             </Button>
             {step < steps.length - 1 ? (
-              <Button onClick={next} className="gap-1.5">
+              <Button onClick={next} disabled={!config} className="gap-1.5">
                 Next <ChevronRight className="h-4 w-4" />
               </Button>
             ) : (

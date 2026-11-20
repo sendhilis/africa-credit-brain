@@ -6,6 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Upload, FileUp, Loader2, CheckCircle2, XCircle } from "lucide-react";
 
+import { getGabonDocuments, requiresGabonOcr } from "./gabonDocuments";
+
 const DOCUMENT_TYPES = [
   { value: "bank_statement", label: "Bank Statement" },
   { value: "pos_statement", label: "POS / Till Statement" },
@@ -21,14 +23,17 @@ const DOCUMENT_TYPES = [
 interface Props {
   applicationId: string;
   institutionId: string;
+  gabonCategory?: string;
   existingDocuments: any[];
   onDocumentAdded: () => void;
 }
 
-export default function AdditionalDocumentUpload({ applicationId, institutionId, existingDocuments, onDocumentAdded }: Props) {
+export default function AdditionalDocumentUpload({ applicationId, institutionId, gabonCategory, existingDocuments, onDocumentAdded }: Props) {
+  const types = gabonCategory ? getGabonDocuments(gabonCategory).map(doc => ({ value: doc.key, label: doc.title })) : DOCUMENT_TYPES;
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [docType, setDocType] = useState("");
+  const shouldExtract = !gabonCategory || requiresGabonOcr(docType);
   const [uploading, setUploading] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -37,6 +42,11 @@ export default function AdditionalDocumentUpload({ applicationId, institutionId,
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (gabonCategory && !/\.(pdf|jpe?g|png|webp)$/i.test(file.name)) {
+        toast({ title: "Unsupported file", description: "Upload a PDF, JPEG, PNG or WEBP document.", variant: "destructive" });
+        e.target.value = "";
+        return;
+      }
       setSelectedFile(file);
       setUploadStatus("idle");
     }
@@ -69,39 +79,42 @@ export default function AdditionalDocumentUpload({ applicationId, institutionId,
 
       if (updateError) throw updateError;
 
-      // 3. Create document_extractions row first (the edge function reads from it)
-      const { data: extractionRow, error: insertExtError } = await supabase
-        .from("document_extractions")
-        .insert({
-          application_id: applicationId,
-          institution_id: institutionId,
-          document_type: docType,
-          storage_path: filePath,
-          extraction_status: "pending",
-        })
-        .select("id")
-        .single();
+      if (shouldExtract) {
+        // 3. Create document_extractions row first (the edge function reads from it)
+        const { data: extractionRow, error: insertExtError } = await supabase
+          .from("document_extractions")
+          .insert({
+            application_id: applicationId,
+            institution_id: institutionId,
+            document_type: docType,
+            storage_path: filePath,
+            extraction_status: "pending",
+          })
+          .select("id")
+          .single();
 
-      if (insertExtError) throw insertExtError;
+        if (insertExtError) throw insertExtError;
 
-      setUploading(false);
-      setExtracting(true);
+        setUploading(false);
+        setExtracting(true);
 
-      // 4. Run OCR extraction with the extraction_id
-      const { data: extractResult, error: extractError } = await supabase.functions.invoke("extract-document", {
-        body: { extraction_id: extractionRow.id },
-      });
-
-      if (extractError) {
-        console.error("Extraction error:", extractError);
-        toast({ title: "Document uploaded", description: "File saved but OCR extraction failed. You can still re-score.", variant: "destructive" });
-      } else {
-        toast({
-          title: "Document added successfully",
-          description: `${DOCUMENT_TYPES.find(d => d.value === docType)?.label} uploaded and processed. Click Re-Score to include it.`,
+        // 4. Run OCR extraction with the extraction_id
+        const { data: extractResult, error: extractError } = await supabase.functions.invoke("extract-document", {
+          body: { extraction_id: extractionRow.id },
         });
-      }
 
+        if (extractError || extractResult?.success === false) {
+          console.error("Extraction error:", extractError);
+          toast({ title: "Document uploaded", description: extractResult?.error || extractResult?.validation_reason || "File saved but OCR extraction failed.", variant: "destructive" });
+        } else {
+          toast({
+            title: "Document added successfully",
+            description: `${types.find(d => d.value === docType)?.label} uploaded and processed.`,
+          });
+        }
+      } else {
+        toast({ title: "Document saved for officer review" });
+      }
       setUploadStatus("success");
       setSelectedFile(null);
       setDocType("");
@@ -135,13 +148,13 @@ export default function AdditionalDocumentUpload({ applicationId, institutionId,
             <SelectValue placeholder="Select document type..." />
           </SelectTrigger>
           <SelectContent>
-            {DOCUMENT_TYPES.map(dt => (
+            {types.map(dt => (
               <SelectItem key={dt.value} value={dt.value}>{dt.label}</SelectItem>
             ))}
           </SelectContent>
         </Select>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <input
             ref={fileInputRef}
             type="file"
@@ -152,12 +165,12 @@ export default function AdditionalDocumentUpload({ applicationId, institutionId,
           <Button
             variant="outline"
             size="sm"
-            className="flex-1 gap-2 text-sm"
+            className="min-w-0 flex-1 gap-2 text-sm"
             onClick={() => fileInputRef.current?.click()}
             disabled={isProcessing}
           >
             <Upload className="h-3.5 w-3.5" />
-            {selectedFile ? selectedFile.name : "Choose File"}
+            <span className="truncate">{selectedFile ? selectedFile.name : "Choose File"}</span>
           </Button>
 
           <Button
@@ -174,7 +187,7 @@ export default function AdditionalDocumentUpload({ applicationId, institutionId,
             ) : (
               <>
                 <FileUp className="h-3.5 w-3.5" />
-                Upload & Extract
+                {shouldExtract ? "Upload & Extract" : "Upload for Review"}
               </>
             )}
           </Button>
@@ -183,7 +196,7 @@ export default function AdditionalDocumentUpload({ applicationId, institutionId,
         {uploadStatus === "success" && (
           <div className="flex items-center gap-2 text-xs text-success">
             <CheckCircle2 className="h-3.5 w-3.5" />
-            Document added. Click <strong>Re-Score</strong> above to include it in the credit assessment.
+            {gabonCategory ? "Document added to the evidence for officer review." : <>Document added. Click <strong>Re-Score</strong> above to include it in the credit assessment.</>}
           </div>
         )}
         {uploadStatus === "error" && (

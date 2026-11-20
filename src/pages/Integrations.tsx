@@ -133,7 +133,18 @@ const Integrations = () => {
       </div>
 
       {/* Main content */}
-      <Tabs defaultValue="catalog" className="space-y-4">
+      {country === "GA" ? (
+        <section className="rounded-lg border border-border p-5 space-y-3" aria-label="Gabon data sources">
+          <h2 className="font-display text-lg font-semibold">Gabon data sources</h2>
+          <p className="text-sm text-muted-foreground">Gabon applications accept uploaded evidence. No live provider connections are configured.</p>
+          <dl className="grid gap-4 text-sm sm:grid-cols-2">
+            <div><dt className="font-medium">Mobile money</dt><dd className="text-muted-foreground">Airtel Money, Moov Money</dd></div>
+            <div><dt className="font-medium">Utilities</dt><dd className="text-muted-foreground">SEEG electricity and water</dd></div>
+            <div><dt className="font-medium">Banking and microfinance</dt><dd className="text-muted-foreground">Bank statements and licensed EMF repayment records</dd></div>
+            <div><dt className="font-medium">Credit history</dt><dd className="text-muted-foreground">Reports obtained through authorized lender channels</dd></div>
+          </dl>
+        </section>
+      ) : <Tabs defaultValue="catalog" className="space-y-4">
         <TabsList className="bg-muted/30 border border-border">
           <TabsTrigger value="catalog" className="gap-2 data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
             <LayoutGrid className="h-3.5 w-3.5" /> Entity Catalog
@@ -178,7 +189,7 @@ const Integrations = () => {
         <TabsContent value="monitor">
           <AgentObservationWindow refreshTrigger={refreshTrigger} />
         </TabsContent>
-      </Tabs>
+      </Tabs>}
     </DashboardLayout>
   );
 };

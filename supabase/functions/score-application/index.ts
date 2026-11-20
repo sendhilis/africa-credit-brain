@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+import { assessGabonAffordability, gabonIndicativeScore, isGabon } from "../_shared/gabon-credit.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -1229,17 +1231,55 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
+    const token = req.headers.get("Authorization")?.match(/^Bearer (.+)$/i)?.[1];
+    const caller = token ? (await supabase.auth.getUser(token)).data.user : null;
+    if (!caller) return Response.json({ error: "Sign in to score an application." }, { status: 401, headers: corsHeaders });
+    const { data: institution } = await supabase.rpc("user_institution_id", { _user_id: caller.id });
+    const { data: role } = institution ? await supabase.from("user_roles").select("role")
+      .eq("user_id", caller.id).eq("institution_id", institution).in("role", ["admin", "credit_officer", "underwriter"]).limit(1).maybeSingle() : { data: null };
+    if (!role) return Response.json({ error: "You do not have permission to score this application." }, { status: 403, headers: corsHeaders });
 
     // Fetch application with borrower
     const { data: app, error: appErr } = await supabase
       .from("applications")
       .select("*, borrower:borrowers!applications_borrower_id_fkey(*)")
       .eq("id", application_id)
+      .eq("institution_id", institution)
       .single();
 
     if (appErr || !app) throw new Error(appErr?.message || "Application not found");
 
     const borrower = app.borrower;
+    if (!borrower || borrower.institution_id !== institution) {
+      return Response.json({ error: "Application not found in your institution." }, { status: 404, headers: corsHeaders });
+    }
+
+    if (isGabon(app.country)) {
+      const assessment = assessGabonAffordability(app.product_category, {
+        monthly_income: app.monthly_income, monthly_expenses: app.monthly_expenses, rent: app.monthly_rent,
+        monthly_revenue: app.monthly_revenue, avg_monthly_revenue_6m: app.monthly_revenue,
+        ...(borrower.extra_data || {}),
+      });
+      const indicative = app.currency === "XAF" ? gabonIndicativeScore(assessment) : null;
+      if (!indicative) return Response.json({
+        error: app.currency !== "XAF" ? "Gabon scoring requires XAF amounts." : `Complete the Gabon affordability inputs: ${assessment.missing.join("; ")}.`,
+      }, { headers: corsHeaders });
+
+      const reasonCodes = [
+        { code: "GA01", description: `Debt service coverage: ${assessment.dscr?.toFixed(2)}× (${indicative.coveragePoints >= 0 ? "+" : ""}${indicative.coveragePoints} points).`, impact: indicative.coveragePoints > 0 ? "positive" : indicative.coveragePoints < 0 ? "negative" : "neutral" },
+        ...(assessment.timingRisk ? [{ code: "GA02", description: `Proposed payment starts before expected farm receipts (${indicative.timingPoints} points).`, impact: "negative" }] : []),
+      ];
+      const result = {
+        score: indicative.score, score_band: "Indicative", probability_of_default: null, recommendation: "review",
+        reason_codes: reasonCodes, model_version: "gabon-affordability-v1",
+      };
+      const { error } = await supabase.from("applications").update({
+        score: result.score, score_band: result.score_band, probability_of_default: null,
+        reason_codes: reasonCodes, scored_at: new Date().toISOString(), status: app.status === "submitted" ? "review" : app.status,
+      }).eq("id", application_id).eq("institution_id", institution);
+      if (error) throw error;
+      return Response.json({ success: true, ...result }, { headers: corsHeaders });
+    }
 
     // Fetch time-series data and OCR extractions in parallel
     const [paymentRes, incomeRes, ocrRes] = await Promise.all([
@@ -1247,16 +1287,19 @@ serve(async (req) => {
         .from("payment_history")
         .select("status, days_past_due, amount_due, amount_paid, due_date")
         .eq("borrower_id", app.borrower_id)
+        .eq("institution_id", institution)
         .order("due_date", { ascending: true }),
       supabase
         .from("income_history")
         .select("income_amount, period_start, period_end")
         .eq("borrower_id", app.borrower_id)
+        .eq("institution_id", institution)
         .order("period_start", { ascending: true }),
       supabase
         .from("document_extractions")
         .select("document_type, extracted_data, extraction_status, confidence_score")
         .eq("application_id", application_id)
+        .eq("institution_id", institution)
         .eq("extraction_status", "completed"),
     ]);
 
