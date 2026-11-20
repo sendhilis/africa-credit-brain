@@ -3,3 +3,4 @@
 - [x] Verify four application paths, a saved farm case, private supporting evidence, and the scoring rules.
 - [ ] Validate OCR on representative Gabon documents and calibrate the score against local repayment outcomes when lender data is available.
 - [ ] Connect live providers when approved agreements, endpoints, and credentials are available.
+- [x] Restore Grace and expose Gabon document gaps on the officer dashboard.

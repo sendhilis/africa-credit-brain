@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { assessGabonAffordability, gabonDocumentCurrency, gabonIndicativeScore } from "../../supabase/functions/_shared/gabon-credit";
 import { countryConfigs } from "@/components/application/countryConfig";
-import { getGabonDocuments, requiresGabonOcr } from "@/components/application/gabonDocuments";
+import { getGabonDocuments, requiresGabonOcr, reviewGabonEvidence } from "@/components/application/gabonDocuments";
 
 const debts = { existing_repayments: 20000, proposed_repayment: 40000 };
 const farm = { farm_cycle_months: 4, farm_projected_sales: 900000, farm_cycle_costs: 450000, farm_other_income: 20000, monthly_household_costs: 50000, farm_cash_receipt: "2027-04-10", first_installment: "2027-04-10", existing_repayments: 10000, proposed_repayment: 150000 };
@@ -55,5 +55,27 @@ describe("Gabon market treatment", () => {
     expect(gabonDocumentCurrency("XOF")).toBe("XOF");
     expect(gabonDocumentCurrency("USD")).toBe("USD");
     expect(gabonDocumentCurrency(undefined)).toBeNull();
+  });
+  it("flags missing farm evidence independently of the affordability score", () => {
+    const review = reviewGabonEvidence("farmer", [{ type: "land_document", storage_path: "land.pdf" }, { type: "farm_budget" }], []);
+    expect(review.checks.map(({ label, status }) => [label, status])).toEqual([
+      ["Identity evidence", "missing"], ["Land access", "officer_review"],
+      ["Production budget", "missing"], ["Sales and production evidence", "missing"],
+    ]);
+  });
+  it("treats a payslip as an alternative to a bank statement, without hiding invalid files", () => {
+    const review = reviewGabonEvidence("retail", [{ type: "payslip", storage_path: "pay.pdf" }, { type: "bank_statement", storage_path: "bank.pdf" }], [
+      { document_type: "bank_statement", storage_path: "bank.pdf", extraction_status: "invalid", extracted_data: { meets_period_requirement: false } },
+    ]);
+    expect(review.checks.find(check => check.label === "Income evidence")?.status).toBe("officer_review");
+    expect(review.files[1]).toMatchObject({ status: "invalid", insufficientPeriod: true });
+  });
+  it("uses the latest extraction for the same file and type and distinguishes pending from failure", () => {
+    const review = reviewGabonEvidence("sme", [{ type: "financial_statement", storage_path: "accounts.pdf" }, { type: "id_copy", storage_path: "id.pdf" }], [
+      { document_type: "financial_statement", storage_path: "accounts.pdf", extraction_status: "completed" },
+      { document_type: "financial_statement", storage_path: "accounts.pdf", extraction_status: "failed" },
+      { document_type: "bank_statement", storage_path: "id.pdf", extraction_status: "completed" },
+    ]);
+    expect(review.checks.map(check => check.status)).toEqual(["pending", "failed"]);
   });
 });

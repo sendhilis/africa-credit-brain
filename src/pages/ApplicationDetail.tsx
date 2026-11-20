@@ -4,7 +4,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import GlassCard from "@/components/GlassCard";
 import ScoreJustification from "@/components/application/ScoreJustification";
 import GabonAffordability from "@/components/application/GabonAffordability";
-import { getGabonDocuments } from "@/components/application/gabonDocuments";
+import { getGabonDocuments, reviewGabonEvidence } from "@/components/application/gabonDocuments";
 import { countryConfigs } from "@/components/application/countryConfig";
 import { isGabon } from "../../supabase/functions/_shared/gabon-credit";
 import BalanceSheet from "@/components/application/BalanceSheet";
@@ -106,6 +106,7 @@ const ApplicationDetail = () => {
   const [scoreResult, setScoreResult] = useState<any>(null);
   const [scorecardDetail, setScorecardDetail] = useState<any>(null);
   const [documentExtractions, setDocumentExtractions] = useState<any[]>([]);
+  const [extractionUnavailable, setExtractionUnavailable] = useState(false);
 
   const fetchApp = async () => {
     if (!id) return;
@@ -131,12 +132,13 @@ const ApplicationDetail = () => {
         if (scData) setScorecardDetail(scData);
       }
       // Fetch document extractions
-      const { data: extractions } = await supabase
+      const { data: extractions, error: extractionError } = await supabase
         .from("document_extractions")
         .select("*")
         .eq("application_id", id!)
         .order("created_at", { ascending: true });
-      if (extractions) setDocumentExtractions(extractions);
+      setDocumentExtractions(extractions ?? []);
+      setExtractionUnavailable(Boolean(extractionError));
     }
     setLoading(false);
   };
@@ -207,6 +209,10 @@ const ApplicationDetail = () => {
 
   const gabon = isGabon(app.country);
   const localDocuments = gabon ? getGabonDocuments(app.product_category) : [];
+  const attachments = Array.isArray(app.documents) ? app.documents : [];
+  const evidence = gabon && !extractionUnavailable ? reviewGabonEvidence(app.product_category, attachments, documentExtractions) : null;
+  const evidenceLabels = { missing: "Missing", invalid: "Invalid document", failed: "OCR failed", pending: "Extraction pending", officer_review: "Officer verification needed", extracted: "Extracted · verify evidence" };
+  const hasEvidenceGaps = evidence && (evidence.checks.some(check => check.status !== "extracted") || evidence.files.some(file => file.status !== "extracted"));
   const localConfig = countryConfigs.gabon;
   const extra = app.borrower?.extra_data || {};
   const localFields = gabon ? [...(localConfig.locationFields || []), ...(
@@ -335,6 +341,22 @@ const ApplicationDetail = () => {
 
       {gabon && (
         <div className="mb-6 space-y-4">
+          <section className="rounded-lg border border-border p-4 space-y-3" aria-labelledby="gabon-document-readiness">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 id="gabon-document-readiness" className="font-display text-lg font-semibold">Document readiness</h2>
+              {hasEvidenceGaps && <Badge variant="outline" className="text-warning">Evidence needs attention</Badge>}
+              <Button asChild variant="ghost" size="sm"><a href="#application-documents">View documents</a></Button>
+            </div>
+            {evidence ? <ul className="space-y-2 text-sm">{evidence.checks.map(check => (
+              <li key={check.label}>
+                <span className="font-medium">{check.label}: </span>
+                <span className={check.status === "extracted" ? "text-muted-foreground" : "text-warning"}>{evidenceLabels[check.status]}</span>
+                {check.status !== "extracted" && check.status !== "officer_review" && <p className="text-xs text-muted-foreground">Evidence options: {check.options.join("; ")}</p>}
+              </li>
+            ))}</ul> : <p className="text-sm text-warning">Document status could not be loaded. Refresh before reviewing the evidence.</p>}
+            {evidence && evidence.files.some(file => file.status === "invalid" || file.status === "failed") && <p className="text-sm text-warning">Some files failed document checks. See Documents &amp; OCR Extractions for details.</p>}
+            <p className="text-xs text-muted-foreground">This checklist guides officer review. An upload or extraction does not verify the evidence.</p>
+          </section>
           <GabonAffordability category={app.product_category} values={{ monthly_income: app.monthly_income, monthly_expenses: app.monthly_expenses, rent: app.monthly_rent, monthly_revenue: app.monthly_revenue, avg_monthly_revenue_6m: app.monthly_revenue, ...extra }} />
           {hasScore && <section className="rounded-lg border border-border p-4 space-y-2" aria-label="Gabon score result">
             <h2 className="font-display text-lg font-semibold">Indicative Gabon score: {app.score}</h2>
@@ -464,12 +486,12 @@ const ApplicationDetail = () => {
 
         {/* Documents & OCR Extractions */}
         <GlassCard hover={false} className={documentExtractions.length > 0 ? "md:col-span-2" : ""}>
-          <h3 className="font-display text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+          <h3 id="application-documents" className="font-display text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
             <FileText className="h-4 w-4 text-primary" /> Documents & OCR Extractions
           </h3>
           {Array.isArray(app.documents) && app.documents.length > 0 ? (
             app.documents.map((doc: any, i: number) => {
-              const extraction = documentExtractions.find(e => gabon ? e.storage_path === doc.storage_path : e.document_type === doc.type);
+              const extraction = gabon ? [...documentExtractions].reverse().find(e => e.storage_path === doc.storage_path && e.document_type === doc.type) : documentExtractions.find(e => e.document_type === doc.type);
               return (
                 <div key={i} className="py-2.5 border-b border-border/30 last:border-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -491,7 +513,7 @@ const ApplicationDetail = () => {
                       </Badge>
                     ) : (
                       <Badge variant="outline" className="text-xs ml-auto">
-                        {doc.storage_path ? (gabon ? "Officer review" : "Uploaded") : "Mock"}
+                        {doc.storage_path ? (gabon ? evidenceLabels[evidence?.files.find(file => file.storagePath === doc.storage_path && file.key === doc.type)?.status ?? "pending"] : "Uploaded") : "Mock"}
                       </Badge>
                     )}
                   </div>
@@ -638,8 +660,9 @@ const ApplicationDetail = () => {
         </GlassCard>
       )}
       {/* Grace AI Assistant */}
-      {!gabon && displayScore && (
+      {(gabon || displayScore) && (
         <GraceChat
+          key={app.id}
           applicationId={app.id}
           applicationContext={{
             appCode: app.app_code,
@@ -651,17 +674,17 @@ const ApplicationDetail = () => {
             currency: app.currency,
             requestedAmount: app.requested_amount,
             tenorMonths: app.tenor_months,
-            score: displayScore.score,
-            scoreBand: displayScore.score_band,
-            probabilityOfDefault: displayScore.probability_of_default,
-            recommendation: displayScore.recommendation,
-            modelVersion: displayScore.model_version || null,
-            factors: displayScore.factors || [],
-            reasonCodes: displayScore.reason_codes || [],
-            woeDetails: displayScore.woe_details || [],
-            summary: displayScore.summary || null,
-            aiInsights: displayScore.ai_insights || null,
-            dataSanity: displayScore.data_sanity || null,
+            score: displayScore?.score ?? null,
+            scoreBand: displayScore?.score_band ?? null,
+            probabilityOfDefault: app.probability_of_default,
+            recommendation: gabon ? "review" : displayScore?.recommendation ?? null,
+            modelVersion: displayScore?.model_version || null,
+            factors: displayScore?.factors || [],
+            reasonCodes: displayScore?.reason_codes || [],
+            woeDetails: displayScore?.woe_details || [],
+            summary: displayScore?.summary || null,
+            aiInsights: displayScore?.ai_insights || null,
+            dataSanity: displayScore?.data_sanity || null,
             monthlyIncome: app.monthly_income,
             monthlyExpenses: app.monthly_expenses,
             monthlyRent: app.monthly_rent,

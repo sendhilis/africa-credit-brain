@@ -8,6 +8,7 @@ import { Send, Bot, User, Loader2, Sparkles, X, MessageCircle, History, Plus } f
 import ReactMarkdown from "react-markdown";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { isGabon } from "../../../supabase/functions/_shared/gabon-credit";
 
 interface Message {
   role: "user" | "assistant";
@@ -57,10 +58,13 @@ const GRACE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/grace-assis
 
 const WELCOME_MESSAGE = (ctx: GraceChatProps["applicationContext"]): Message => ({
   role: "assistant",
-  content: `👋 Mhoro! I'm **Grace**, your Credit Scoring Assistant.\n\nI'm fully trained on the scoring model and I have complete context on **${ctx.appCode}** for **${ctx.borrowerName}**.\n\nAsk me anything about:\n- 📊 Why this score was given\n- 🔍 What each factor means\n- 💡 How to improve the score\n- ⚠️ Risk flags and data concerns\n- 📋 Model policies and thresholds\n\nI speak **English**, **Shona**, and **Ndebele** — feel free to ask in any language! 🇿🇼`,
+  content: isGabon(ctx.country)
+    ? "Bonjour! I'm **Grace**. Ask me about missing documents, what to verify, or how this application's indicative affordability score was calculated. You can ask in English or French."
+    : `👋 Mhoro! I'm **Grace**, your Credit Scoring Assistant.\n\nAsk me about **${ctx.appCode}** for **${ctx.borrowerName}**: scoring factors, risk flags, and data concerns. I speak **English**, **Shona**, and **Ndebele**.`,
 });
 
 const GraceChat = ({ applicationId, applicationContext }: GraceChatProps) => {
+  const gabon = isGabon(applicationContext.country);
   const { toast } = useToast();
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
@@ -201,8 +205,9 @@ const GraceChat = ({ applicationId, applicationContext }: GraceChatProps) => {
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
         body: JSON.stringify({
+          applicationId,
           messages: allMessages.map((m) => ({ role: m.role, content: m.content })),
-          applicationContext,
+          applicationContext: gabon ? undefined : applicationContext,
         }),
       });
 
@@ -259,7 +264,7 @@ const GraceChat = ({ applicationId, applicationContext }: GraceChatProps) => {
       toast({ title: "Grace Error", description: e.message, variant: "destructive" });
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "⚠️ Ndine dambudziko. Ndapota edzai zvakare. (I encountered an error. Please try again.)" },
+        { role: "assistant", content: "Grace couldn't answer this time. Please try again." },
       ]);
     } finally {
       setIsStreaming(false);
@@ -267,7 +272,11 @@ const GraceChat = ({ applicationId, applicationContext }: GraceChatProps) => {
     }
   };
 
-  const quickActions = [
+  const quickActions = gabon ? [
+    { label: "Which documents are missing?", message: "Which evidence is missing, invalid, or still awaiting verification? What specifically should I request?" },
+    { label: "Explain affordability", message: "Explain repayment affordability and any indicative score. What should I verify before making a decision?" },
+    { label: "Résumer en français", message: "Quels documents manquent ou restent à vérifier, et quelles sont les prochaines étapes ?" },
+  ] : [
     { label: "📊 Explain this score", message: `Explain why ${applicationContext.borrowerName} received a score of ${applicationContext.score}. Walk me through each factor contribution and what drove the final score.` },
     { label: "⚠️ Key risk flags", message: `What are the main risk flags and concerns for this application? What should I watch out for before making a decision?` },
     { label: "💡 How to improve", message: `What specific steps could ${applicationContext.borrowerName} take to improve their credit score? What are the weakest factors?` },
@@ -279,7 +288,7 @@ const GraceChat = ({ applicationId, applicationContext }: GraceChatProps) => {
   // Floating button when closed
   if (!isOpen) {
     return (
-      <button
+      <Button
         onClick={() => setIsOpen(true)}
         className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group"
       >
@@ -296,12 +305,12 @@ const GraceChat = ({ applicationId, applicationContext }: GraceChatProps) => {
             {sessions.length}
           </Badge>
         )}
-      </button>
+      </Button>
     );
   }
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 w-[420px] h-[600px] flex flex-col border border-border rounded-2xl bg-card shadow-2xl overflow-hidden animate-in slide-in-from-bottom-5 duration-300">
+    <div className="fixed bottom-4 right-4 z-50 w-[min(420px,calc(100%-2rem))] h-[min(600px,calc(100dvh-2rem))] flex flex-col border border-border rounded-2xl bg-card shadow-2xl overflow-hidden animate-in slide-in-from-bottom-5 duration-300" role="region" aria-label="Ask Grace">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-primary/5">
         <div className="relative">
@@ -314,7 +323,7 @@ const GraceChat = ({ applicationId, applicationContext }: GraceChatProps) => {
         </div>
         <div className="flex-1">
           <h3 className="text-sm font-semibold text-foreground">Grace — Score Assistant</h3>
-          <p className="text-[10px] text-muted-foreground">EN · Shona · Ndebele · Analyzing {applicationContext.appCode}</p>
+          <p className="text-[10px] text-muted-foreground">{gabon ? "EN · FR" : "EN · Shona · Ndebele"} · {applicationContext.appCode}</p>
         </div>
         <button
           onClick={() => setShowHistory(!showHistory)}
@@ -451,11 +460,12 @@ const GraceChat = ({ applicationId, applicationContext }: GraceChatProps) => {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
-            placeholder="Ask Grace anything about this score..."
+            placeholder={gabon ? "Ask about documents or affordability…" : "Ask Grace anything about this score..."}
+            aria-label="Question for Grace"
             className="flex-1 bg-background border-border text-sm rounded-xl"
             disabled={isStreaming}
           />
-          <Button size="icon" onClick={sendMessage} disabled={isStreaming || !input.trim()} className="rounded-xl shrink-0">
+          <Button size="icon" aria-label="Send question" onClick={sendMessage} disabled={isStreaming || !input.trim()} className="rounded-xl shrink-0">
             {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
         </div>
