@@ -28,8 +28,8 @@ const DashboardLayout = ({ children }: { children: ReactNode }) => {
   return (
     <div className="min-h-screen africa-gradient continent-bg">
       <AppSidebar />
-      <main className="ml-[240px] min-h-screen transition-all duration-300">
-        <div className="p-6 lg:p-8">
+      <main className="ml-[60px] min-h-screen md:ml-[240px] transition-all duration-300">
+        <div className="p-3 sm:p-6 lg:p-8">
           {checking ? (
             <div className="flex items-center justify-center py-20">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />

@@ -58,7 +58,7 @@ const Applications = () => {
 
   return (
     <DashboardLayout>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-3xl font-bold text-foreground">Applications</h1>
           <p className="mt-1 text-sm text-muted-foreground">Manage borrower applications across all markets</p>
