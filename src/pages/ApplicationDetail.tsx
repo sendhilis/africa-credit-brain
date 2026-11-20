@@ -120,6 +120,7 @@ const ApplicationDetail = () => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       setApp(data as any);
+      setScorecardDetail(null);
       // Fetch latest scorecard result if scored
       if (data?.scored_at) {
         const { data: scData } = await supabase
@@ -230,7 +231,8 @@ const ApplicationDetail = () => {
   };
   const sc = statusConfig[app.status] || statusConfig.draft;
   const hasScore = app.score !== null;
-  const displayScore = scoreResult || (hasScore ? {
+  const legacyGabonScore = gabon && app.score_band === "Indicative" && hasScore;
+  const displayScore = scoreResult || (hasScore && !legacyGabonScore ? {
     score: app.score!,
     score_band: app.score_band || "N/A",
     probability_of_default: app.probability_of_default || 0,
@@ -358,10 +360,9 @@ const ApplicationDetail = () => {
             <p className="text-xs text-muted-foreground">This checklist guides officer review. An upload or extraction does not verify the evidence.</p>
           </section>
           <GabonAffordability category={app.product_category} values={{ monthly_income: app.monthly_income, monthly_expenses: app.monthly_expenses, rent: app.monthly_rent, monthly_revenue: app.monthly_revenue, avg_monthly_revenue_6m: app.monthly_revenue, ...extra }} />
-          {hasScore && <section className="rounded-lg border border-border p-4 space-y-2" aria-label="Gabon score result">
-            <h2 className="font-display text-lg font-semibold">Indicative Gabon score: {app.score}</h2>
-            <Badge variant="outline" className="text-warning">Manual review</Badge>
-            <p className="text-sm text-muted-foreground">This affordability score is not calibrated on Gabon repayment outcomes and does not estimate default probability.</p>
+          {legacyGabonScore && !scoreResult && <section className="rounded-lg border border-border p-4 space-y-2" aria-label="Previous Gabon score">
+            <h2 className="font-display text-lg font-semibold">Previous affordability score: {app.score}</h2>
+            <p className="text-sm text-muted-foreground">This older score did not estimate default probability. Select Re-Score to calculate a standard WoE score and estimated PD. The lending decision will not change.</p>
             {Array.isArray(app.reason_codes) && <ul className="text-sm space-y-1">{app.reason_codes.map(reason => <li key={reason.code}>{reason.description}</li>)}</ul>}
           </section>}
           {localFields.length > 0 && <section className="rounded-lg border border-border p-4" aria-label="Gabon evidence">
@@ -373,18 +374,19 @@ const ApplicationDetail = () => {
           </section>}
         </div>
       )}
-      {!gabon && displayScore?.model_version?.startsWith("v2.0-") && (
+      {displayScore?.model_version?.startsWith("v2.0-") && (
         <p role="status" className="mb-4 text-sm font-medium text-warning">
           This score used a model with incorrect factor directions. Re-score before relying on it; prior results and lending decisions are unchanged.
         </p>
       )}
 
       {/* Score Justification */}
-      {!gabon && displayScore && displayScore.factors?.length > 0 && (
+      {displayScore && displayScore.factors?.length > 0 && (
         <div className="mb-6">
           <h2 className="font-display text-xl font-semibold text-foreground mb-4 flex items-center gap-2">
             <Shield className="h-5 w-5 text-primary" /> Score Justification
           </h2>
+          {gabon && <p className="mb-4 text-sm text-muted-foreground">The probability of default is an estimate from the standard model, not validated against Gabon repayment outcomes.</p>}
           <ScoreJustification
             score={displayScore.score}
             scoreBand={displayScore.score_band}
@@ -452,7 +454,7 @@ const ApplicationDetail = () => {
           <InfoRow label="Collateral" value={app.collateral} />
           <InfoRow label="Product" value={app.product_type || app.product_category} />
           <InfoRow label="Country" value={gabon ? "Gabon" : app.country} />
-          {!gabon && <InfoRow label="Bureau Score" value={(app as any).bureau_score ? `${(app as any).bureau_score} / 900` : "Not available"} />}
+          <InfoRow label="Bureau Score" value={(app as any).bureau_score ? `${(app as any).bureau_score} / 900` : "Not available"} />
           <InfoRow label="Created" value={new Date(app.created_at).toLocaleDateString()} />
         </GlassCard>
 
@@ -683,7 +685,7 @@ const ApplicationDetail = () => {
             score: displayScore?.score ?? null,
             scoreBand: displayScore?.score_band ?? null,
             probabilityOfDefault: app.probability_of_default,
-            recommendation: gabon ? "review" : displayScore?.recommendation ?? null,
+            recommendation: displayScore?.recommendation ?? null,
             modelVersion: displayScore?.model_version || null,
             factors: displayScore?.factors || [],
             reasonCodes: displayScore?.reason_codes || [],

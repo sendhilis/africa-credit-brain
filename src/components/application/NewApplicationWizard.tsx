@@ -815,11 +815,11 @@ const NewApplicationWizard = () => {
           </FieldGroup>
         )}
 
-        {!gabon && <FieldGroup label="Credit Bureau Score (if available)">
+        <FieldGroup label="Credit Bureau Score (if available)">
           <Field label="Bureau Score (300-900)" span2>
             <Input type="number" placeholder="e.g. 720 — leave blank if not available" className="bg-muted/50 border-border" min={300} max={900} value={formData.bureau_score || ""} onChange={e => updateField("bureau_score", e.target.value)} />
           </Field>
-        </FieldGroup>}
+        </FieldGroup>
       </div>
     );
   };
@@ -892,11 +892,11 @@ const NewApplicationWizard = () => {
           {renderConfigFields(smeFields, "Concentration Risk")}
         </FieldGroup>
 
-        {!gabon && <FieldGroup label="Credit Bureau Score (if available)">
+        <FieldGroup label="Credit Bureau Score (if available)">
           <Field label="Bureau Score (300-900)" span2>
             <Input type="number" placeholder="e.g. 720 — leave blank if not available" className="bg-muted/50 border-border" min={300} max={900} value={formData.bureau_score || ""} onChange={e => updateField("bureau_score", e.target.value)} />
           </Field>
-        </FieldGroup>}
+        </FieldGroup>
       </div>
     );
   };
@@ -1120,11 +1120,11 @@ const NewApplicationWizard = () => {
               </FieldGroup>
             )}
 
-            {!gabon && <FieldGroup label="Credit Bureau Score (if available)">
+            <FieldGroup label="Credit Bureau Score (if available)">
               <Field label="Bureau Score (300-900)" span2>
                 <Input type="number" placeholder="e.g. 720 — leave blank if not available" className="bg-muted/50 border-border" min={300} max={900} value={formData.bureau_score || ""} onChange={e => updateField("bureau_score", e.target.value)} />
               </Field>
-            </FieldGroup>}
+            </FieldGroup>
 
             <FieldGroup label="Banking Details">
               <Field label="Primary Bank">

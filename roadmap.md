@@ -1,8 +1,9 @@
 - [x] Add Gabon-specific intake and evidence for Individual, Micro, SME, and Farmer applications.
 - [x] Save an indicative affordability score and repayment reasons for officer review.
 - [x] Verify four application paths, a saved farm case, private supporting evidence, and the scoring rules.
-- [ ] Validate OCR on representative Gabon documents and calibrate the score against local repayment outcomes when lender data is available.
+- [ ] Validate OCR on representative Gabon documents and validate the standard model's PD against local repayment outcomes when lender data is available.
 - [ ] Connect live providers when approved agreements, endpoints, and credentials are available.
 - [x] Restore Grace and expose Gabon document gaps on the officer dashboard.
 - [x] Correct score direction, missing household data, income flags, and business tenure in the standard scorecard; align Grace and redact analyst inputs.
 - [ ] Have credit officers review affected v2.0 cases and authorize any historical re-scoring; retain prior results and do not change lending decisions automatically.
+- [x] Apply and verify the standard WoE score, estimated PD, and Grace advisory for Gabon, preserving local intake and evidence checks.

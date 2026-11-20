@@ -651,11 +651,12 @@ function computeBreadBasketMargin(extraData: any, app: any): { margin: number | 
   const schoolFees = parseFloat(extraData?.monthly_school_fees) || 0;
   const health = parseFloat(extraData?.monthly_health) || 0;
   const rent = app.monthly_rent || 0;
-
-  const totalEssentials = foodBasket + transport + schoolFees + health + rent;
+  const declaredTotal = extraData?._declared_monthly_household_costs;
+  const hasDeclaredTotal = typeof declaredTotal === "number" && Number.isFinite(declaredTotal) && declaredTotal >= 0;
+  const totalEssentials = hasDeclaredTotal ? declaredTotal : foodBasket + transport + schoolFees + health + rent;
 
   // If no household expense data was captured at all, return no data
-  if (foodBasket === 0 && transport === 0 && schoolFees === 0 && health === 0 && rent === 0) {
+  if (!hasDeclaredTotal && foodBasket === 0 && transport === 0 && schoolFees === 0 && health === 0 && rent === 0) {
     return { margin: null, breakdown: null };
   }
 

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { assessGabonAffordability, gabonDocumentCurrency, gabonIndicativeScore } from "../../supabase/functions/_shared/gabon-credit";
+import { assessGabonAffordability, gabonDocumentCurrency } from "../../supabase/functions/_shared/gabon-credit";
+import { prepareGabonScoreInput } from "../../supabase/functions/_shared/gabon-score-input";
+import { runScorecard } from "../../supabase/functions/_shared/scorecard";
 import { countryConfigs } from "@/components/application/countryConfig";
 import { getGabonDocuments, requiresGabonOcr, reviewGabonEvidence } from "@/components/application/gabonDocuments";
 
@@ -29,7 +31,6 @@ describe("Gabon market treatment", () => {
   it("does not mistake trader sales or wallet turnover for income", () => {
     const result = assessGabonAffordability("micro", { ...debts, monthly_revenue: 600000, monthly_operating_costs: 440000, monthly_income: 0, monthly_household_costs: 120000, wallet_daily_vol: 100000 });
     expect(result.surplus).toBe(-20000);
-    expect(gabonIndicativeScore(result)?.score).toBe(450);
   });
   it("measures SME coverage on operating cash, not gross revenue", () => {
     const result = assessGabonAffordability("sme", { ...debts, avg_monthly_revenue_6m: 2400000, monthly_operating_costs: 2300000 });
@@ -40,14 +41,13 @@ describe("Gabon market treatment", () => {
     const result = assessGabonAffordability("farmer", farm);
     expect([result.cashIn, result.cashCosts, result.debt, result.surplus]).toEqual([980000, 650000, 190000, 140000]);
     expect(result.timingRisk).toBe(false);
-    expect(gabonIndicativeScore(result)?.score).toBe(700);
     const early = assessGabonAffordability("farmer", { ...farm, first_installment: "2027-04-09" });
     expect(early.timingRisk).toBe(true);
-    expect(gabonIndicativeScore(early)?.score).toBe(600);
+    expect(early.surplus).toBe(140000);
   });
   it("does not issue a score for missing costs, blank obligations, zero proposed payments or an invalid date", () => {
     for (const data of [{ farm_cycle_costs: "" }, { existing_repayments: "" }, { proposed_repayment: 0 }, { farm_cash_receipt: "2027-02-30" }]) {
-      expect(gabonIndicativeScore(assessGabonAffordability("farmer", { ...farm, ...data }))).toBeNull();
+      expect(prepareGabonScoreInput({ product_category: "farmer", currency: "XAF" }, { ...farm, ...data })).toHaveProperty("error");
     }
   });
   it("recognizes local currency notation but never converts a foreign statement", () => {
@@ -77,5 +77,36 @@ describe("Gabon market treatment", () => {
       { document_type: "bank_statement", storage_path: "id.pdf", extraction_status: "completed" },
     ]);
     expect(review.checks.map(check => check.status)).toEqual(["pending", "failed"]);
+  });
+});
+
+describe("Gabon standard scoring", () => {
+  const households = { monthly_household_costs: 120000 };
+  const files = [
+    ["retail", { monthly_income: 300000, monthly_expenses: 140000, rent: 60000 }, 300000, 220000, 200000],
+    ["micro", { ...households, monthly_revenue: 600000, monthly_operating_costs: 440000, monthly_income: 0 }, 160000, 140000, 120000],
+    ["sme", { avg_monthly_revenue_6m: 2400000, monthly_operating_costs: 2300000 }, 100000, 20000, null],
+    ["farmer", farm, 132500, 60000, 50000],
+  ] as const;
+
+  it.each(files)("maps %s cash flows into the same WoE model and estimated PD", (category, declared, income, expenses, essentials) => {
+    const app = { country: "gabon", currency: "XAF", product_category: category, requested_amount: 300000, tenor_months: 12 };
+    const input = prepareGabonScoreInput(app, { ...debts, ...declared });
+    if ("error" in input) throw new Error(input.error);
+    expect(input.financials).toEqual({ monthly_income: income, monthly_expenses: expenses, monthly_rent: 0 });
+    const score = (country: string) => runScorecard({
+      app: { ...app, ...input.financials, country }, borrower: { extra_data: input.extra }, paymentHistory: [], incomeHistory: [],
+    });
+    const result = score("gabon");
+    expect(result).toEqual(score("kenya"));
+    expect(result.model_version).toBe(`v2.1-${category}-woe-lr`);
+    expect(result.probability_of_default).toBeGreaterThan(0);
+    expect(result.probability_of_default).toBeLessThan(1);
+    expect(result.bread_basket?.total_essentials ?? null).toBe(essentials);
+    expect(result.woe_details.length).toBeGreaterThan(0);
+  });
+
+  it("does not silently treat a foreign currency as XAF", () => {
+    expect(prepareGabonScoreInput({ product_category: "farmer", currency: "USD" }, farm)).toEqual({ error: "Gabon scoring requires XAF amounts." });
   });
 });

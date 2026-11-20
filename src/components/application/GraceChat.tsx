@@ -59,7 +59,7 @@ const GRACE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/grace-assis
 const WELCOME_MESSAGE = (ctx: GraceChatProps["applicationContext"]): Message => ({
   role: "assistant",
   content: isGabon(ctx.country)
-    ? "Bonjour! I'm **Grace**. Ask me about missing documents, what to verify, or how this application's indicative affordability score was calculated. You can ask in English or French."
+    ? "Bonjour! I'm **Grace**. Ask me about the credit score, estimated default risk, or which documents still need review. You can ask in English or French."
     : `👋 Mhoro! I'm **Grace**, your Credit Scoring Assistant.\n\nAsk me about **${ctx.appCode}** for **${ctx.borrowerName}**: scoring factors, risk flags, and data concerns. I speak **English**, **Shona**, and **Ndebele**.`,
 });
 
@@ -272,18 +272,19 @@ const GraceChat = ({ applicationId, applicationContext }: GraceChatProps) => {
     }
   };
 
-  const quickActions = gabon ? [
-    { label: "Which documents are missing?", message: "Which evidence is missing, invalid, or still awaiting verification? What specifically should I request?" },
-    { label: "Explain affordability", message: "Explain repayment affordability and any indicative score. What should I verify before making a decision?" },
-    { label: "Résumer en français", message: "Quels documents manquent ou restent à vérifier, et quelles sont les prochaines étapes ?" },
-  ] : [
-    { label: "📊 Explain this score", message: `Explain why ${applicationContext.borrowerName} received a score of ${applicationContext.score}. Walk me through each factor contribution and what drove the final score.` },
+  const scoreActions = [
+    { label: "📊 Explain this score", message: "Explain the recorded credit score and model-estimated probability of default. Which factors drove the score?" },
     { label: "⚠️ Key risk flags", message: `What are the main risk flags and concerns for this application? What should I watch out for before making a decision?` },
     { label: "💡 How to improve", message: `What specific steps could ${applicationContext.borrowerName} take to improve their credit score? What are the weakest factors?` },
     { label: "🔍 WoE breakdown", message: `Give me a detailed breakdown of the Weight of Evidence analysis. Which features contributed most positively and negatively to the score?` },
     { label: "📋 Recommendation", message: `Based on all the data, what is your recommendation for this application? Should we approve, decline, or request more information? Explain your reasoning.` },
-    { label: "🇿🇼 Tsanangura muShona", message: `Ndapota tsanangura score iyi muShona. Sei munhu uyu akawana score iyi? Zvii zvakakosha zvandiri kufanira kuziva?` },
   ];
+  const quickActions = gabon ? [
+    ...(applicationContext.score === null ? [] : scoreActions),
+    { label: "Which documents are missing?", message: "Which evidence is missing, invalid, or still awaiting verification? What specifically should I request?" },
+    { label: "Explain affordability", message: "Explain declared repayment affordability and what I should verify before making a decision." },
+    { label: "Résumer en français", message: "Expliquez le score et la probabilité de défaut s’ils sont disponibles. Quels documents manquent ou restent à vérifier ?" },
+  ] : [...scoreActions, { label: "🇿🇼 Tsanangura muShona", message: "Ndapota tsanangura score iyi muShona. Sei munhu uyu akawana score iyi? Zvii zvakakosha zvandiri kufanira kuziva?" }];
 
   // Floating button when closed
   if (!isOpen) {
@@ -460,7 +461,7 @@ const GraceChat = ({ applicationId, applicationContext }: GraceChatProps) => {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
-            placeholder={gabon ? "Ask about documents or affordability…" : "Ask Grace anything about this score..."}
+            placeholder={gabon ? "Ask about the score or documents…" : "Ask Grace anything about this score..."}
             aria-label="Question for Grace"
             className="flex-1 bg-background border-border text-sm rounded-xl"
             disabled={isStreaming}

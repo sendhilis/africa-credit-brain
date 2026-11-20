@@ -50,12 +50,3 @@ export function gabonDocumentCurrency(value: unknown): string | null {
   if (["XAF", "FCFA", "F CFA", "CFA", "FRANC CFA", "FRANCS CFA"].includes(currency)) return "XAF";
   return currency || null;
 }
-
-/** Provisional affordability rubric, not a statistically calibrated default model. */
-export function gabonIndicativeScore(assessment: ReturnType<typeof assessGabonAffordability>) {
-  if (assessment.dscr === null || !Number.isFinite(assessment.dscr)) return null;
-  const coverage = assessment.dscr;
-  const coveragePoints = coverage < 0.75 ? -150 : coverage < 1 ? -80 : coverage < 1.2 ? 0 : coverage < 1.5 ? 50 : 100;
-  const timingPoints = assessment.timingRisk ? -100 : 0;
-  return { score: 600 + coveragePoints + timingPoints, coveragePoints, timingPoints };
-}

@@ -1,7 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-import { assessGabonAffordability, gabonIndicativeScore, isGabon } from "../_shared/gabon-credit.ts";
+import { gabonDocumentCurrency, isGabon } from "../_shared/gabon-credit.ts";
+import { prepareGabonScoreInput } from "../_shared/gabon-score-input.ts";
 
 import { calculateAge, computeBusinessStability, runDataSanityChecks, runScorecard, type IncomeRecord, type PaymentRecord } from "../_shared/scorecard.ts";
 import { redactPII } from "../_shared/scoring-privacy.ts";
@@ -46,32 +47,9 @@ serve(async (req) => {
       return Response.json({ error: "Application not found in your institution." }, { status: 404, headers: corsHeaders });
     }
 
-    if (isGabon(app.country)) {
-      const assessment = assessGabonAffordability(app.product_category, {
-        monthly_income: app.monthly_income, monthly_expenses: app.monthly_expenses, rent: app.monthly_rent,
-        monthly_revenue: app.monthly_revenue, avg_monthly_revenue_6m: app.monthly_revenue,
-        ...(borrower.extra_data || {}),
-      });
-      const indicative = app.currency === "XAF" ? gabonIndicativeScore(assessment) : null;
-      if (!indicative) return Response.json({
-        error: app.currency !== "XAF" ? "Gabon scoring requires XAF amounts." : `Complete the Gabon affordability inputs: ${assessment.missing.join("; ")}.`,
-      }, { headers: corsHeaders });
-
-      const reasonCodes = [
-        { code: "GA01", description: `Debt service coverage: ${assessment.dscr?.toFixed(2)}× (${indicative.coveragePoints >= 0 ? "+" : ""}${indicative.coveragePoints} points).`, impact: indicative.coveragePoints > 0 ? "positive" : indicative.coveragePoints < 0 ? "negative" : "neutral" },
-        ...(assessment.timingRisk ? [{ code: "GA02", description: `Proposed payment starts before expected farm receipts (${indicative.timingPoints} points).`, impact: "negative" }] : []),
-      ];
-      const result = {
-        score: indicative.score, score_band: "Indicative", probability_of_default: null, recommendation: "review",
-        reason_codes: reasonCodes, model_version: "gabon-affordability-v1",
-      };
-      const { error } = await supabase.from("applications").update({
-        score: result.score, score_band: result.score_band, probability_of_default: null,
-        reason_codes: reasonCodes, scored_at: new Date().toISOString(), status: app.status === "submitted" ? "review" : app.status,
-      }).eq("id", application_id).eq("institution_id", institution);
-      if (error) throw error;
-      return Response.json({ success: true, ...result }, { headers: corsHeaders });
-    }
+    const gabon = isGabon(app.country);
+    const gabonInput = gabon ? prepareGabonScoreInput(app, borrower.extra_data || {}) : null;
+    if (gabonInput && "error" in gabonInput) return Response.json({ error: gabonInput.error }, { headers: corsHeaders });
 
     // Fetch time-series data and OCR extractions in parallel
     const [paymentRes, incomeRes, ocrRes] = await Promise.all([
@@ -89,7 +67,7 @@ serve(async (req) => {
         .order("period_start", { ascending: true }),
       supabase
         .from("document_extractions")
-        .select("document_type, extracted_data, extraction_status, confidence_score")
+      .select("document_type, extracted_data, extraction_status, confidence_score")
         .eq("application_id", application_id)
         .eq("institution_id", institution)
         .eq("extraction_status", "completed"),
@@ -98,21 +76,26 @@ serve(async (req) => {
     const declaredApp = { ...app };
 
     // Enrich application data with OCR extractions before scoring
-    const ocrExtractions = ocrRes.data || [];
-    const bankExtraction = ocrExtractions.find((e: any) => e.document_type === "bank_statement");
-    const posExtraction = ocrExtractions.find((e: any) => e.document_type === "pos_statement");
-    const financialExtraction = ocrExtractions.find((e: any) => e.document_type === "financial_statement");
+    const ocrExtractions = (ocrRes.data || []).filter(e => !gabon || (
+      gabonDocumentCurrency(e.extracted_data?.currency) === "XAF" && e.extracted_data?.is_valid === true
+      && e.extracted_data?.meets_period_requirement !== false
+    ));
+    // Gabon declared cash-flow inputs keep their meaning; unverified turnover must not replace net income.
+    const enrichmentExtractions = gabon ? ocrExtractions.filter(e => app.product_category === "retail" && e.document_type === "bank_statement") : ocrExtractions;
+    const bankExtraction = enrichmentExtractions.find((e: any) => e.document_type === "bank_statement");
+    const posExtraction = enrichmentExtractions.find((e: any) => e.document_type === "pos_statement");
+    const financialExtraction = enrichmentExtractions.find((e: any) => e.document_type === "financial_statement");
 
     // Track which OCR source provided income data
     let ocrIncomeSource: string | null = null;
 
     if (bankExtraction?.extracted_data) {
       const bd = bankExtraction.extracted_data;
-      if (bd.average_monthly_income && (!app.monthly_income || bankExtraction.confidence_score > 0.7)) {
+      if (!gabon && bd.average_monthly_income && (!app.monthly_income || bankExtraction.confidence_score > 0.7)) {
         app.monthly_income = bd.average_monthly_income;
         ocrIncomeSource = "bank_statement";
       }
-      if (bd.average_monthly_expenses && (!app.monthly_expenses || bankExtraction.confidence_score > 0.7)) {
+      if (!gabon && bd.average_monthly_expenses && (!app.monthly_expenses || bankExtraction.confidence_score > 0.7)) {
         app.monthly_expenses = bd.average_monthly_expenses;
       }
 
@@ -220,7 +203,7 @@ serve(async (req) => {
     }
 
     // ── EcoCash / Mobile Money enrichment ──
-    const ecocashExtraction = ocrExtractions.find((e: any) =>
+    const ecocashExtraction = enrichmentExtractions.find((e: any) =>
       (e.document_type === "ecocash_statement" || e.document_type === "mobile_money") && e.extraction_status === "completed"
     );
     if (ecocashExtraction?.extracted_data && ecocashExtraction.confidence_score >= 0.5) {
@@ -356,8 +339,8 @@ serve(async (req) => {
 
     // Run the scorecard
     const result = runScorecard({
-      app,
-      borrower,
+      app: gabonInput ? { ...app, ...gabonInput.financials, monthly_revenue: null } : app,
+      borrower: gabonInput ? { ...borrower, extra_data: gabonInput.extra } : borrower,
       paymentHistory: (paymentRes.data || []) as PaymentRecord[],
       incomeHistory: (incomeRes.data || []) as IncomeRecord[],
     });
@@ -368,7 +351,7 @@ serve(async (req) => {
       declaredApp,
       borrower,
       borrower?.extra_data || {},
-      ocrExtractions,
+      enrichmentExtractions,
       result.bread_basket,
       businessStabilityVal,
       result.time_series_features.payment_history,
@@ -388,7 +371,7 @@ serve(async (req) => {
 
 SCORECARD OUTPUT:
 - Final Score: ${result.score} (${result.score_band})
-- Probability of Default: ${(result.probability_of_default * 100).toFixed(1)}%
+- Model-estimated Probability of Default (not locally validated): ${(result.probability_of_default * 100).toFixed(1)}%
 - Recommendation: ${result.recommendation}
 - Model Version: ${result.model_version}
 ${bureauContext}
@@ -406,6 +389,7 @@ APPLICATION CONTEXT:
 - Collateral declared: ${app.collateral && app.collateral.trim() && app.collateral.toLowerCase() !== "none" ? "Yes" : "No"}
 - Borrower age (years): ${borrower.date_of_birth && Number.isFinite(Date.parse(borrower.date_of_birth)) ? calculateAge(borrower.date_of_birth) : "Unknown"}
 ${app.product_category !== "retail" ? `- Years in operation: ${borrower.years_in_operation ?? "N/A"}` : ""}
+${gabonInput ? `- Declared ${gabonInput.assessment.period === "cycle" ? "production-cycle" : "monthly"} DSCR: ${gabonInput.assessment.dscr?.toFixed(2)}×. ${gabonInput.assessment.timingRisk ? "First installment precedes expected farm receipts; flag this separately for officer review." : ""} OCR is unverified evidence; do not treat wallet turnover as income.` : ""}
 
 OCR DOCUMENT EXTRACTIONS:
 ${ocrExtractions.length > 0 ? ocrExtractions.map((e: any) => `- ${e.document_type}: ${JSON.stringify(redactPII(e.extracted_data))}`).join("\n") : "No OCR extractions available"}
@@ -511,19 +495,7 @@ Use the provide_insights tool to return your analysis.`;
     }
 
     // Save results to both applications and scorecard_results
-    const [updateRes, insertRes] = await Promise.all([
-      supabase
-        .from("applications")
-        .update({
-          score: result.score,
-          score_band: result.score_band,
-          probability_of_default: result.probability_of_default,
-          reason_codes: result.reason_codes,
-          scored_at: new Date().toISOString(),
-          status: app.status === "submitted" ? "review" : app.status,
-        })
-        .eq("id", application_id).eq("institution_id", institution),
-      supabase
+    const { error: insertError } = await supabase
         .from("scorecard_results")
         .insert({
           application_id,
@@ -540,11 +512,21 @@ Use the provide_insights tool to return your analysis.`;
           ai_insights: aiInsights,
           bread_basket: result.bread_basket || null,
           data_sanity: dataSanity,
-        }),
-    ]);
+        });
+    if (insertError) throw insertError;
 
-    if (updateRes.error) throw updateRes.error;
-    if (insertRes.error) console.error("Scorecard result insert error:", insertRes.error);
+    const { error: updateError } = await supabase
+        .from("applications")
+        .update({
+          score: result.score,
+          score_band: result.score_band,
+          probability_of_default: result.probability_of_default,
+          reason_codes: result.reason_codes,
+          scored_at: new Date().toISOString(),
+          status: app.status === "submitted" ? "review" : app.status,
+        })
+        .eq("id", application_id).eq("institution_id", institution);
+    if (updateError) throw updateError;
 
     return new Response(JSON.stringify({ success: true, ...result, ai_insights: aiInsights, data_sanity: dataSanity }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
